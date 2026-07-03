@@ -42,6 +42,13 @@ export default function AlarmScreen() {
   const player = useAudioPlayer(ALARM_SOUND);
   const [nap, setNap] = useState<ActiveNap | null>(null);
   const dismissedRef = useRef(false);
+  // useAudioPlayer(코드상 이 함수보다 먼저 호출됨)의 내부 정리(release)는 React가
+  // 언마운트 시 이펙트 클린업을 "등록 순서대로"(역순 아님) 실행하기 때문에 우리
+  // useEffect의 클린업보다 먼저 실행된다. 즉 우리 클린업이 도는 시점엔 player가 이미
+  // 해제돼 있다 — 그래서 클린업에서는 player를 절대 건드리지 않는다(아래 참고).
+  // mountedRef는 handleDismiss가 언마운트 이후(예: 지연된 콜백)에 실행돼 이미 해제된
+  // player.pause()에 닿는 경로 자체를 없애기 위한 가드다.
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     let hapticsInterval: ReturnType<typeof setInterval> | undefined;
@@ -72,14 +79,17 @@ export default function AlarmScreen() {
 
     return () => {
       stopped = true;
+      mountedRef.current = false;
       if (hapticsInterval) clearInterval(hapticsInterval);
-      player.pause();
+      // player.pause()를 여기서 부르지 않는다: useAudioPlayer가 언마운트 시 자동으로
+      // release하므로 재생 정지는 이미 보장된다. 여기서 pause를 부르면 위 주석의
+      // 클린업 순서 문제로 "Cannot use shared object that was already released"가 던져진다.
       if (ownsPlayback) alarmPlaybackActive = false;
     };
   }, [player]);
 
   const handleDismiss = async () => {
-    if (dismissedRef.current) return;
+    if (dismissedRef.current || !mountedRef.current) return;
     dismissedRef.current = true;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
