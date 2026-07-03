@@ -66,6 +66,7 @@ radius:     lg 24 / md 16
 - 앱이 백그라운드에서 복귀했을 때 `alarmAt`이 지났으면 즉시 알람 화면으로 진입 (elapsed-time 체크, JS 타이머 신뢰 금지 — `Date.now()` 기준 절대시각 비교).
 - `playsInSilentMode`는 iOS 무음 스위치만 우회할 뿐, 기기의 미디어 볼륨 슬라이더 자체는 우회하지 못한다. 사용자가 미디어 볼륨을 0으로 낮춰 두면 주 알람(레이어 1)은 무음으로 재생된다 — 이 경우 진동(레이어 3)과 백업 로컬 알림(레이어 2, 알림음은 별도 채널/알림 볼륨을 따름)이 그 공백을 메운다. 근본적으로 볼륨 슬라이더를 무시하는 "알람 스트림" 재생은 네이티브 알람 API 영역이라 Phase 5(AlarmManager.setAlarmClock / AlarmKit) 이전에는 해결하지 않는다.
 - **Phase 5 (MVP 이후)**: Android `AlarmManager.setAlarmClock` / iOS 26 AlarmKit 네이티브 모듈 조사 후 도입. MVP에서는 하지 않는다.
+  - 메모: 현재 `expo-audio` 플러그인은 `enableBackgroundPlayback: false`로 꺼서 `FOREGROUND_SERVICE`/`FOREGROUND_SERVICE_MEDIA_PLAYBACK` 권한이 없다. 네이티브 알람으로 전환할 때(백그라운드에서도 알람음을 직접 재생해야 한다면) 포그라운드 서비스 권한/미디어 세션 서비스 재도입 여부를 재검토할 것.
 
 ---
 

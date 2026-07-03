@@ -28,7 +28,13 @@
       "expo-splash-screen",
       "expo-status-bar",
       "expo-font",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-notifications",
       "expo-asset"
     ]
