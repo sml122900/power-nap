@@ -29,14 +29,15 @@ export default function HomeScreen() {
     getSettings().then((settings) => setOffsets(settings.offsets));
   }, []);
 
-  const startNap = async (mode: NapMode) => {
+  const startNap = async (mode: NapMode, overrideMinutes?: number) => {
     if (startingRef.current) return;
     startingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       const startedAt = Date.now();
-      const alarmAt = startedAt + offsets[mode] * 60_000;
+      const minutes = overrideMinutes ?? offsets[mode];
+      const alarmAt = startedAt + minutes * 60_000;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
       const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
       const nap: ActiveNap = { mode, startedAt, alarmAt, coffee: false, notificationId };
@@ -89,6 +90,12 @@ export default function HomeScreen() {
             학습된 시간 — 바로 잠듦 {offsets.fast}분 · 뒤척임 {offsets.slow}분
           </Text>
         </Text>
+
+        {__DEV__ && (
+          <Pressable onPress={() => startNap('fast', 1)} style={styles.devBtn}>
+            <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -194,5 +201,19 @@ const styles = StyleSheet.create({
   learnNoteBold: {
     fontFamily: fontFamily.bold,
     color: colors.inkSoft,
+  },
+  devBtn: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  devBtnText: {
+    fontSize: 12,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
   },
 });

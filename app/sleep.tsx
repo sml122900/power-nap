@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,12 +20,11 @@ import { useNapWatchdog } from '@/useNapWatchdog';
 
 export default function SleepScreen() {
   const router = useRouter();
-  useNapWatchdog('/sleep');
+  const checkNapRoute = useNapWatchdog('/sleep');
   useKeepAwake('nap-sleep');
 
   const [nap, setNap] = useState<ActiveNap | null>(null);
   const [, setTick] = useState(0);
-  const alarmHandledRef = useRef(false);
 
   useEffect(() => {
     getActiveNap().then((loaded) => {
@@ -38,18 +37,17 @@ export default function SleepScreen() {
   }, [router]);
 
   // 카운트다운은 감산이 아니라 매 tick마다 alarmAt(절대시각) - Date.now()를 다시 계산한다.
-  // 인터벌은 화면 리렌더 트리거 용도일 뿐, 남은 시간의 근거가 아니다.
+  // 인터벌은 화면 리렌더 트리거 용도일 뿐, 남은 시간의 근거가 아니다. 알람 전환 판정은
+  // useNapWatchdog과 같은 check()를 재사용해 AppState 복귀 판정과 경합하지 않는다
+  // (redirectedRef 가드가 두 경로 중 하나만 router.replace를 실행하도록 막는다).
   useEffect(() => {
     if (!nap) return;
     const id = setInterval(() => {
       setTick((t) => t + 1);
-      if (!alarmHandledRef.current && nap.alarmAt <= Date.now()) {
-        alarmHandledRef.current = true;
-        router.replace('/alarm');
-      }
+      checkNapRoute();
     }, 250);
     return () => clearInterval(id);
-  }, [nap, router]);
+  }, [nap, checkNapRoute]);
 
   const breathScale = useSharedValue(1);
   const breathOpacity = useSharedValue(0.5);

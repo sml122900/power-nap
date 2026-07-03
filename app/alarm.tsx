@@ -14,6 +14,11 @@ import { useNapWatchdog } from '@/useNapWatchdog';
 const ALARM_SOUND = require('../assets/sounds/alarm.wav');
 const HAPTICS_INTERVAL_MS = 1200;
 
+// alarm.tsx가 중복 마운트되는 드문 경우(예: 두 곳에서 거의 동시에 /alarm으로 replace)에도
+// 사운드/햅틱 재생 부작용은 한 인스턴스에서만 시작되도록 하는 모듈 레벨 가드.
+// React state/ref는 인스턴스별로 분리되어 이 목적에 쓸 수 없다.
+let alarmPlaybackActive = false;
+
 export default function AlarmScreen() {
   const router = useRouter();
   useNapWatchdog('/alarm');
@@ -25,11 +30,16 @@ export default function AlarmScreen() {
   useEffect(() => {
     let hapticsInterval: ReturnType<typeof setInterval> | undefined;
     let stopped = false;
+    let ownsPlayback = false;
 
     (async () => {
       const nap = await getActiveNap();
       notificationIdRef.current = nap?.notificationId ?? null;
       if (stopped) return;
+
+      if (alarmPlaybackActive) return; // 이미 다른 인스턴스가 재생을 시작한 상태
+      alarmPlaybackActive = true;
+      ownsPlayback = true;
 
       await configureAlarmAudioModeAsync();
       if (stopped) return;
@@ -48,6 +58,7 @@ export default function AlarmScreen() {
       stopped = true;
       if (hapticsInterval) clearInterval(hapticsInterval);
       player.pause();
+      if (ownsPlayback) alarmPlaybackActive = false;
     };
   }, [player]);
 

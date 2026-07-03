@@ -19,7 +19,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function ensureAndroidChannelAsync(): Promise<void> {
+// Android 8+(API 26+)은 채널이 없으면 알림이 무음/저우선순위로 표시된다. 낮잠 시작을
+// 기다리지 않고 앱 부팅 시(app/_layout.tsx) 한 번 미리 만들어 둔다 — scheduleAlarmNotificationAsync에서도
+// 다시 호출하지만(idempotent), 채널 존재 자체를 첫 낮잠 시작 시점에만 의존하지 않기 위함이다.
+// 주의: Android는 채널 생성 후 importance/sound를 코드로 재변경할 수 없다(사용자가 시스템
+// 설정에서 직접 바꿔야 함) — 그래서 처음부터 MAX/사운드/진동을 명시한다.
+export async function ensureAndroidChannelAsync(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
     name: '낮잠 알람',
