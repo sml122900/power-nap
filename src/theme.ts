@@ -29,7 +29,6 @@ export const colors = {
   // 커피 토글(§6.2) 전용 보조 색
   toggleTrackOff: '#D6DBE7',
   amberBorder: '#F0D3A4',
-  amberTextOn: '#A06818',
 } as const;
 
 export const radius = {

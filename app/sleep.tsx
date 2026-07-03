@@ -123,7 +123,7 @@ export default function SleepScreen() {
           accessibilityState={{ checked: nap.coffee }}
         >
           <View style={styles.coffeeText}>
-            <Text style={styles.coffeeTitle}>방금 커피 마셨어요</Text>
+            <Text style={[styles.coffeeTitle, nap.coffee && styles.coffeeTitleOn]}>방금 커피 마셨어요</Text>
             <Text style={[styles.coffeeSubtitle, nap.coffee && styles.coffeeSubtitleOn]}>
               {nap.coffee ? '깰 때쯤 효과가 시작돼요' : '깨어날 때 카페인 효과가 겹치도록 기록해둘게요'}
             </Text>
@@ -212,13 +212,19 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.surface,
   },
+  // amberTint 배경(밝은 크림색)으로 바뀌면 night 배경용 흰 텍스트는 대비가 사라진다.
+  // ink/inkSoft는 amberTint 위에서 각각 15.3:1 / 5.4:1로 WCAG AA(4.5:1) 이상을 만족한다.
+  // (참고: 기존 amberTextOn(#A06818)은 amberTint 위에서 약 4.25:1로 기준 미달이라 폐기)
+  coffeeTitleOn: {
+    color: colors.ink,
+  },
   coffeeSubtitle: {
     fontSize: 13,
     fontFamily: fontFamily.regular,
     color: colors.nightSoft,
   },
   coffeeSubtitleOn: {
-    color: colors.amberTextOn,
+    color: colors.inkSoft,
   },
   toggleTrack: {
     width: 50,

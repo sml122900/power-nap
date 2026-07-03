@@ -41,15 +41,15 @@ export default function HomeScreen() {
     return () => clearTimeout(id);
   }, [toastMessage]);
 
-  const startNap = async (mode: NapMode, overrideMinutes?: number) => {
+  const startNap = async (mode: NapMode, overrideMs?: number) => {
     if (startingRef.current) return;
     startingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       const startedAt = Date.now();
-      const minutes = overrideMinutes ?? offsets[mode];
-      const alarmAt = startedAt + minutes * 60_000;
+      const durationMs = overrideMs ?? offsets[mode] * 60_000;
+      const alarmAt = startedAt + durationMs;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
       const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
       const nap: ActiveNap = { mode, startedAt, alarmAt, coffee: false, notificationId };
@@ -103,10 +103,16 @@ export default function HomeScreen() {
           </Text>
         </Text>
 
+        {/* 도그푸딩 종료 후 삭제 예정: 실기기 테스트용 단축 낮잠 버튼, __DEV__ 빌드 전용 */}
         {__DEV__ && (
-          <Pressable onPress={() => startNap('fast', 1)} style={styles.devBtn}>
-            <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
-          </Pressable>
+          <View style={styles.devRow}>
+            <Pressable onPress={() => startNap('fast', 60_000)} style={styles.devBtn}>
+              <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
+            </Pressable>
+            <Pressable onPress={() => startNap('fast', 10_000)} style={styles.devBtn}>
+              <Text style={styles.devBtnText}>테스트: 10초</Text>
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -220,8 +226,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.inkSoft,
   },
-  devBtn: {
+  devRow: {
     marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  devBtn: {
     alignSelf: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
