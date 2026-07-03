@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>파워냅 — 원탭 낮잠 알람</title>
+<style>
+  :root{
+    --bg:#ECEFF5;
+    --surface:#FFFFFF;
+    --ink:#161D2E;
+    --ink-soft:#5A6478;
+    --ink-faint:#98A0B3;
+    --line:#DFE4EE;
+    --brand:#4353E0;
+    --brand-press:#3542C4;
+    --brand-tint:#EEF0FD;
+    --night:#12172A;
+    --night-soft:#8B93B0;
+    --amber:#E8981F;
+    --amber-tint:#FDF3E2;
+    --radius-lg:24px;
+    --radius-md:16px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    padding:24px 12px;
+    letter-spacing:-0.01em;
+  }
+  button{font-family:inherit;border:none;cursor:pointer;background:none;letter-spacing:inherit;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* ── 폰 프레임 ─────────────────────────── */
+  .phone{
+    width:100%;max-width:392px;height:800px;max-height:92vh;
+    background:var(--surface);
+    border-radius:36px;
+    box-shadow:0 24px 64px rgba(22,29,46,.14), 0 2px 8px rgba(22,29,46,.06);
+    overflow:hidden;position:relative;
+  }
+  .screen{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    padding:28px 24px 32px;
+    opacity:0;pointer-events:none;
+    transition:opacity .28s ease;
+  }
+  .screen.active{opacity:1;pointer-events:auto;}
+  @media (prefers-reduced-motion:reduce){
+    .screen{transition:none;}
+    .breath,.ring{animation:none !important;}
+  }
+
+  /* ── 홈 ─────────────────────────────── */
+  #home{background:var(--surface);}
+  .home-top{display:flex;justify-content:space-between;align-items:baseline;}
+  .now-label{font-size:13px;font-weight:600;color:var(--ink-faint);}
+  .now-time{font-size:15px;font-weight:700;color:var(--ink-soft);}
+  .home-head{margin-top:44px;}
+  .home-head h1{font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:1.25;}
+  .home-head p{margin-top:8px;font-size:15px;color:var(--ink-soft);line-height:1.5;}
+
+  .nap-buttons{margin-top:36px;display:flex;flex-direction:column;gap:12px;flex:1;}
+  .nap-btn{
+    border-radius:var(--radius-lg);
+    padding:26px 24px;
+    text-align:left;
+    display:flex;flex-direction:column;gap:8px;
+    min-height:128px;justify-content:center;
+    transition:transform .08s ease, background .12s ease;
+  }
+  .nap-btn:active{transform:scale(.985);}
+  .nap-btn .mode{font-size:20px;font-weight:800;letter-spacing:-0.02em;}
+  .nap-btn .detail{font-size:15px;font-weight:600;}
+  .nap-btn.primary{background:var(--brand);color:#fff;}
+  .nap-btn.primary:active{background:var(--brand-press);}
+  .nap-btn.primary .detail{color:rgba(255,255,255,.72);}
+  .nap-btn.secondary{background:var(--surface);border:1.5px solid var(--line);color:var(--ink);}
+  .nap-btn.secondary:active{background:#F6F8FC;}
+  .nap-btn.secondary .detail{color:var(--ink-soft);}
+
+  .coffee-row{
+    margin-top:8px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 20px;
+    border:1.5px solid var(--line);border-radius:var(--radius-md);
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .coffee-row.on{background:var(--amber-tint);border-color:#F0D3A4;}
+  .coffee-text{display:flex;flex-direction:column;gap:2px;}
+  .coffee-text b{font-size:15px;font-weight:700;}
+  .coffee-text span{font-size:13px;color:var(--ink-soft);}
+  .coffee-row.on .coffee-text span{color:#A06818;}
+  .toggle{
+    width:50px;height:30px;border-radius:15px;background:#D6DBE7;position:relative;flex-shrink:0;
+    transition:background .15s ease;
+  }
+  .toggle::after{
+    content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s ease;
+  }
+  .coffee-row.on .toggle{background:var(--amber);}
+  .coffee-row.on .toggle::after{transform:translateX(20px);}
+
+  .learn-note{
+    margin-top:16px;text-align:center;font-size:12.5px;color:var(--ink-faint);line-height:1.5;
+  }
+  .learn-note b{color:var(--ink-soft);font-weight:700;}
+
+  /* ── 수면 화면 ───────────────────────── */
+  #sleep{background:var(--night);color:#fff;align-items:center;justify-content:center;text-align:center;}
+  .breath{
+    width:10px;height:10px;border-radius:50%;background:var(--brand);
+    animation:breath 4s ease-in-out infinite;margin-bottom:40px;
+  }
+  @keyframes breath{
+    0%,100%{transform:scale(1);opacity:.5;}
+    50%{transform:scale(2.4);opacity:1;}
+  }
+  .sleep-label{font-size:14px;font-weight:600;color:var(--night-soft);letter-spacing:.02em;}
+  .countdown{font-size:76px;font-weight:800;letter-spacing:-0.04em;margin:10px 0 6px;}
+  .wake-at{font-size:16px;font-weight:600;color:var(--night-soft);}
+  .sleep-coffee{margin-top:14px;font-size:13px;color:#C89A55;font-weight:600;}
+  .sleep-actions{position:absolute;bottom:36px;left:24px;right:24px;display:flex;flex-direction:column;gap:14px;}
+  .ghost-btn{
+    padding:16px;border-radius:var(--radius-md);
+    border:1.5px solid rgba(255,255,255,.18);color:rgba(255,255,255,.75);
+    font-size:15px;font-weight:700;width:100%;
+    transition:background .12s ease;
+  }
+  .ghost-btn:active{background:rgba(255,255,255,.08);}
+  .demo-link{font-size:12.5px;color:rgba(255,255,255,.35);font-weight:600;text-decoration:underline;text-underline-offset:3px;}
+
+  /* ── 알람 화면 ───────────────────────── */
+  #alarm{background:var(--brand);color:#fff;align-items:center;justify-content:center;text-align:center;}
+  .ring-wrap{position:relative;width:120px;height:120px;margin-bottom:36px;}
+  .ring{
+    position:absolute;inset:0;border-radius:50%;border:3px solid rgba(255,255,255,.85);
+    animation:ring 1.6s ease-out infinite;
+  }
+  .ring:nth-child(2){animation-delay:.5s;}
+  .ring:nth-child(3){animation-delay:1s;}
+  @keyframes ring{
+    0%{transform:scale(.4);opacity:1;}
+    100%{transform:scale(1.15);opacity:0;}
+  }
+  .ring-core{position:absolute;inset:38px;border-radius:50%;background:#fff;}
+  .alarm-title{font-size:30px;font-weight:800;letter-spacing:-0.03em;}
+  .alarm-sub{margin-top:10px;font-size:15px;color:rgba(255,255,255,.75);line-height:1.55;}
+  .alarm-coffee{
+    margin-top:18px;padding:10px 18px;border-radius:999px;
+    background:rgba(255,255,255,.14);font-size:13.5px;font-weight:700;
+  }
+  .alarm-actions{position:absolute;bottom:36px;left:24px;right:24px;}
+  .big-btn{
+    width:100%;padding:22px;border-radius:var(--radius-lg);
+    background:#fff;color:var(--brand);font-size:18px;font-weight:800;
+    transition:transform .08s ease;
+  }
+  .big-btn:active{transform:scale(.985);}
+
+  /* ── 후기 화면 ───────────────────────── */
+  #feedback{background:var(--surface);}
+  .fb-head{margin-top:56px;}
+  .fb-head h2{font-size:26px;font-weight:800;letter-spacing:-0.03em;}
+  .fb-head p{margin-top:8px;font-size:15px;color:var(--ink-soft);line-height:1.5;}
+  .fb-buttons{margin-top:36px;display:flex;flex-direction:column;gap:12px;}
+  .fb-btn{
+    border:1.5px solid var(--line);border-radius:var(--radius-lg);
+    padding:22px 24px;text-align:left;background:var(--surface);
+    display:flex;flex-direction:column;gap:5px;
+    transition:transform .08s ease, background .12s ease, border-color .12s ease;
+  }
+  .fb-btn:active{transform:scale(.985);background:var(--brand-tint);border-color:var(--brand);}
+  .fb-btn b{font-size:18px;font-weight:800;letter-spacing:-0.02em;}
+  .fb-btn span{font-size:14px;color:var(--ink-soft);font-weight:500;}
+  .wake-tips{
+    margin-top:auto;padding:18px 20px;border-radius:var(--radius-md);background:#F5F7FB;
+    font-size:13.5px;color:var(--ink-soft);line-height:1.6;
+  }
+  .wake-tips b{color:var(--ink);font-weight:700;}
+
+  /* ── 토스트 ─────────────────────────── */
+  .toast{
+    position:absolute;left:24px;right:24px;bottom:32px;
+    background:var(--ink);color:#fff;
+    padding:16px 20px;border-radius:var(--radius-md);
+    font-size:14.5px;font-weight:600;line-height:1.5;text-align:center;
+    opacity:0;transform:translateY(12px);
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- 홈 -->
+  <section class="screen active" id="home">
+    <div class="home-top">
+      <span class="now-label">지금</span>
+      <span class="now-time num" id="nowTime">--:--</span>
+    </div>
+    <div class="home-head">
+      <h1>졸리면<br>그냥 누르세요</h1>
+      <p>계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.</p>
+    </div>
+    <div class="nap-buttons">
+      <button class="nap-btn primary" id="btnFast">
+        <span class="mode">바로 잠들 것 같아요</span>
+        <span class="detail num" id="fastDetail">20분 뒤 · 오후 2:47 알람</span>
+      </button>
+      <button class="nap-btn secondary" id="btnSlow">
+        <span class="mode">좀 뒤척일 것 같아요</span>
+        <span class="detail num" id="slowDetail">30분 뒤 · 오후 2:57 알람</span>
+      </button>
+      <button class="coffee-row" id="coffeeRow" role="switch" aria-checked="false">
+        <span class="coffee-text">
+          <b>방금 커피 마셨어요</b>
+          <span id="coffeeSub">깨어날 때 카페인 효과가 겹치도록 기록해둘게요</span>
+        </span>
+        <span class="toggle" aria-hidden="true"></span>
+      </button>
+      <p class="learn-note">후기를 반영해 시간이 자동으로 조정돼요<br><b id="learnStatus">학습된 시간 — 바로 잠듦 20분 · 뒤척임 30분</b></p>
+    </div>
+  </section>
+
+  <!-- 수면 -->
+  <section class="screen" id="sleep">
+    <div class="breath" aria-hidden="true"></div>
+    <span class="sleep-label">알람까지</span>
+    <div class="countdown num" id="countdown">20:00</div>
+    <span class="wake-at num" id="wakeAt">오후 2:47에 깨워드릴게요</span>
+    <span class="sleep-coffee" id="sleepCoffee" hidden>커피 타이밍 좋아요 — 깰 때쯤 효과가 시작돼요</span>
+    <div class="sleep-actions">
+      <button class="ghost-btn" id="btnCancel">그만 자고 일어나기</button>
+      <button class="demo-link" id="btnDemoSkip">프로토타입 데모 — 알람 미리 울려보기</button>
+    </div>
+  </section>
+
+  <!-- 알람 -->
+  <section class="screen" id="alarm">
+    <div class="ring-wrap" aria-hidden="true">
+      <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+      <div class="ring-core"></div>
+    </div>
+    <h2 class="alarm-title">일어날 시간이에요</h2>
+    <p class="alarm-sub">5분 더 자면 수면 관성 때문에 더 멍해져요.<br>지금 바로 일어나는 게 제일 개운합니다.</p>
+    <div class="alarm-coffee" id="alarmCoffee" hidden>지금부터 카페인 효과가 시작돼요</div>
+    <div class="alarm-actions">
+      <button class="big-btn" id="btnWake">일어났어요</button>
+    </div>
+  </section>
+
+  <!-- 후기 -->
+  <section class="screen" id="feedback">
+    <div class="fb-head">
+      <h2>낮잠 어땠어요?</h2>
+      <p>다음 낮잠 시간에 바로 반영돼요.</p>
+    </div>
+    <div class="fb-buttons">
+      <button class="fb-btn" data-delta="-5">
+        <b>너무 깊게 잤어요</b>
+        <span>머리가 무거워요 — 다음엔 5분 줄일게요</span>
+      </button>
+      <button class="fb-btn" data-delta="0">
+        <b>딱 좋았어요</b>
+        <span>지금 시간 그대로 유지할게요</span>
+      </button>
+      <button class="fb-btn" data-delta="5">
+        <b>아직 부족해요</b>
+        <span>더 잘 수 있었어요 — 다음엔 5분 늘릴게요</span>
+      </button>
+    </div>
+    <div class="wake-tips">
+      <b>개운하게 깨는 법</b> — 기지개 켜기 → 밝은 빛 쬐기 → 물 한 잔. 3가지면 수면 관성이 빨리 풀려요.
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  var CLAMP_MIN = 10, CLAMP_MAX = 40;
+
+  var state = {
+    offsets: { fast: 20, slow: 30 },   // 모드별 학습 오프셋(분)
+    mode: null,                        // 'fast' | 'slow'
+    coffee: false,
+    alarmAt: null,
+    timer: null,
+    audioCtx: null,
+    alarmInterval: null
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var screens = ['home','sleep','alarm','feedback'];
+
+  function show(id){
+    screens.forEach(function(s){
+      $(s).classList.toggle('active', s === id);
+    });
+  }
+
+  function fmtKorean(date){
+    var h = date.getHours(), m = date.getMinutes();
+    var ampm = h < 12 ? '오전' : '오후';
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return ampm + ' ' + h12 + ':' + String(m).padStart(2,'0');
+  }
+
+  function refreshHome(){
+    var now = new Date();
+    $('nowTime').textContent = fmtKorean(now);
+    var fastAt = new Date(now.getTime() + state.offsets.fast * 60000);
+    var slowAt = new Date(now.getTime() + state.offsets.slow * 60000);
+    $('fastDetail').textContent = state.offsets.fast + '분 뒤 · ' + fmtKorean(fastAt) + ' 알람';
+    $('slowDetail').textContent = state.offsets.slow + '분 뒤 · ' + fmtKorean(slowAt) + ' 알람';
+    $('learnStatus').textContent = '학습된 시간 — 바로 잠듦 ' + state.offsets.fast + '분 · 뒤척임 ' + state.offsets.slow + '분';
+  }
+  setInterval(refreshHome, 1000);
+  refreshHome();
+
+  // ── 커피 토글 ──
+  $('coffeeRow').addEventListener('click', function(){
+    state.coffee = !state.coffee;
+    this.classList.toggle('on', state.coffee);
+    this.setAttribute('aria-checked', String(state.coffee));
+    $('coffeeSub').textContent = state.coffee
+      ? '깰 때쯤 카페인 효과가 겹쳐서 각성도가 올라가요'
+      : '깨어날 때 카페인 효과가 겹치도록 기록해둘게요';
+  });
+
+  // ── 낮잠 시작 ──
+  function startNap(mode){
+    state.mode = mode;
+    var offset = state.offsets[mode];
+    state.alarmAt = new Date(Date.now() + offset * 60000);
+    $('wakeAt').textContent = fmtKorean(state.alarmAt) + '에 깨워드릴게요';
+    $('sleepCoffee').hidden = !state.coffee;
+    show('sleep');
+    tick();
+    state.timer = setInterval(tick, 250);
+  }
+  $('btnFast').addEventListener('click', function(){ startNap('fast'); });
+  $('btnSlow').addEventListener('click', function(){ startNap('slow'); });
+
+  function tick(){
+    var remain = state.alarmAt - Date.now();
+    if (remain <= 0) { fireAlarm(); return; }
+    var totalSec = Math.ceil(remain / 1000);
+    var mm = Math.floor(totalSec / 60);
+    var ss = totalSec % 60;
+    $('countdown').textContent = mm + ':' + String(ss).padStart(2,'0');
+  }
+
+  $('btnCancel').addEventListener('click', function(){
+    clearInterval(state.timer);
+    show('home');
+  });
+  $('btnDemoSkip').addEventListener('click', function(){
+    state.alarmAt = new Date(Date.now());
+    // 사용자 제스처 시점에 오디오 컨텍스트 준비 (자동재생 정책 대응)
+    ensureAudio();
+  });
+
+  // ── 알람 ──
+  function ensureAudio(){
+    if (!state.audioCtx) {
+      try { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+    }
+    if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
+  }
+
+  function beep(){
+    if (!state.audioCtx) return;
+    var ctx = state.audioCtx;
+    var t = ctx.currentTime;
+    [0, 0.18].forEach(function(d){
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, t + d);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.14);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t + d);
+      osc.stop(t + d + 0.16);
+    });
+  }
+
+  function fireAlarm(){
+    clearInterval(state.timer);
+    $('alarmCoffee').hidden = !state.coffee;
+    show('alarm');
+    beep();
+    state.alarmInterval = setInterval(beep, 1200);
+  }
+
+  $('btnWake').addEventListener('click', function(){
+    clearInterval(state.alarmInterval);
+    show('feedback');
+  });
+
+  // ── 후기 → 학습 반영 ──
+  var fbButtons = document.querySelectorAll('.fb-btn');
+  fbButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var delta = parseInt(btn.dataset.delta, 10);
+      var mode = state.mode || 'fast';
+      var before = state.offsets[mode];
+      var after = Math.min(CLAMP_MAX, Math.max(CLAMP_MIN, before + delta));
+      state.offsets[mode] = after;
+
+      var modeName = mode === 'fast' ? '바로 잠듦' : '뒤척임';
+      var msg;
+      if (delta === 0) {
+        msg = '좋아요. ' + modeName + ' 모드는 ' + after + '분 그대로 유지할게요.';
+      } else if (after === before) {
+        msg = (delta < 0 ? '최소' : '최대') + ' 시간(' + after + '분)에 도달해서 더 조정하지 않았어요.';
+      } else {
+        msg = '다음 ' + modeName + ' 낮잠은 ' + after + '분으로 맞춰둘게요.';
+      }
+
+      // 커피 상태 초기화
+      state.coffee = false;
+      $('coffeeRow').classList.remove('on');
+      $('coffeeRow').setAttribute('aria-checked','false');
+      $('coffeeSub').textContent = '깨어날 때 카페인 효과가 겹치도록 기록해둘게요';
+
+      refreshHome();
+      show('home');
+      showToast(msg);
+    });
+  });
+
+  var toastTimer = null;
+  function showToast(msg){
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3200);
+  }
+})();
+</script>
+</body>
+</html>
