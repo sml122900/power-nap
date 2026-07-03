@@ -29,7 +29,11 @@ export async function ensureAndroidChannelAsync(): Promise<void> {
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
     name: '낮잠 알람',
     importance: Notifications.AndroidImportance.MAX,
-    sound: 'default',
+    // sound 키 자체를 생략한다: 네이티브 customSoundExists 체크가 문자열 값을 전부
+    // "커스텀 사운드 파일명"으로 취급해 res/raw에서 찾으려 하고, 'default'는 그런
+    // 파일이 아니라서 매번 "Custom sound 'default' not found" 경고를 띄운다(재생 자체는
+    // resolve()의 시스템 기본음 폴백으로 정상 동작하지만 로그가 오염된다). 키를 생략하면
+    // Android가 채널 생성 시 시스템 기본 알림음을 그대로 배정해 결과는 동일하다.
     vibrationPattern: [0, 500, 250, 500],
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
