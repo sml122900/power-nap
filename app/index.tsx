@@ -1,17 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { addMinutes, formatKoreanTime } from '@/format';
-import { getSettings, type Settings } from '@/store';
+import { scheduleAlarmNotificationAsync } from '@/notifications';
+import { getSettings, saveActiveNap, type ActiveNap, type NapMode, type Settings } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { useNapWatchdog } from '@/useNapWatchdog';
 
 const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30 };
 
 export default function HomeScreen() {
+  const router = useRouter();
+  useNapWatchdog('/');
+
   const [now, setNow] = useState(() => new Date());
   const [offsets, setOffsets] = useState<Settings['offsets']>(DEFAULT_OFFSETS);
+  const startingRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -22,8 +29,22 @@ export default function HomeScreen() {
     getSettings().then((settings) => setOffsets(settings.offsets));
   }, []);
 
-  const onPressMode = () => {
+  const startNap = async (mode: NapMode) => {
+    if (startingRef.current) return;
+    startingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const startedAt = Date.now();
+      const alarmAt = startedAt + offsets[mode] * 60_000;
+      // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
+      const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
+      const nap: ActiveNap = { mode, startedAt, alarmAt, coffee: false, notificationId };
+      await saveActiveNap(nap);
+      router.replace('/sleep');
+    } finally {
+      startingRef.current = false;
+    }
   };
 
   const fastAlarmAt = addMinutes(now, offsets.fast);
@@ -43,7 +64,7 @@ export default function HomeScreen() {
 
       <View style={styles.buttons}>
         <Pressable
-          onPress={onPressMode}
+          onPress={() => startNap('fast')}
           style={({ pressed }) => [styles.napBtn, styles.primary, pressed && styles.primaryPressed]}
         >
           <Text style={styles.primaryMode}>바로 잠들 것 같아요</Text>
@@ -53,7 +74,7 @@ export default function HomeScreen() {
         </Pressable>
 
         <Pressable
-          onPress={onPressMode}
+          onPress={() => startNap('slow')}
           style={({ pressed }) => [styles.napBtn, styles.secondary, pressed && styles.secondaryPressed]}
         >
           <Text style={styles.secondaryMode}>좀 뒤척일 것 같아요</Text>
@@ -141,7 +162,7 @@ const styles = StyleSheet.create({
   primaryDetail: {
     fontSize: 15,
     fontFamily: fontFamily.semibold,
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.onDarkFaint,
   },
   secondary: {
     backgroundColor: colors.surface,

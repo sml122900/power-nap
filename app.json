@@ -26,7 +26,10 @@
       "expo-router",
       "expo-splash-screen",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      "expo-audio",
+      "expo-notifications",
+      "expo-asset"
     ]
   }
 }

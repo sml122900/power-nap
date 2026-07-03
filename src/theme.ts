@@ -16,6 +16,18 @@ export const colors = {
   line: '#DFE4EE',
   surface: '#FFFFFF',
   bg: '#ECEFF5',
+
+  // night/brand 배경 위 반투명 흰색 오버레이 — powernap-prototype.html의 인라인 rgba 값 이식.
+  // §2 핵심 팔레트에는 없지만 동일한 단일 소스 원칙(theme.ts)을 지키기 위해 여기 모은다.
+  onDarkMuted: 'rgba(255,255,255,0.75)', // 수면/알람 화면의 보조 텍스트
+  onDarkFaint: 'rgba(255,255,255,0.72)', // 알람 시각(primary 버튼) 보조 텍스트
+  onDarkBorder: 'rgba(255,255,255,0.18)', // 고스트 버튼/토글 행 테두리
+  onDarkBorderPress: 'rgba(255,255,255,0.08)', // 고스트 버튼 프레스 배경
+
+  // 커피 토글(§6.2) 전용 보조 색
+  toggleTrackOff: '#D6DBE7',
+  amberBorder: '#F0D3A4',
+  amberTextOn: '#A06818',
 } as const;
 
 export const radius = {
