@@ -19,9 +19,17 @@ export interface ActiveNap {
 
 export type NapFeedback = 'tooDeep' | 'justRight' | 'notEnough';
 
+// 알람 해제 → 후기 화면으로 넘어갈 때 ActiveNap 대신 이 키에 최소 정보(mode)만 옮겨 담는다.
+// §6.4: 후기 화면에서 앱이 죽어도 ActiveNap이 남아있지 않아야 재실행 시 알람 화면으로
+// 잘못 복원되지 않는다 — clearActiveNap을 먼저 해버리므로 mode를 여기 잠시 보관해둔다.
+export interface PendingFeedback {
+  mode: NapMode;
+}
+
 const KEYS = {
   settings: 'powernap:settings',
   activeNap: 'powernap:activeNap',
+  pendingFeedback: 'powernap:pendingFeedback',
 } as const;
 
 const DEFAULT_SETTINGS: Settings = {
@@ -84,4 +92,22 @@ export async function saveActiveNap(nap: ActiveNap): Promise<void> {
 
 export async function clearActiveNap(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.activeNap);
+}
+
+export async function savePendingFeedback(feedback: PendingFeedback): Promise<void> {
+  await AsyncStorage.setItem(KEYS.pendingFeedback, JSON.stringify(feedback));
+}
+
+export async function getPendingFeedback(): Promise<PendingFeedback | null> {
+  const raw = await AsyncStorage.getItem(KEYS.pendingFeedback);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as PendingFeedback;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearPendingFeedback(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.pendingFeedback);
 }

@@ -26,15 +26,14 @@ export default function SleepScreen() {
   const [nap, setNap] = useState<ActiveNap | null>(null);
   const [, setTick] = useState(0);
 
+  // ActiveNap이 없을 때 '/'로 보내는 판단은 useNapWatchdog의 check()가 전담한다
+  // (redirectedRef로 가드됨) — 여기서는 화면 렌더용 데이터만 불러온다. 두 곳에서
+  // 각자 router.replace를 호출하면 Item 2에서 없앤 레이스가 되살아난다.
   useEffect(() => {
     getActiveNap().then((loaded) => {
-      if (!loaded) {
-        router.replace('/');
-        return;
-      }
-      setNap(loaded);
+      if (loaded) setNap(loaded);
     });
-  }, [router]);
+  }, []);
 
   // 카운트다운은 감산이 아니라 매 tick마다 alarmAt(절대시각) - Date.now()를 다시 계산한다.
   // 인터벌은 화면 리렌더 트리거 용도일 뿐, 남은 시간의 근거가 아니다. 알람 전환 판정은

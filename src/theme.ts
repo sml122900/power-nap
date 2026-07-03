@@ -23,6 +23,8 @@ export const colors = {
   onDarkFaint: 'rgba(255,255,255,0.72)', // 알람 시각(primary 버튼) 보조 텍스트
   onDarkBorder: 'rgba(255,255,255,0.18)', // 고스트 버튼/토글 행 테두리
   onDarkBorderPress: 'rgba(255,255,255,0.08)', // 고스트 버튼 프레스 배경
+  onDarkOverlaySubtle: 'rgba(255,255,255,0.14)', // 알람 화면 커피 배지 배경
+  onDarkHint: 'rgba(255,255,255,0.35)', // 대체 해제 수단 같은 최소 강조 안내 텍스트
 
   // 커피 토글(§6.2) 전용 보조 색
   toggleTrackOff: '#D6DBE7',

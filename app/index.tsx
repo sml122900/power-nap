@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { addMinutes, formatKoreanTime } from '@/format';
 import { scheduleAlarmNotificationAsync } from '@/notifications';
@@ -11,14 +12,19 @@ import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
 const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30 };
+const TOAST_DURATION_MS = 3200;
 
 export default function HomeScreen() {
   const router = useRouter();
   useNapWatchdog('/');
+  const { toast } = useLocalSearchParams<{ toast?: string }>();
 
   const [now, setNow] = useState(() => new Date());
   const [offsets, setOffsets] = useState<Settings['offsets']>(DEFAULT_OFFSETS);
   const startingRef = useRef(false);
+  // 후기 화면에서 넘어온 토스트 문구는 마운트 시점 값만 캡처한다 — 이후 같은 화면에
+  // 머무는 동안 라우터 파라미터가 남아있어도 다시 뜨지 않는다.
+  const [toastMessage, setToastMessage] = useState<string | null>(() => toast ?? null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -28,6 +34,12 @@ export default function HomeScreen() {
   useEffect(() => {
     getSettings().then((settings) => setOffsets(settings.offsets));
   }, []);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const id = setTimeout(() => setToastMessage(null), TOAST_DURATION_MS);
+    return () => clearTimeout(id);
+  }, [toastMessage]);
 
   const startNap = async (mode: NapMode, overrideMinutes?: number) => {
     if (startingRef.current) return;
@@ -97,6 +109,12 @@ export default function HomeScreen() {
           </Pressable>
         )}
       </View>
+
+      {toastMessage && (
+        <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.toast}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -215,5 +233,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.semibold,
     color: colors.inkFaint,
+  },
+  toast: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 32,
+    backgroundColor: colors.ink,
+    borderRadius: radius.md,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  toastText: {
+    fontSize: 14.5,
+    lineHeight: 21.75,
+    fontFamily: fontFamily.semibold,
+    color: colors.surface,
+    textAlign: 'center',
   },
 });
