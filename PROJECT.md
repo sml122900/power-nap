@@ -95,6 +95,7 @@ interface ActiveNap {
 - 아직 부족해요 → +5분
 - clamp: **min 10, max 40**
 - 반영은 즉시 AsyncStorage 저장 → 다음 홈 진입 시 버튼에 표시
+- 참고: 스텝 크기(현재 ±5)와 clamp 상한(현재 40)은 도그푸딩 후 BACKLOG.md 기준으로 재확정 예정. 현재 값은 도그푸딩 기준 버전이며 아직 변경하지 않는다.
 
 앱 재시작 시 `ActiveNap`이 저장돼 있고 `alarmAt`이 미래면 수면 화면 복원, 과거면 알람 화면으로 진입.
 
@@ -135,6 +136,7 @@ interface ActiveNap {
 
 **IN**: 위 4화면, 2모드 학습, 3중 알람, 커피 토글, 햅틱, 다크모드, 로컬 영속화
 **OUT (기록만)**: 네이티브 알람 모듈, 잠금화면/홈 위젯, 낮잠 히스토리 통계, 수면 사운드, 온보딩, 다국어, 서버/계정
+상세는 BACKLOG.md 참조.
 
 ---
 
@@ -145,7 +147,7 @@ interface ActiveNap {
 - **Phase 2 — 수면 + 알람 코어**: ActiveNap 생명주기, 절대시각 카운트다운, keep-awake, 알림 백업 예약/취소, 백그라운드 복귀 시 상태 복원, expo-audio 알람(무음모드 무시 확인 — **실기기 테스트 필수**), 햅틱 반복.
 - **Phase 3 — 알람 해제 슬라이드 + 후기**: 슬라이드 제스처(Reanimated/Gesture Handler), 후기 3버튼 → 오프셋 반영 → 토스트.
 - **Phase 4 — 폴리시**: 다크모드, Dynamic Type, reduced-motion, 접근성 라벨, 엣지케이스(권한 거부, 자정 넘김, 후기 미입력 이탈).
-- **Phase 5 (MVP 이후)**: 네이티브 알람(AlarmKit / setAlarmClock) 조사, 잠금화면 위젯.
+- **Phase 5 (MVP 이후)**: 네이티브 알람(AlarmKit / setAlarmClock) 조사, 잠금화면 위젯. 상세는 BACKLOG.md 참조.
 
 각 Phase 완료 기준: 실기기(Expo Go 또는 dev client)에서 해당 플로우가 끝까지 동작.
 
