@@ -13,8 +13,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { formatKoreanTime } from '@/format';
-import { cancelAlarmNotificationAsync } from '@/notifications';
-import { clearActiveNap, getActiveNap, saveActiveNap, type ActiveNap } from '@/store';
+import { cancelAlarmNotificationAsync, scheduleAlarmNotificationAsync } from '@/notifications';
+import { bucketFor, clearActiveNap, getActiveNap, getSettings, saveActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
@@ -80,9 +80,24 @@ export default function SleepScreen() {
     opacity: breathOpacity.value,
   }));
 
+  // 커피 토글은 알람 시각을 즉시 재계산한다: startedAt + 해당 버킷(coffee 여부) 오프셋.
+  // 재계산 값이 지금부터 30초도 안 남았으면(토글이 늦게 눌리거나 오프셋이 이미 지난 경우)
+  // now+30초로 가드한다. 예약/취소는 반드시 쌍으로 — 기존 백업 알림을 먼저 취소하고
+  // 새 시각으로 재예약한 뒤 notificationId를 갱신한다(CLAUDE.md 예약/취소 쌍 원칙).
+  const MIN_LEAD_MS = 30_000;
+
   const onToggleCoffee = async () => {
     if (!nap) return;
-    const updated: ActiveNap = { ...nap, coffee: !nap.coffee };
+    const coffee = !nap.coffee;
+    const settings = await getSettings();
+    const bucket = bucketFor(nap.mode, coffee);
+    const recalculated = nap.startedAt + settings.offsets[bucket] * 60_000;
+    const alarmAt = Math.max(recalculated, Date.now() + MIN_LEAD_MS);
+
+    await cancelAlarmNotificationAsync(nap.notificationId);
+    const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
+
+    const updated: ActiveNap = { ...nap, coffee, alarmAt, notificationId };
     setNap(updated);
     await saveActiveNap(updated);
   };

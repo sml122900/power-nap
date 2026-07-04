@@ -70,13 +70,15 @@ radius:     lg 24 / md 16
 
 ---
 
-## 5. 데이터 모델 & 학습 로직
+## 5. 데이터 모델 & 학습 로직 (Phase 4-1 — 도그푸딩 후 확정)
 
 ```ts
 type NapMode = 'fast' | 'slow';  // 바로 잠듦 / 뒤척임
+type OffsetBucket = 'fast' | 'slow' | 'fastCoffee' | 'slowCoffee';  // 모드 × 커피 여부 4버킷
 
 interface Settings {
-  offsets: Record<NapMode, number>;  // 분, 초기값 { fast: 20, slow: 30 }
+  offsets: Record<OffsetBucket, number>;    // 분, 초기값 { fast: 20, slow: 30, fastCoffee: 20, slowCoffee: 30 }
+  converged: Record<OffsetBucket, boolean>; // 버킷별 "딱 좋았어요" 1회 이상 여부 — 스텝 크기 분기 기준
   totalNaps: number;
 }
 
@@ -87,15 +89,32 @@ interface ActiveNap {
   coffee: boolean;
   notificationId: string | null;
 }
+
+interface NapRecord {  // 후기 제출 시마다 append-only, UI 없음(히스토리/분석 원료)
+  completedAt: number;
+  mode: NapMode;
+  coffee: boolean;
+  offsetMinutes: number;                 // 이번 낮잠에 실제 사용된 오프셋(분)
+  result: 'tooDeep' | 'justRight' | 'notEnough' | 'manual';
+  manualAdjustmentMinutes?: number;      // '직접 조정하기' 제출 시 변화량(분)
+}
 ```
 
-학습 규칙 (단순하게, ML 없음):
-- 너무 깊게 잤어요 → 해당 모드 offset −5분
-- 딱 좋았어요 → 변화 없음
-- 아직 부족해요 → +5분
-- clamp: **min 10, max 40**
-- 반영은 즉시 AsyncStorage 저장 → 다음 홈 진입 시 버튼에 표시
-- 참고: 스텝 크기(현재 ±5)와 clamp 상한(현재 40)은 도그푸딩 후 BACKLOG.md 기준으로 재확정 예정. 현재 값은 도그푸딩 기준 버전이며 아직 변경하지 않는다.
+학습 규칙 (단순하게, ML 없음. 오프셋은 4버킷 각각 독립 학습):
+- 스텝 크기는 버킷별 수렴 상태로 분기: 미수렴(converged=false)이면 ±3분, "딱 좋았어요"가 1회라도
+  나와 converged=true가 되면 그 이후 ±2분.
+- 너무 깊게 잤어요 → 해당 버킷 offset −step
+- 딱 좋았어요 → offset 변화 없음, 해당 버킷 converged=true로 전환
+- 아직 부족해요 → 해당 버킷 offset +step
+- clamp: **min 10, max 35** (상한 40→35, 근거는 BACKLOG.md "학습 스텝" 섹션)
+- 후기는 그 낮잠의 (mode, coffee) 조합이 가리키는 버킷에만 반영된다 — 다른 3버킷은 불변.
+- 반영은 즉시 AsyncStorage 저장 → 다음 홈 진입 시 버튼에 표시 (홈 버튼 2개는 비커피 버킷 fast/slow 기준 유지)
+- 커피 낮잠 중 수면 화면에서 커피 토글을 켜고 끄면 alarmAt이 해당 버킷 오프셋으로 즉시 재계산되고
+  (now+30초 하한 가드), 백업 알림은 취소 후 새 시각으로 재예약된다.
+- 후기 화면 보조 경로("직접 조정하기" ±1분 스테퍼)로 제출하면 절대값을 clamp해 그대로 반영하고
+  converged는 건드리지 않는다 — 3버튼 학습 로직과는 별도 경로.
+- 마이그레이션: 기존 {fast, slow} 2버킷 저장값은 getSettings 로드 시 1회
+  fastCoffee←fast, slowCoffee←slow로 복사되어 4버킷 형태로 다시 저장된다 (학습값 유실 없음).
 
 앱 재시작 시 `ActiveNap`이 저장돼 있고 `alarmAt`이 미래면 수면 화면 복원, 과거면 알람 화면으로 진입.
 
@@ -146,7 +165,8 @@ interface ActiveNap {
 - **Phase 1 — 홈 + 학습 상태**: Settings 로드/저장, 실시간 시계, 버튼 2개에 오프셋/기상시각 계산 표시.
 - **Phase 2 — 수면 + 알람 코어**: ActiveNap 생명주기, 절대시각 카운트다운, keep-awake, 알림 백업 예약/취소, 백그라운드 복귀 시 상태 복원, expo-audio 알람(무음모드 무시 확인 — **실기기 테스트 필수**), 햅틱 반복.
 - **Phase 3 — 알람 해제 슬라이드 + 후기**: 슬라이드 제스처(Reanimated/Gesture Handler), 후기 3버튼 → 오프셋 반영 → 토스트.
-- **Phase 4 — 폴리시**: 다크모드, Dynamic Type, reduced-motion, 접근성 라벨, 엣지케이스(권한 거부, 자정 넘김, 후기 미입력 이탈).
+- **Phase 4-1 — 학습 엔진 개편**: 4버킷 오프셋(모드×커피), 적응형 스텝(±3→±2), clamp 10~35, 커피 토글 알람 재계산, 후기 화면 "직접 조정하기" 보조 경로, NapRecord append-only 기록 시작.
+- **Phase 4-2 — 폴리시**: 다크모드, Dynamic Type, reduced-motion, 접근성 라벨, 엣지케이스(권한 거부, 자정 넘김, 후기 미입력 이탈).
 - **Phase 5 (MVP 이후)**: 네이티브 알람(AlarmKit / setAlarmClock) 조사, 잠금화면 위젯. 상세는 BACKLOG.md 참조.
 
 각 Phase 완료 기준: 실기기(Expo Go 또는 dev client)에서 해당 플로우가 끝까지 동작.

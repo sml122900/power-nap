@@ -11,7 +11,7 @@ import { getSettings, saveActiveNap, type ActiveNap, type NapMode, type Settings
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
-const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30 };
+const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30, fastCoffee: 20, slowCoffee: 30 };
 const TOAST_DURATION_MS = 3200;
 
 export default function HomeScreen() {

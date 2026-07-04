@@ -98,7 +98,8 @@ export default function AlarmScreen() {
     const active = nap ?? (await getActiveNap());
     await cancelAlarmNotificationAsync(active?.notificationId ?? null);
     if (active) {
-      await savePendingFeedback({ mode: active.mode });
+      const offsetMinutes = Math.round((active.alarmAt - active.startedAt) / 60_000);
+      await savePendingFeedback({ mode: active.mode, coffee: active.coffee, offsetMinutes });
     }
     // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
     // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.

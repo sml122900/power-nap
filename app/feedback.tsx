@@ -5,20 +5,34 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import {
+  appendNapRecord,
   applyFeedback,
+  applyManualAdjustment,
+  bucketFor,
   clearPendingFeedback,
   getPendingFeedback,
   getSettings,
+  OFFSET_MAX,
+  OFFSET_MIN,
   type NapFeedback,
   type NapMode,
 } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 const FEEDBACK_OPTIONS: { feedback: NapFeedback; title: string; detail: string }[] = [
   { feedback: 'tooDeep', title: '너무 깊게 잤어요', detail: '머리가 무거워요 — 다음엔 5분 줄일게요' },
   { feedback: 'justRight', title: '딱 좋았어요', detail: '지금 시간 그대로 유지할게요' },
   { feedback: 'notEnough', title: '아직 부족해요', detail: '더 잘 수 있었어요 — 다음엔 5분 늘릴게요' },
 ];
+
+const MANUAL_STEP = 1;
+
+interface FeedbackContext {
+  mode: NapMode;
+  coffee: boolean;
+  offsetMinutes: number; // 이번 낮잠에 실제 사용된 오프셋(분) — NapRecord용
+  baseOffset: number; // 현재 저장된 버킷 오프셋(분) — 스테퍼 시작값
+}
 
 function modeName(mode: NapMode): string {
   return mode === 'fast' ? '바로 잠듦' : '뒤척임';
@@ -38,35 +52,82 @@ function buildToastMessage(mode: NapMode, feedback: NapFeedback, before: number,
 
 export default function FeedbackScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<NapMode | null>(null);
+  const [ctx, setCtx] = useState<FeedbackContext | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualValue, setManualValue] = useState<number | null>(null);
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    getPendingFeedback().then((pending) => {
+    getPendingFeedback().then(async (pending) => {
       if (!pending) {
         // 대기 중인 후기가 없다(직접 진입 등 예외 상황) — 안전하게 홈으로.
         router.replace('/');
         return;
       }
-      setMode(pending.mode);
+      const settings = await getSettings();
+      const bucket = bucketFor(pending.mode, pending.coffee);
+      setCtx({
+        mode: pending.mode,
+        coffee: pending.coffee,
+        offsetMinutes: pending.offsetMinutes,
+        baseOffset: settings.offsets[bucket],
+      });
     });
   }, [router]);
 
   const onSelect = async (feedback: NapFeedback) => {
-    if (!mode || submittingRef.current) return;
+    if (!ctx || submittingRef.current) return;
     submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const before = (await getSettings()).offsets[mode];
-    const updated = await applyFeedback(mode, feedback);
-    const after = updated.offsets[mode];
+    const bucket = bucketFor(ctx.mode, ctx.coffee);
+    const before = ctx.baseOffset;
+    const updated = await applyFeedback(ctx.mode, ctx.coffee, feedback);
+    const after = updated.offsets[bucket];
+    await appendNapRecord({
+      completedAt: Date.now(),
+      mode: ctx.mode,
+      coffee: ctx.coffee,
+      offsetMinutes: ctx.offsetMinutes,
+      result: feedback,
+    });
     await clearPendingFeedback();
 
-    const toast = buildToastMessage(mode, feedback, before, after);
+    const toast = buildToastMessage(ctx.mode, feedback, before, after);
     router.replace({ pathname: '/', params: { toast } });
   };
 
-  if (!mode) {
+  const openManual = () => {
+    if (!ctx) return;
+    setManualValue(ctx.baseOffset);
+    setManualOpen(true);
+  };
+
+  const adjustManual = (delta: number) => {
+    setManualValue((v) => (v === null ? v : Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, v + delta))));
+  };
+
+  const onApplyManual = async () => {
+    if (!ctx || manualValue === null || submittingRef.current) return;
+    submittingRef.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const manualAdjustmentMinutes = manualValue - ctx.baseOffset;
+    await applyManualAdjustment(ctx.mode, ctx.coffee, manualValue);
+    await appendNapRecord({
+      completedAt: Date.now(),
+      mode: ctx.mode,
+      coffee: ctx.coffee,
+      offsetMinutes: ctx.offsetMinutes,
+      result: 'manual',
+      manualAdjustmentMinutes,
+    });
+    await clearPendingFeedback();
+
+    router.replace({ pathname: '/', params: { toast: `다음 ${modeName(ctx.mode)} 낮잠은 ${manualValue}분으로 맞춰둘게요.` } });
+  };
+
+  if (!ctx) {
     return <View style={styles.container} />;
   }
 
@@ -88,6 +149,35 @@ export default function FeedbackScreen() {
             <Text style={styles.optionDetail}>{option.detail}</Text>
           </Pressable>
         ))}
+
+        {!manualOpen && (
+          <Pressable onPress={openManual} style={styles.manualLinkRow}>
+            <Text style={styles.manualLinkText}>직접 조정하기</Text>
+          </Pressable>
+        )}
+
+        {manualOpen && manualValue !== null && (
+          <View style={styles.manualPanel}>
+            <Pressable
+              onPress={() => adjustManual(-MANUAL_STEP)}
+              style={styles.manualStepBtn}
+              accessibilityLabel="1분 줄이기"
+            >
+              <Text style={styles.manualStepText}>−</Text>
+            </Pressable>
+            <Text style={[styles.manualValueText, tabularNums]}>{manualValue}분</Text>
+            <Pressable
+              onPress={() => adjustManual(MANUAL_STEP)}
+              style={styles.manualStepBtn}
+              accessibilityLabel="1분 늘리기"
+            >
+              <Text style={styles.manualStepText}>+</Text>
+            </Pressable>
+            <Pressable onPress={onApplyManual} style={styles.manualApplyBtn}>
+              <Text style={styles.manualApplyText}>적용</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <View style={styles.tipCard}>
@@ -152,6 +242,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
+  },
+  manualLinkRow: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  manualLinkText: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
+    textDecorationLine: 'underline',
+  },
+  manualPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  manualStepBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualStepText: {
+    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  manualValueText: {
+    minWidth: 48,
+    textAlign: 'center',
+    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  manualApplyBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+  },
+  manualApplyText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    color: colors.surface,
   },
   tipCard: {
     marginTop: 'auto',
