@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 
+import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatKoreanTime } from '@/format';
 import { scheduleAlarmNotificationAsync } from '@/notifications';
 import { getSettings, saveActiveNap, type ActiveNap, type NapMode, type Settings } from '@/store';
@@ -107,8 +108,8 @@ export default function HomeScreen() {
           </Text>
         </Text>
 
-        {/* 도그푸딩 종료 후 삭제 예정: 실기기 테스트용 단축 낮잠 버튼, __DEV__ 빌드 전용 */}
-        {__DEV__ && (
+        {/* 실기기 테스트용 단축 낮잠 버튼 — 노출 여부는 src/config.ts SHOW_TEST_BUTTONS로 관리 */}
+        {SHOW_TEST_BUTTONS && (
           <View style={styles.devRow}>
             <Pressable onPress={() => startNap('fast', 60_000)} style={styles.devBtn}>
               <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
