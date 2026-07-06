@@ -12,9 +12,13 @@
   수면 화면 커피 토글 시 alarmAt 재계산 + 백업 알림 재예약, 후기 화면 "직접 조정하기"
   ±1분 스테퍼 보조 경로, NapRecord append-only 기록 시작, 패치 버전 드리프트 6건 해소.
   단위 테스트 11개(jest-expo) 통과.
+- 낮잠 히스토리 화면 (BACKLOG v1.1에서 사용자 요청으로 코드 동결 중 선반영): 홈 화면
+  "지난 낮잠 기록" 링크 → `/history`, `NapRecord` 읽기 전용 목록 표시. `format.ts`에
+  `formatKoreanDateTime` 추가. 신규 데이터 기록/학습 로직 변경 없음(열람 전용).
 
-**마지막 검증된 커밋: HEAD (`git log --oneline -1`) — "feat: adaptive learning engine (4-bucket offsets, coffee nap)".**
-tsc/expo-doctor/expo export 3종 통과. 아래 "Phase 4-1 실기기 확인" 항목은 아직 미검증.
+**마지막 검증된 커밋: HEAD (`git log --oneline -1`) — "feat: adaptive learning engine (4-bucket offsets, coffee nap)" (히스토리 화면은 아직 커밋 전).**
+tsc/expo-doctor/expo export 3종 통과. 실기기(SM_S942N) 릴리즈 빌드 설치·실행 확인.
+아래 "Phase 4-1 실기기 확인" 항목은 아직 미검증.
 
 ## 지금 단계
 

@@ -70,6 +70,10 @@ export default function HomeScreen() {
         <Text style={[styles.nowTime, tabularNums]}>{formatKoreanTime(now)}</Text>
       </View>
 
+      <Pressable onPress={() => router.push('/history')} hitSlop={12} style={styles.historyLink}>
+        <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
+      </Pressable>
+
       <View style={styles.head}>
         <Text style={styles.title}>졸리면{'\n'}그냥 누르세요</Text>
         <Text style={styles.subtitle}>계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.</Text>
@@ -147,6 +151,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fontFamily.bold,
     color: colors.inkSoft,
+  },
+  historyLink: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  historyLinkText: {
+    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
+    textDecorationLine: 'underline',
   },
   head: {
     marginTop: 44,

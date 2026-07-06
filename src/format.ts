@@ -13,3 +13,7 @@ export function formatKoreanTime(date: Date): string {
 export function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);
 }
+
+export function formatKoreanDateTime(date: Date): string {
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${formatKoreanTime(date)}`;
+}
