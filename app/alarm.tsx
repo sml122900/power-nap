@@ -151,8 +151,11 @@ export default function AlarmScreen() {
   // 가로채는 상태에서 타이밍 레이스로 씹힐 수 있다(릴리즈 빌드에서만 재현 — JS 스레드가
   // 느린 개발 빌드에선 우연히 안 걸림). 슬라이드 트랙(Gesture.Pan)과 같은 RNGH 계열
   // 제스처로 통일해 같은 응답 시스템 안에서만 동작하도록 한다.
+  // maxDistance 기본값(약 10pt)은 3초 내내 정지 유지를 요구하기엔 너무 빡빡해서 손 미세
+  // 떨림만으로 제스처가 취소돼 실기기에서 전혀 인식되지 않았다 — 넉넉하게 완화한다.
   const longPress = Gesture.LongPress()
     .minDuration(LONG_PRESS_MS)
+    .maxDistance(40)
     .onStart(() => {
       runOnJS(handleDismiss)();
     });
@@ -213,6 +216,7 @@ export default function AlarmScreen() {
 
       <GestureDetector gesture={longPress}>
         <Animated.View
+          style={styles.longPressHitArea}
           accessible
           accessibilityLabel="3초간 길게 눌러 알람 끄기"
           accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
@@ -354,8 +358,14 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     backgroundColor: colors.brand,
   },
-  longPressHint: {
+  // 터치 영역을 텍스트 한 줄보다 넉넉하게 키운다(3초 유지 동안 손이 살짝 움직여도
+  // 히트박스를 벗어나지 않도록) — 최소 44pt 터치 타겟 원칙(DESIGN_HANDOFF)도 겸해 충족.
+  longPressHitArea: {
     marginTop: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  longPressHint: {
     textAlign: 'center',
     fontSize: 12.5,
     fontFamily: fontFamily.semibold,
