@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -14,16 +14,21 @@ import {
   getSettings,
   OFFSET_MAX,
   OFFSET_MIN,
+  stepFor,
   type NapFeedback,
   type NapMode,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
-const FEEDBACK_OPTIONS: { feedback: NapFeedback; title: string; detail: string }[] = [
-  { feedback: 'tooDeep', title: '너무 깊게 잤어요', detail: '머리가 무거워요 — 다음엔 5분 줄일게요' },
-  { feedback: 'justRight', title: '딱 좋았어요', detail: '지금 시간 그대로 유지할게요' },
-  { feedback: 'notEnough', title: '아직 부족해요', detail: '더 잘 수 있었어요 — 다음엔 5분 늘릴게요' },
-];
+// step은 버킷별 수렴 상태에 따라 ±3/±2로 갈리므로(store.ts stepFor) 하드코딩하지 않고
+// 렌더 시점에 ctx.step으로 채운다 — 그래야 실제 applyFeedback 결과와 라벨이 어긋나지 않는다.
+function buildFeedbackOptions(step: number): { feedback: NapFeedback; title: string; detail: string }[] {
+  return [
+    { feedback: 'tooDeep', title: '너무 깊게 잤어요', detail: `머리가 무거워요 — 다음엔 ${step}분 줄일게요` },
+    { feedback: 'justRight', title: '딱 좋았어요', detail: '지금 시간 그대로 유지할게요' },
+    { feedback: 'notEnough', title: '아직 부족해요', detail: `더 잘 수 있었어요 — 다음엔 ${step}분 늘릴게요` },
+  ];
+}
 
 const MANUAL_STEP = 1;
 
@@ -32,6 +37,7 @@ interface FeedbackContext {
   coffee: boolean;
   offsetMinutes: number; // 이번 낮잠에 실제 사용된 오프셋(분) — NapRecord용
   baseOffset: number; // 현재 저장된 버킷 오프셋(분) — 스테퍼 시작값
+  step: number; // 이 버킷에 다음 3버튼 후기가 적용될 스텝 크기(분)
 }
 
 function modeName(mode: NapMode): string {
@@ -55,6 +61,9 @@ export default function FeedbackScreen() {
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualValue, setManualValue] = useState<number | null>(null);
+  // 입력창에 보여줄 원본 문자열 — 타이핑 중간에 clamp를 걸면("1" 입력 시 바로 10으로
+  // 튐) 사용자가 두 자리 수를 정상적으로 입력할 수 없다. 확정(blur/제출)에서만 clamp한다.
+  const [manualText, setManualText] = useState('');
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -71,6 +80,7 @@ export default function FeedbackScreen() {
         coffee: pending.coffee,
         offsetMinutes: pending.offsetMinutes,
         baseOffset: settings.offsets[bucket],
+        step: stepFor(settings, bucket),
       });
     });
   }, [router]);
@@ -100,11 +110,32 @@ export default function FeedbackScreen() {
   const openManual = () => {
     if (!ctx) return;
     setManualValue(ctx.baseOffset);
+    setManualText(String(ctx.baseOffset));
     setManualOpen(true);
   };
 
   const adjustManual = (delta: number) => {
-    setManualValue((v) => (v === null ? v : Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, v + delta))));
+    setManualValue((v) => {
+      if (v === null) return v;
+      const next = Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, v + delta));
+      setManualText(String(next));
+      return next;
+    });
+  };
+
+  const onManualTextChange = (text: string) => {
+    setManualText(text.replace(/[^0-9]/g, '').slice(0, 2));
+  };
+
+  // 텍스트 입력을 확정해 clamp된 숫자로 되돌린다 — blur 시, 그리고 적용 버튼을 눌러
+  // 아직 blur가 일어나지 않은 상태에서도 최신 입력값을 반영하기 위해 재사용한다.
+  const commitManualText = (): number => {
+    const parsed = parseInt(manualText, 10);
+    const base = manualValue ?? OFFSET_MIN;
+    const next = Number.isNaN(parsed) ? base : Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, parsed));
+    setManualValue(next);
+    setManualText(String(next));
+    return next;
   };
 
   const onApplyManual = async () => {
@@ -112,8 +143,9 @@ export default function FeedbackScreen() {
     submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const manualAdjustmentMinutes = manualValue - ctx.baseOffset;
-    await applyManualAdjustment(ctx.mode, ctx.coffee, manualValue);
+    const finalValue = commitManualText();
+    const manualAdjustmentMinutes = finalValue - ctx.baseOffset;
+    await applyManualAdjustment(ctx.mode, ctx.coffee, finalValue);
     await appendNapRecord({
       completedAt: Date.now(),
       mode: ctx.mode,
@@ -124,7 +156,7 @@ export default function FeedbackScreen() {
     });
     await clearPendingFeedback();
 
-    router.replace({ pathname: '/', params: { toast: `다음 ${modeName(ctx.mode)} 낮잠은 ${manualValue}분으로 맞춰둘게요.` } });
+    router.replace({ pathname: '/', params: { toast: `다음 ${modeName(ctx.mode)} 낮잠은 ${finalValue}분으로 맞춰둘게요.` } });
   };
 
   if (!ctx) {
@@ -139,7 +171,7 @@ export default function FeedbackScreen() {
       </View>
 
       <View style={styles.buttons}>
-        {FEEDBACK_OPTIONS.map((option) => (
+        {buildFeedbackOptions(ctx.step).map((option) => (
           <Pressable
             key={option.feedback}
             onPress={() => onSelect(option.feedback)}
@@ -165,7 +197,20 @@ export default function FeedbackScreen() {
             >
               <Text style={styles.manualStepText}>−</Text>
             </Pressable>
-            <Text style={[styles.manualValueText, tabularNums]}>{manualValue}분</Text>
+            <View style={styles.manualInputRow}>
+              <TextInput
+                style={[styles.manualInput, tabularNums]}
+                value={manualText}
+                onChangeText={onManualTextChange}
+                onBlur={commitManualText}
+                onSubmitEditing={commitManualText}
+                keyboardType="number-pad"
+                maxLength={2}
+                textAlign="center"
+                accessibilityLabel="분 직접 입력 (10~35)"
+              />
+              <Text style={styles.manualUnitText}>분</Text>
+            </View>
             <Pressable
               onPress={() => adjustManual(MANUAL_STEP)}
               style={styles.manualStepBtn}
@@ -274,12 +319,25 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.ink,
   },
-  manualValueText: {
-    minWidth: 48,
+  manualInputRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  manualInput: {
+    minWidth: 40,
     textAlign: 'center',
     fontSize: 16,
     fontFamily: fontFamily.bold,
     color: colors.ink,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.line,
+    paddingVertical: 2,
+  },
+  manualUnitText: {
+    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
   },
   manualApplyBtn: {
     marginLeft: 8,

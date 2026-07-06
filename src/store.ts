@@ -86,6 +86,12 @@ export function clampOffset(minutes: number): number {
   return Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, minutes));
 }
 
+// 해당 버킷에 다음 후기가 적용될 스텝 크기(분) — 후기 화면 미리보기 라벨이 이 값을
+// 하드코딩하지 않고 재사용해야 실제 적용값과 어긋나지 않는다.
+export function stepFor(settings: Settings, bucket: OffsetBucket): number {
+  return settings.converged[bucket] ? STEP_CONVERGED : STEP_UNCONVERGED;
+}
+
 // 구형 저장 형태({fast, slow}만 있는 offsets)를 4버킷으로 이전한다: fastCoffee<-fast,
 // slowCoffee<-slow로 복사해 기존 학습값을 유실하지 않는다. 이미 4버킷이면 그대로 통과.
 export async function getSettings(): Promise<Settings> {
