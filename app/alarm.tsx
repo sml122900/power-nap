@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
@@ -135,6 +135,16 @@ export default function AlarmScreen() {
       }
     });
 
+  // RN 기본 Pressable의 onLongPress는 GestureHandlerRootView가 터치 응답 시스템을
+  // 가로채는 상태에서 타이밍 레이스로 씹힐 수 있다(릴리즈 빌드에서만 재현 — JS 스레드가
+  // 느린 개발 빌드에선 우연히 안 걸림). 슬라이드 트랙(Gesture.Pan)과 같은 RNGH 계열
+  // 제스처로 통일해 같은 응답 시스템 안에서만 동작하도록 한다.
+  const longPress = Gesture.LongPress()
+    .minDuration(LONG_PRESS_MS)
+    .onStart(() => {
+      runOnJS(handleDismiss)();
+    });
+
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
@@ -189,13 +199,18 @@ export default function AlarmScreen() {
         </GestureDetector>
       </View>
 
-      <Pressable
-        onLongPress={handleDismiss}
-        delayLongPress={LONG_PRESS_MS}
-        accessibilityLabel="3초간 길게 눌러 알람 끄기"
-      >
-        <Text style={styles.longPressHint}>슬라이드가 어렵다면 3초간 길게 눌러 끄기</Text>
-      </Pressable>
+      <GestureDetector gesture={longPress}>
+        <Animated.View
+          accessible
+          accessibilityLabel="3초간 길게 눌러 알람 끄기"
+          accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'activate') handleDismiss();
+          }}
+        >
+          <Text style={styles.longPressHint}>슬라이드가 어렵다면 3초간 길게 눌러 끄기</Text>
+        </Animated.View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }

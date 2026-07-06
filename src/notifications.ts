@@ -5,7 +5,11 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-const ANDROID_CHANNEL_ID = 'alarm';
+// v2: 채널 ID 버전 올림 — 기존 'alarm' 채널이 설치 초기 설정(무음/저우선순위)으로
+// 이미 생성된 기기에서는 이후 importance/sound/vibration을 코드로 바꿔도 반영되지
+// 않는다(Android는 채널 생성 후 재설정 불가, 사용자가 시스템 설정에서 직접 바꿔야
+// 함). 채널 설정을 바꿀 때마다 ID를 올려 새 채널을 만들어야 한다 — CLAUDE.md 지뢰 목록 참고.
+const ANDROID_CHANNEL_ID = 'alarm-v2';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

@@ -14,9 +14,19 @@ import Animated, {
 
 import { formatKoreanTime } from '@/format';
 import { cancelAlarmNotificationAsync, scheduleAlarmNotificationAsync } from '@/notifications';
-import { bucketFor, clearActiveNap, getActiveNap, getSettings, saveActiveNap, type ActiveNap } from '@/store';
+import {
+  bucketFor,
+  clearActiveNap,
+  getActiveNap,
+  getSettings,
+  saveActiveNap,
+  type ActiveNap,
+  type Settings,
+} from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
+
+const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30, fastCoffee: 20, slowCoffee: 30 };
 
 export default function SleepScreen() {
   const router = useRouter();
@@ -24,6 +34,7 @@ export default function SleepScreen() {
   useKeepAwake('nap-sleep');
 
   const [nap, setNap] = useState<ActiveNap | null>(null);
+  const [offsets, setOffsets] = useState<Settings['offsets']>(DEFAULT_OFFSETS);
   const [, setTick] = useState(0);
 
   // ActiveNap이 없을 때 '/'로 보내는 판단은 useNapWatchdog의 check()가 전담한다
@@ -33,6 +44,11 @@ export default function SleepScreen() {
     getActiveNap().then((loaded) => {
       if (loaded) setNap(loaded);
     });
+  }, []);
+
+  // 커피 토글 전에도 켰을 때의 알람 시각을 미리 보여주기 위한 오프셋 값.
+  useEffect(() => {
+    getSettings().then((settings) => setOffsets(settings.offsets));
   }, []);
 
   // 카운트다운은 감산이 아니라 매 tick마다 alarmAt(절대시각) - Date.now()를 다시 계산한다.
@@ -119,6 +135,11 @@ export default function SleepScreen() {
   const ss = totalSec % 60;
   const countdownText = `${mm}:${String(ss).padStart(2, '0')}`;
 
+  // 커피 켜기 전에도 "켜면 몇 시에, 몇 분짜리 낮잠이 되는지" 미리 보여준다(§DESIGN_HANDOFF:
+  // 요소 추가 없이 텍스트로 해결). 실제 예약 계산(onToggleCoffee)과 동일한 MIN_LEAD_MS 가드.
+  const coffeePreviewOffset = offsets[bucketFor(nap.mode, true)];
+  const coffeePreviewAlarmAt = Math.max(nap.startedAt + coffeePreviewOffset * 60_000, Date.now() + MIN_LEAD_MS);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.center}>
@@ -140,7 +161,9 @@ export default function SleepScreen() {
           <View style={styles.coffeeText}>
             <Text style={[styles.coffeeTitle, nap.coffee && styles.coffeeTitleOn]}>방금 커피 마셨어요</Text>
             <Text style={[styles.coffeeSubtitle, nap.coffee && styles.coffeeSubtitleOn]}>
-              {nap.coffee ? '깰 때쯤 효과가 시작돼요' : '깨어날 때 카페인 효과가 겹치도록 기록해둘게요'}
+              {nap.coffee
+                ? '깰 때쯤 효과가 시작돼요'
+                : `켜면 ${formatKoreanTime(new Date(coffeePreviewAlarmAt))} 알람 (${coffeePreviewOffset}분)`}
             </Text>
           </View>
           <View style={[styles.toggleTrack, nap.coffee && styles.toggleTrackOn]}>
