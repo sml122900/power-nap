@@ -39,7 +39,8 @@
         }
       ],
       "expo-notifications",
-      "expo-asset"
+      "expo-asset",
+      "expo-alarm-module"
     ]
   }
 }

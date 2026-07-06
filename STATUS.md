@@ -23,26 +23,42 @@
 - 테스트 버튼 노출을 `__DEV__` 게이트에서 `src/config.ts`의 `SHOW_TEST_BUTTONS` 플래그로
   전환 (커밋 `657d6ab`) — 도그푸딩 중엔 릴리즈 빌드에서도 노출되도록 기본 `true`.
   **정식 출시 전 반드시 `false`로 변경 확인할 것** (CLAUDE.md 코드 규칙에 체크리스트 추가).
-
-**마지막 검증된 커밋: HEAD (`git log --oneline -1`) — "chore: gate test buttons behind SHOW_TEST_BUTTONS flag" (`657d6ab`).**
-tsc/expo-doctor/expo export 3종 + jest 11개 통과, 원격 push 완료.
-실기기(SM_S942N) 릴리즈 빌드 재배포 완료 — 설치시각 2026-07-07 00:43:33, versionName 1.0.0,
-프로세스 실행 확인. 아래 "다음 세션 최우선" 재검증 항목은 아직 사람이 직접 확인 전.
+- 도그푸딩 버그 3건 실기기 재검증 완료(`main` 기준): 알림 채널 v2 정상 생성·소리/진동 ON.
+  단, 백그라운드/잠금 상태에선 진동만 나고 소리가 없어 "진짜 알람" 요구사항으로 확정 →
+  Android 네이티브 알람 조기 도입 결정(아래 브랜치 작업).
+- **[브랜치 `spike/native-alarm`, main 미병합]** Android 네이티브 알람(`expo-alarm-module`,
+  `STREAM_ALARM`) 도입 — PROJECT.md §4 참고:
+  - 스파이크로 New Architecture 릴리즈 빌드 링크, 무음+볼륨0 관통 연속재생, FG/BG/잠금
+    전부 실기기 확인 후 (커밋 `2288859`) JS 연동 + 소리 책임 이관.
+  - `src/notifications.ts` Android 분기를 `expo-alarm-module`로 교체(고정 UID, showDismiss/
+    showSnooze 끔), `app/alarm.tsx`는 Android에서 expo-audio 재생을 끄고 화면/햅틱/해제만
+    담당, `app/_layout.tsx`의 `ensureAndroidChannelAsync` 제거(라이브러리가 자체 채널 생성).
+  - 실기기 검증 결과 — 연속발화·해제·낮잠취소·커피토글 재예약·2연속·강제종료 알람 전부
+    확인됨. **롱프레스만 실기기에서 완전 미작동** 발견 → 원인은 `Gesture.LongPress()` 기본
+    `maxDistance`(~10pt)가 3초 유지 기준으로 너무 빡빡했던 것 + 별도 텍스트 링크가 사용자가
+    누르는 지점과 분리돼 있어 발견성도 나빴음. 2차 수정(커밋 `d1c9b84`, `ea1612b`)으로
+    `maxDistance(40)` + 롱프레스를 슬라이드 손잡이 자체에 `Gesture.Race(pan, longPress)`로
+    결합, 안내 텍스트는 순수 정보성으로 전환 — 실기기 재확인 완료("정상작동해").
+  - **알려진 한계(다음 단계로 의도적으로 미룸)**: 풀스크린 인텐트/화면 자동점등 미구현(알림
+    본문을 직접 탭해야 해제 화면 진입), 알림 스와이프 삭제 시 화면 없이 소리 꺼짐, 커스텀
+    사운드(`alarm.wav`) 미지원(라이브러리 기본음 사용) — 전부 PROJECT.md §4에 기록.
+  - 검증 3종 + jest 통과, **`main`에는 아직 병합 안 함** — 필요 시 PR 생성 여부 사용자 확인 필요.
 
 ## 지금 단계
 
-도그푸딩 대기 — 코드 동결 중. 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 치명 버그(알람 불발급)만 즉시 수정.
-Phase 4-2(다크모드/Dynamic Type 등 폴리시)는 별도 세션에서 진행 예정.
+`spike/native-alarm` 브랜치에서 Android 네이티브 알람 작업 진행 중, 완성 기준
+("백그라운드/잠금/무음 연속 알람 + 알림 탭으로 해제 화면 진입 + 슬라이드/롱프레스 해제")
+충족 확인됨. 다음 결정 필요: (a) 이대로 `main` 병합할지, (b) 이어서 풀스크린 인텐트
+패치까지 하고 병합할지. 그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
-- [ ] **다음 세션 최우선**: 폰 USB 재연결 → 릴리즈 재빌드/설치 → 아래 버그 3건 재검증
-  - [ ] 백업 알림(앱 백그라운드/종료 상태에서 알람 시각 도달) 소리+진동 정상 발화
-        (기존 무음 채널 잔존 확인용으로, 가능하면 설정에서 앱 삭제 후 재설치로 확인)
-  - [ ] 알람 화면에서 3초 롱프레스로 해제되는지(슬라이드 없이)
-  - [ ] 수면 화면 커피 토글 OFF 상태에서 "켜면 오후 h:mm 알람 (n분)" 프리뷰가 실제
-        토글 후 값과 일치하는지
-- [ ] 실기기 3종 확인: 슬라이드 해제 / 2연속 소리 / 롱프레스 (위 항목과 통합 검증)
+- [ ] `spike/native-alarm` → `main` 병합 여부/시점 결정
+- [ ] (다음 단계 후보) 풀스크린 인텐트 + 화면 자동점등 네이티브 패치 — Expo config plugin으로
+      `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 + 알림에 `setFullScreenIntent()`
+      주입 필요(라이브러리가 기본 제공 안 함, PROJECT.md §4 "알려진 한계" 참고)
+- [ ] 수면 화면 커피 토글 OFF 상태 "켜면 오후 h:mm 알람 (n분)" 프리뷰 값 실기기 재검증
+      (버그 3건 수정에 포함됐으나 네이티브 알람 작업에 밀려 별도 확인 안 됨)
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
 - [ ] Phase 4-1 실기기 확인 (신규):
   - [ ] 기존 설치 위에 새 빌드 설치 시 학습값이 유지되는지 (구형→4버킷 마이그레이션 실증)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { configureAlarmAudioModeAsync } from '@/audio';
-import { cancelAlarmNotificationAsync } from '@/notifications';
+import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from '@/notifications';
 import { clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
@@ -31,8 +31,10 @@ const TRACK_PADDING = 4;
 const LONG_PRESS_MS = 3000;
 
 // alarm.tsx가 중복 마운트되는 드문 경우(예: 두 곳에서 거의 동시에 /alarm으로 replace)에도
-// 사운드/햅틱 재생 부작용은 한 인스턴스에서만 시작되도록 하는 모듈 레벨 가드.
-// React state/ref는 인스턴스별로 분리되어 이 목적에 쓸 수 없다.
+// 햅틱 반복(양쪽 플랫폼 공통)과 expo-audio 재생(iOS 전용, 아래 참고)이 한 인스턴스에서만
+// 시작되도록 하는 모듈 레벨 가드. React state/ref는 인스턴스별로 분리되어 이 목적에 쓸 수 없다.
+// Android는 소리를 네이티브 알람(expo-alarm-module)이 전담하므로 이 가드가 막는 대상은
+// 사실상 햅틱 인터벌뿐이지만, 로직을 플랫폼별로 쪼개지 않기 위해 그대로 공유한다.
 let alarmPlaybackActive = false;
 
 export default function AlarmScreen() {
@@ -64,12 +66,16 @@ export default function AlarmScreen() {
       alarmPlaybackActive = true;
       ownsPlayback = true;
 
-      await configureAlarmAudioModeAsync();
-      if (stopped) return;
+      // Android는 네이티브 알람이 이미 STREAM_ALARM으로 재생 중이다 — 여기서 또
+      // expo-audio를 켜면 소리가 겹친다. iOS만 이 레이어가 주 알람 사운드를 담당한다.
+      if (Platform.OS === 'ios') {
+        await configureAlarmAudioModeAsync();
+        if (stopped) return;
 
-      player.loop = true;
-      player.volume = 1.0;
-      player.play();
+        player.loop = true;
+        player.volume = 1.0;
+        player.play();
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       hapticsInterval = setInterval(() => {
@@ -93,7 +99,13 @@ export default function AlarmScreen() {
     dismissedRef.current = true;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    player.pause();
+    // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈추고, iOS는 이
+    // 화면의 expo-audio 재생을 직접 멈춘다 — stopNativeAlarmSoundAsync는 Android에서만
+    // 동작하는 no-op 안전 래퍼다(src/notifications.ts 참고).
+    if (Platform.OS === 'ios') {
+      player.pause();
+    }
+    await stopNativeAlarmSoundAsync();
 
     const active = nap ?? (await getActiveNap());
     await cancelAlarmNotificationAsync(active?.notificationId ?? null);
@@ -139,11 +151,20 @@ export default function AlarmScreen() {
   // 가로채는 상태에서 타이밍 레이스로 씹힐 수 있다(릴리즈 빌드에서만 재현 — JS 스레드가
   // 느린 개발 빌드에선 우연히 안 걸림). 슬라이드 트랙(Gesture.Pan)과 같은 RNGH 계열
   // 제스처로 통일해 같은 응답 시스템 안에서만 동작하도록 한다.
+  // maxDistance 기본값(약 10pt)은 3초 내내 정지 유지를 요구하기엔 너무 빡빡해서 손 미세
+  // 떨림만으로 제스처가 취소돼 실기기에서 전혀 인식되지 않았다 — 넉넉하게 완화한다.
   const longPress = Gesture.LongPress()
     .minDuration(LONG_PRESS_MS)
+    .maxDistance(40)
     .onStart(() => {
       runOnJS(handleDismiss)();
     });
+
+  // 별도 텍스트 링크가 아니라 슬라이드 손잡이 자체에 롱프레스를 얹는다 — 사용자가 이미
+  // 만지는 지점과 다른 곳에 "3초간 눌러 끄기" 텍스트를 따로 두니 어디를 눌러야 하는지
+  // 못 찾는다는 피드백(실기기 검증)을 반영. Race: 가만히 3초 누르면 롱프레스가 이기고,
+  // 손가락이 움직이기 시작하면 Pan이 활성화되어 롱프레스는 취소된다.
+  const thumbGesture = Gesture.Race(pan, longPress);
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -194,23 +215,14 @@ export default function AlarmScreen() {
         <Text style={styles.slideLabel} pointerEvents="none">
           밀어서 끄기
         </Text>
-        <GestureDetector gesture={pan}>
+        <GestureDetector gesture={thumbGesture}>
           <Animated.View style={[styles.slideThumb, thumbStyle]} />
         </GestureDetector>
       </View>
 
-      <GestureDetector gesture={longPress}>
-        <Animated.View
-          accessible
-          accessibilityLabel="3초간 길게 눌러 알람 끄기"
-          accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === 'activate') handleDismiss();
-          }}
-        >
-          <Text style={styles.longPressHint}>슬라이드가 어렵다면 3초간 길게 눌러 끄기</Text>
-        </Animated.View>
-      </GestureDetector>
+      <Text style={styles.longPressHint} pointerEvents="none">
+        슬라이드가 어렵다면 손잡이를 3초간 눌러도 꺼져요
+      </Text>
     </SafeAreaView>
   );
 }
@@ -342,12 +354,12 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     backgroundColor: colors.brand,
   },
+  // 이제 탭 대상이 아니라 순수 안내문(제스처는 슬라이드 손잡이에 있음) — 밑줄 제거.
   longPressHint: {
     marginTop: 14,
     textAlign: 'center',
     fontSize: 12.5,
     fontFamily: fontFamily.semibold,
     color: colors.onDarkHint,
-    textDecorationLine: 'underline',
   },
 });
