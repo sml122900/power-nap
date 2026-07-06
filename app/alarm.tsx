@@ -160,6 +160,12 @@ export default function AlarmScreen() {
       runOnJS(handleDismiss)();
     });
 
+  // 별도 텍스트 링크가 아니라 슬라이드 손잡이 자체에 롱프레스를 얹는다 — 사용자가 이미
+  // 만지는 지점과 다른 곳에 "3초간 눌러 끄기" 텍스트를 따로 두니 어디를 눌러야 하는지
+  // 못 찾는다는 피드백(실기기 검증)을 반영. Race: 가만히 3초 누르면 롱프레스가 이기고,
+  // 손가락이 움직이기 시작하면 Pan이 활성화되어 롱프레스는 취소된다.
+  const thumbGesture = Gesture.Race(pan, longPress);
+
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
@@ -209,24 +215,14 @@ export default function AlarmScreen() {
         <Text style={styles.slideLabel} pointerEvents="none">
           밀어서 끄기
         </Text>
-        <GestureDetector gesture={pan}>
+        <GestureDetector gesture={thumbGesture}>
           <Animated.View style={[styles.slideThumb, thumbStyle]} />
         </GestureDetector>
       </View>
 
-      <GestureDetector gesture={longPress}>
-        <Animated.View
-          style={styles.longPressHitArea}
-          accessible
-          accessibilityLabel="3초간 길게 눌러 알람 끄기"
-          accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === 'activate') handleDismiss();
-          }}
-        >
-          <Text style={styles.longPressHint}>슬라이드가 어렵다면 3초간 길게 눌러 끄기</Text>
-        </Animated.View>
-      </GestureDetector>
+      <Text style={styles.longPressHint} pointerEvents="none">
+        슬라이드가 어렵다면 손잡이를 3초간 눌러도 꺼져요
+      </Text>
     </SafeAreaView>
   );
 }
@@ -358,18 +354,12 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     backgroundColor: colors.brand,
   },
-  // 터치 영역을 텍스트 한 줄보다 넉넉하게 키운다(3초 유지 동안 손이 살짝 움직여도
-  // 히트박스를 벗어나지 않도록) — 최소 44pt 터치 타겟 원칙(DESIGN_HANDOFF)도 겸해 충족.
-  longPressHitArea: {
-    marginTop: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  // 이제 탭 대상이 아니라 순수 안내문(제스처는 슬라이드 손잡이에 있음) — 밑줄 제거.
   longPressHint: {
+    marginTop: 14,
     textAlign: 'center',
     fontSize: 12.5,
     fontFamily: fontFamily.semibold,
     color: colors.onDarkHint,
-    textDecorationLine: 'underline',
   },
 });
