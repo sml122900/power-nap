@@ -110,8 +110,11 @@ export default function AlarmScreen() {
     const active = nap ?? (await getActiveNap());
     await cancelAlarmNotificationAsync(active?.notificationId ?? null);
     if (active) {
-      const offsetMinutes = Math.round((active.alarmAt - active.startedAt) / 60_000);
-      await savePendingFeedback({ mode: active.mode, coffee: active.coffee, offsetMinutes });
+      // 커피냅은 "커피 마신 시각" 기준, 일반 낮잠은 "낮잠 시작" 기준으로 실제 사용된
+      // 총 시간을 계산한다 — NapRecord.offsetMinutes에 쓰인다.
+      const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
+      const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
+      await savePendingFeedback({ mode: active.mode, offsetMinutes });
     }
     // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
     // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
@@ -193,7 +196,7 @@ export default function AlarmScreen() {
           5분 더 자면 수면 관성 때문에 더 멍해져요.{'\n'}지금 바로 일어나는 게 제일 개운합니다.
         </Text>
 
-        {nap?.coffee && (
+        {nap?.mode === 'coffee' && (
           <View style={styles.coffeeBadge}>
             <Text style={styles.coffeeBadgeText}>지금부터 카페인 효과가 시작돼요</Text>
           </View>

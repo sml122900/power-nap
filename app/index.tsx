@@ -1,19 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatKoreanTime } from '@/format';
 import { scheduleAlarmNotificationAsync } from '@/notifications';
-import { getSettings, saveActiveNap, type ActiveNap, type NapMode, type Settings } from '@/store';
+import {
+  computeCoffeeAlarmAt,
+  getSettings,
+  saveActiveNap,
+  TARGET_SLEEP_MIN,
+  type ActiveNap,
+  type Settings,
+} from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
-const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30, fastCoffee: 20, slowCoffee: 30 };
+const DEFAULT_LATENCY: Settings['latency'] = { fast: 0, slow: 10 };
+const DEFAULT_CAFFEINE_ONSET = 25;
 const TOAST_DURATION_MS = 3200;
+const COFFEE_MINUTES_AGO_MAX = 120;
+const CHIP_ANIM_MS = 150;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,11 +31,18 @@ export default function HomeScreen() {
   const { toast } = useLocalSearchParams<{ toast?: string }>();
 
   const [now, setNow] = useState(() => new Date());
-  const [offsets, setOffsets] = useState<Settings['offsets']>(DEFAULT_OFFSETS);
+  const [latency, setLatency] = useState<Settings['latency']>(DEFAULT_LATENCY);
+  const [caffeineOnset, setCaffeineOnset] = useState(DEFAULT_CAFFEINE_ONSET);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const startingRef = useRef(false);
   // 후기 화면에서 넘어온 토스트 문구는 마운트 시점 값만 캡처한다 — 이후 같은 화면에
   // 머무는 동안 라우터 파라미터가 남아있어도 다시 뜨지 않는다.
   const [toastMessage, setToastMessage] = useState<string | null>(() => toast ?? null);
+
+  const [coffeeOpen, setCoffeeOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  // 입력창 원본 문자열 — 확정(blur/시작 버튼) 시에만 clamp한다(feedback.tsx와 동일 패턴).
+  const [minutesAgoText, setMinutesAgoText] = useState('0');
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -33,7 +50,14 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    getSettings().then((settings) => setOffsets(settings.offsets));
+    getSettings().then((settings) => {
+      setLatency(settings.latency);
+      setCaffeineOnset(settings.caffeineOnset);
+    });
+  }, []);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
 
   useEffect(() => {
@@ -42,18 +66,18 @@ export default function HomeScreen() {
     return () => clearTimeout(id);
   }, [toastMessage]);
 
-  const startNap = async (mode: NapMode, overrideMs?: number) => {
+  const startFastSlow = async (mode: 'fast' | 'slow', overrideMs?: number) => {
     if (startingRef.current) return;
     startingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       const startedAt = Date.now();
-      const durationMs = overrideMs ?? offsets[mode] * 60_000;
+      const durationMs = overrideMs ?? (TARGET_SLEEP_MIN + latency[mode]) * 60_000;
       const alarmAt = startedAt + durationMs;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
       const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
-      const nap: ActiveNap = { mode, startedAt, alarmAt, coffee: false, notificationId };
+      const nap: ActiveNap = { mode, startedAt, alarmAt, notificationId };
       await saveActiveNap(nap);
       router.replace('/sleep');
     } finally {
@@ -61,8 +85,55 @@ export default function HomeScreen() {
     }
   };
 
-  const fastAlarmAt = addMinutes(now, offsets.fast);
-  const slowAlarmAt = addMinutes(now, offsets.slow);
+  const startCoffeeNap = async (minutesAgo: number) => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const startedAt = Date.now();
+      const coffeeDrankAt = startedAt - minutesAgo * 60_000;
+      const { alarmAt } = computeCoffeeAlarmAt(coffeeDrankAt, caffeineOnset, startedAt);
+      const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
+      const nap: ActiveNap = { mode: 'coffee', startedAt, alarmAt, coffeeDrankAt, notificationId };
+      await saveActiveNap(nap);
+      router.replace('/sleep');
+    } finally {
+      startingRef.current = false;
+    }
+  };
+
+  const toggleCoffeeOpen = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCoffeeOpen((open) => !open);
+    setCustomOpen(false);
+  };
+
+  const openCustom = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMinutesAgoText('0');
+    setCustomOpen(true);
+  };
+
+  const commitMinutesAgoText = (): number => {
+    const parsed = parseInt(minutesAgoText, 10);
+    const clamped = Number.isNaN(parsed) ? 0 : Math.min(COFFEE_MINUTES_AGO_MAX, Math.max(0, parsed));
+    setMinutesAgoText(String(clamped));
+    return clamped;
+  };
+
+  const fastTotal = TARGET_SLEEP_MIN + latency.fast;
+  const slowTotal = TARGET_SLEEP_MIN + latency.slow;
+  const fastAlarmAt = addMinutes(now, fastTotal);
+  const slowAlarmAt = addMinutes(now, slowTotal);
+
+  const customMinutesAgo = Math.min(COFFEE_MINUTES_AGO_MAX, Math.max(0, parseInt(minutesAgoText, 10) || 0));
+  const customPreview = computeCoffeeAlarmAt(now.getTime() - customMinutesAgo * 60_000, caffeineOnset, now.getTime());
+  const customPreviewMinutes = Math.max(0, Math.round((customPreview.alarmAt - now.getTime()) / 60_000));
+
+  const chipAnim = reduceMotion
+    ? undefined
+    : { entering: FadeIn.duration(CHIP_ANIM_MS), exiting: FadeOut.duration(CHIP_ANIM_MS) };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -82,39 +153,97 @@ export default function HomeScreen() {
 
       <View style={styles.buttons}>
         <Pressable
-          onPress={() => startNap('fast')}
+          onPress={() => startFastSlow('fast')}
           style={({ pressed }) => [styles.napBtn, styles.primary, pressed && styles.primaryPressed]}
         >
           <Text style={styles.primaryMode}>바로 잠들 것 같아요</Text>
           <Text style={[styles.primaryDetail, tabularNums]}>
-            {offsets.fast}분 뒤 · {formatKoreanTime(fastAlarmAt)} 알람
+            {fastTotal}분 뒤 · {formatKoreanTime(fastAlarmAt)} 알람
           </Text>
         </Pressable>
 
         <Pressable
-          onPress={() => startNap('slow')}
+          onPress={() => startFastSlow('slow')}
           style={({ pressed }) => [styles.napBtn, styles.secondary, pressed && styles.secondaryPressed]}
         >
           <Text style={styles.secondaryMode}>좀 뒤척일 것 같아요</Text>
           <Text style={[styles.secondaryDetail, tabularNums]}>
-            {offsets.slow}분 뒤 · {formatKoreanTime(slowAlarmAt)} 알람
+            {slowTotal}분 뒤 · {formatKoreanTime(slowAlarmAt)} 알람
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={toggleCoffeeOpen}
+          style={({ pressed }) => [styles.napBtn, styles.coffeeBtn, (pressed || coffeeOpen) && styles.coffeeBtnActive]}
+        >
+          <Text style={styles.coffeeMode}>커피냅</Text>
+          <Text style={[styles.coffeeDetail, tabularNums]}>커피 마시고 {caffeineOnset}분 뒤 기상</Text>
+        </Pressable>
+
+        {coffeeOpen && !customOpen && (
+          <Animated.View style={styles.coffeeChipGrid} {...chipAnim}>
+            <Pressable onPress={() => startCoffeeNap(0)} style={styles.coffeeChip}>
+              <Text style={styles.coffeeChipText}>방금</Text>
+            </Pressable>
+            <Pressable onPress={() => startCoffeeNap(5)} style={styles.coffeeChip}>
+              <Text style={styles.coffeeChipText}>5분 전</Text>
+            </Pressable>
+            <Pressable onPress={() => startCoffeeNap(10)} style={styles.coffeeChip}>
+              <Text style={styles.coffeeChipText}>10분 전</Text>
+            </Pressable>
+            <Pressable onPress={openCustom} style={styles.coffeeChip}>
+              <Text style={styles.coffeeChipText}>직접 입력</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {coffeeOpen && customOpen && (
+          <Animated.View style={styles.coffeeCustomPanel} {...chipAnim}>
+            <View style={styles.coffeeCustomInputRow}>
+              <TextInput
+                style={[styles.coffeeCustomInput, tabularNums]}
+                value={minutesAgoText}
+                onChangeText={(text) => setMinutesAgoText(text.replace(/[^0-9]/g, '').slice(0, 3))}
+                onBlur={commitMinutesAgoText}
+                onSubmitEditing={commitMinutesAgoText}
+                keyboardType="number-pad"
+                maxLength={3}
+                textAlign="center"
+                accessibilityLabel="몇 분 전에 커피를 마셨는지 입력 (0~120분)"
+              />
+              <Text style={styles.coffeeCustomUnit}>분 전</Text>
+            </View>
+
+            {customPreview.corrected && (
+              <Text style={styles.coffeeNotice}>카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요</Text>
+            )}
+            <Text style={[styles.coffeePreviewText, tabularNums]}>
+              {formatKoreanTime(new Date(customPreview.alarmAt))} 알람 ({customPreviewMinutes}분 뒤)
+            </Text>
+
+            <Pressable
+              onPress={() => startCoffeeNap(commitMinutesAgoText())}
+              style={({ pressed }) => [styles.coffeeConfirmBtn, pressed && styles.coffeeConfirmBtnPressed]}
+            >
+              <Text style={styles.coffeeConfirmText}>이 시간으로 시작</Text>
+            </Pressable>
+          </Animated.View>
+        )}
 
         <Text style={styles.learnNote}>
           후기를 반영해 시간이 자동으로 조정돼요{'\n'}
           <Text style={styles.learnNoteBold}>
-            학습된 시간 — 바로 잠듦 {offsets.fast}분 · 뒤척임 {offsets.slow}분
+            학습된 시간 — 바로 잠듦 {fastTotal}분 · 뒤척임 {slowTotal}분
           </Text>
         </Text>
 
         {/* 실기기 테스트용 단축 낮잠 버튼 — 노출 여부는 src/config.ts SHOW_TEST_BUTTONS로 관리 */}
         {SHOW_TEST_BUTTONS && (
           <View style={styles.devRow}>
-            <Pressable onPress={() => startNap('fast', 60_000)} style={styles.devBtn}>
+            <Pressable onPress={() => startFastSlow('fast', 60_000)} style={styles.devBtn}>
               <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
             </Pressable>
-            <Pressable onPress={() => startNap('fast', 10_000)} style={styles.devBtn}>
+            <Pressable onPress={() => startFastSlow('fast', 10_000)} style={styles.devBtn}>
               <Text style={styles.devBtnText}>테스트: 10초</Text>
             </Pressable>
           </View>
@@ -228,6 +357,108 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fontFamily.semibold,
     color: colors.inkSoft,
+  },
+  // 커피냅 버튼 — fast/slow 두 버튼(128pt+ 핵심 결정)보다 낮은 위계를 위해 minHeight를
+  // napBtn 공통값 대신 절반 정도로 줄인다. 색은 앱 유일 포인트 컬러(amber)만 사용.
+  coffeeBtn: {
+    minHeight: 64,
+    backgroundColor: colors.amberTint,
+    borderWidth: 1.5,
+    borderColor: colors.amberBorder,
+  },
+  coffeeBtnActive: {
+    backgroundColor: colors.amberPress,
+  },
+  coffeeMode: {
+    fontSize: 17,
+    fontFamily: fontFamily.heavy,
+    letterSpacing: -0.34,
+    color: colors.ink,
+  },
+  coffeeDetail: {
+    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
+  },
+  coffeeChipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  // 칩 4개를 2x2로 배치해도 각 칩이 44pt 이상 확보되도록 flexBasis를 화면 폭 절반 기준으로.
+  coffeeChip: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.amberBorder,
+    backgroundColor: colors.surface,
+    paddingVertical: 10,
+  },
+  coffeeChipText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  coffeeCustomPanel: {
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.amberBorder,
+    backgroundColor: colors.surface,
+    padding: 16,
+    gap: 10,
+  },
+  coffeeCustomInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  coffeeCustomInput: {
+    minWidth: 56,
+    textAlign: 'center',
+    fontSize: 20,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.line,
+    paddingVertical: 2,
+  },
+  coffeeCustomUnit: {
+    fontSize: 15,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
+  },
+  coffeeNotice: {
+    textAlign: 'center',
+    fontSize: 12.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.amber,
+  },
+  coffeePreviewText: {
+    textAlign: 'center',
+    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
+  },
+  coffeeConfirmBtn: {
+    marginTop: 4,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+  },
+  coffeeConfirmBtnPressed: {
+    backgroundColor: colors.amberPress,
+  },
+  coffeeConfirmText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.surface,
   },
   learnNote: {
     marginTop: 4,

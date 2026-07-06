@@ -8,7 +8,9 @@ import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult } fro
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
-  return mode === 'fast' ? '바로 잠듦' : '뒤척임';
+  if (mode === 'fast') return '바로 잠듦';
+  if (mode === 'slow') return '뒤척임';
+  return '커피냅';
 }
 
 function resultLabel(result: NapRecordResult): string {
@@ -52,7 +54,6 @@ export default function HistoryScreen() {
             <View style={styles.row}>
               <View style={styles.rowHead}>
                 <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
-                {item.coffee && <Text style={styles.coffeeBadge}>커피</Text>}
               </View>
               <Text style={styles.rowDetail}>
                 {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
@@ -125,18 +126,6 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: fontFamily.bold,
     color: colors.ink,
-  },
-  coffeeBadge: {
-    fontSize: 11.5,
-    fontFamily: fontFamily.semibold,
-    color: colors.amber,
-    backgroundColor: colors.amberTint,
-    borderWidth: 1,
-    borderColor: colors.amberBorder,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    overflow: 'hidden',
   },
   rowDetail: {
     fontSize: 14,
