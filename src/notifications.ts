@@ -1,47 +1,32 @@
-// 알람 백업 레이어 — PROJECT.md §4 레이어 2(로컬 알림).
+// 알람 백업 레이어 — PROJECT.md §4.
+// Android: 네이티브 알람(expo-alarm-module, STREAM_ALARM)이 주 레이어다. 앱이 백그라운드/
+// 종료/잠금 상태여도 무음모드·미디어볼륨과 무관하게 자체 재생하므로, alarm.tsx의 expo-audio
+// 레이어는 Android에서 더 이상 쓰지 않는다(사운드는 여기서 전담, 화면/햅틱/해제만 JS 담당).
+// iOS: 네이티브 알람 대응 라이브러리가 이 요구사항(무음스위치 우회 등)을 못 주므로 기존
+// 로컬 알림 백업 + alarm.tsx의 foreground expo-audio 주 레이어를 그대로 유지한다.
+//
 // 권한 요청은 앱 시작 시가 아니라 첫 낮잠 시작 시점(scheduleAlarmNotificationAsync 호출 시)에
 // 이루어진다. 거부돼도 낮잠 자체는 진행하고(notificationId: null), 화면에서 그 사실을 안내한다.
 
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { removeAlarm, scheduleAlarm, stopAlarm } from 'expo-alarm-module';
 
-// v2: 채널 ID 버전 올림 — 기존 'alarm' 채널이 설치 초기 설정(무음/저우선순위)으로
-// 이미 생성된 기기에서는 이후 importance/sound/vibration을 코드로 바꿔도 반영되지
-// 않는다(Android는 채널 생성 후 재설정 불가, 사용자가 시스템 설정에서 직접 바꿔야
-// 함). 채널 설정을 바꿀 때마다 ID를 올려 새 채널을 만들어야 한다 — CLAUDE.md 지뢰 목록 참고.
-const ANDROID_CHANNEL_ID = 'alarm-v2';
+// 낮잠은 한 번에 하나만 활성화되므로 고정 UID로 충분하다 — 예약(schedule)/취소(remove)는
+// 항상 이 UID 쌍으로 호출한다(CLAUDE.md 유령 알람 방지 규칙).
+const ANDROID_ALARM_UID = 'powernap-alarm';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     // 포그라운드에서는 자체 알람 화면 + expo-audio 사운드가 이미 담당하므로 배너/사운드를
     // 중복 표시하지 않는다. 앱이 백그라운드/종료 상태일 때는 이 핸들러가 호출되지 않고
-    // OS가 기본 알림 UI로 표시한다.
+    // OS가 기본 알림 UI로 표시한다. (Android는 이제 이 경로를 안 타지만 iOS는 그대로 탄다.)
     shouldShowBanner: false,
     shouldShowList: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),
 });
-
-// Android 8+(API 26+)은 채널이 없으면 알림이 무음/저우선순위로 표시된다. 낮잠 시작을
-// 기다리지 않고 앱 부팅 시(app/_layout.tsx) 한 번 미리 만들어 둔다 — scheduleAlarmNotificationAsync에서도
-// 다시 호출하지만(idempotent), 채널 존재 자체를 첫 낮잠 시작 시점에만 의존하지 않기 위함이다.
-// 주의: Android는 채널 생성 후 importance/sound를 코드로 재변경할 수 없다(사용자가 시스템
-// 설정에서 직접 바꿔야 함) — 그래서 처음부터 MAX/사운드/진동을 명시한다.
-export async function ensureAndroidChannelAsync(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: '낮잠 알람',
-    importance: Notifications.AndroidImportance.MAX,
-    // sound 키 자체를 생략한다: 네이티브 customSoundExists 체크가 문자열 값을 전부
-    // "커스텀 사운드 파일명"으로 취급해 res/raw에서 찾으려 하고, 'default'는 그런
-    // 파일이 아니라서 매번 "Custom sound 'default' not found" 경고를 띄운다(재생 자체는
-    // resolve()의 시스템 기본음 폴백으로 정상 동작하지만 로그가 오염된다). 키를 생략하면
-    // Android가 채널 생성 시 시스템 기본 알림음을 그대로 배정해 결과는 동일하다.
-    vibrationPattern: [0, 500, 250, 500],
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-  });
-}
 
 async function requestNotificationPermissionAsync(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
@@ -56,7 +41,23 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
   const granted = await requestNotificationPermissionAsync();
   if (!granted) return null;
 
-  await ensureAndroidChannelAsync();
+  if (Platform.OS === 'android') {
+    // showDismiss/showSnooze는 켜지 않는다 — 알림 자체의 액션 버튼으로 조용히 알람을
+    // 끄면 우리 해제 화면(슬라이드/롱프레스)을 건너뛰게 된다. 알림 "본문"을 탭했을 때만
+    // 앱(MainActivity)이 열리고, 그 뒤 useNapWatchdog이 /alarm으로 보낸다 — 소리 자체는
+    // 우리가 stopAlarm()을 호출하기 전까지 네이티브 쪽에서 계속 재생된다.
+    await scheduleAlarm({
+      uid: ANDROID_ALARM_UID,
+      day: new Date(alarmAt),
+      title: '일어날 시간이에요',
+      description: '파워냅 알람이 울리고 있어요.',
+      active: true,
+      repeating: false,
+      showDismiss: false,
+      showSnooze: false,
+    });
+    return ANDROID_ALARM_UID;
+  }
 
   return Notifications.scheduleNotificationAsync({
     content: {
@@ -67,7 +68,6 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: new Date(alarmAt),
-      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL_ID } : {}),
     },
   });
 }
@@ -75,8 +75,19 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
 export async function cancelAlarmNotificationAsync(notificationId: string | null): Promise<void> {
   if (!notificationId) return;
   try {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    if (Platform.OS === 'android') {
+      await removeAlarm(notificationId);
+    } else {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+    }
   } catch {
     // 이미 발화했거나 취소된 알림이면 무시한다.
   }
+}
+
+// 알람 화면에서 슬라이드/롱프레스로 해제할 때 호출한다. Android에서만 의미가 있다
+// (iOS는 alarm.tsx의 expo-audio player.pause()가 그 역할을 한다).
+export async function stopNativeAlarmSoundAsync(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await stopAlarm();
 }

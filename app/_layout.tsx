@@ -5,10 +5,11 @@ import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// 알림 표시 정책(setNotificationHandler)을 앱 부팅 시 항상 등록한다 — 재시작 후
-// ActiveNap이 복원돼 /sleep이나 /alarm으로 바로 이동하는 경우에도 루트 레이아웃은
-// 항상 먼저 마운트되므로 여기서 import하는 것이 가장 안전하다.
-import { ensureAndroidChannelAsync } from '@/notifications';
+// 알림 표시 정책(setNotificationHandler, iOS 백업 레이어용)을 앱 부팅 시 항상 등록한다 —
+// 재시작 후 ActiveNap이 복원돼 /sleep이나 /alarm으로 바로 이동하는 경우에도 루트 레이아웃은
+// 항상 먼저 마운트되므로 여기서 import하는 것이 가장 안전하다. Android 알림 채널은 이제
+// expo-alarm-module이 네이티브 모듈 초기화 시점에 자체 생성하므로 여기서 따로 챙길 게 없다.
+import '@/notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -25,11 +26,6 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  // 낮잠을 시작하기 전에도 Android 알림 채널이 존재하도록 부팅 시 1회 생성한다.
-  useEffect(() => {
-    ensureAndroidChannelAsync();
-  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
