@@ -42,7 +42,7 @@
   - **의도적으로 미룬 것 3건(다음 단계 후보, PROJECT.md §4 "알려진 한계" 참고)**:
     풀스크린 인텐트/화면 자동점등 미구현(알림 본문을 직접 탭해야 해제 화면 진입), 알림 스와이프
     삭제 시 화면 없이 소리 꺼짐, 커스텀 사운드(`alarm.wav`) 미지원(라이브러리 기본음 사용).
-- **[브랜치 `phase-4-2`, main 미병합] 학습 모델 v2 + 커피냅 3모드** — PROJECT.md §5·§6,
+- **학습 모델 v2 + 커피냅 3모드** (`main`에 병합 완료) — PROJECT.md §5·§6,
   BACKLOG.md "구현됨(Phase 4-2)"/"카페인 발현시간 근거" 참고:
   - 데이터 모델 v3: `offsets` 4버킷 → `latency{fast,slow}`(0~20분) + `caffeineOnset`
     (15~35분, 기본 25분)로 교체. `coffee: boolean` 필드 폐지, `NapMode`에 `'coffee'` 3번째
@@ -58,9 +58,9 @@
     Phase 4-1 스텝 개편 이후 라벨이 안 갱신됐던 문제), 학습 상태 캡션 추가, "직접
     조정하기"가 latency/caffeineOnset을 모드에 맞게 직접 편집.
   - jest 20개 통과(기존 11개 + 마이그레이션/3모드 학습/보정로직 신규 9개), tsc/expo-doctor/
-    expo export 3종 통과. **`main`에는 아직 병합 안 함**.
+    expo export 3종 통과.
 
-- **[브랜치 `phase-4-2`, main 미병합] 도그푸딩 발견 5건 수정 + 설정 화면 (A그룹)**:
+- **도그푸딩 발견 5건 수정 + 설정 화면 (A그룹, `main`에 병합 완료)**:
   - A-0 조사: 홈 버튼 fast(35분) > slow(30분) 역전은 v3 마이그레이션 버그 아님(코드
     전수 확인, mode 매핑 이상 없음) — 도그푸딩 중 테스트 낮잠(10초/1분 버튼)이 전부
     fast 모드로 latency.fast를 오염시킨 결과로 판정. `ActiveNap`/`NapRecord`에 `isTest`
@@ -81,49 +81,41 @@
     기록(후기 화면의 `manual` 경로와 구분). 홈 화면 "지난 낮잠 기록" 옆에 "설정" 링크.
   - jest 21개 통과, tsc/expo-doctor/expo export 3종 통과. 커밋 3개로 분리
     (`fix: isolate test naps...` / `fix: home overflow, back nav, long-press hitbox` /
-    `feat: settings screen (A-4)`), push 완료. **main에는 아직 반영 안 함** —
-    phase-4-2 전체가 main 병합 전이라, 병합 시점은 실기기 검증과 함께 결정.
+    `feat: settings screen (A-4)`).
+  - **실기기 검증 완료**(디버그 빌드, Metro 포트 8080 연결): 뒤로가기 차단/이동, 롱프레스
+    트랙 확장, 설정 화면 전부 정상 확인. 확인 과정에서 커피냅 직접입력 시 Android
+    키보드가 입력창/미리보기/확정 버튼을 가리는 추가 버그 발견·수정 —
+    `KeyboardAvoidingView`의 Android `behavior`를 `adjustResize`에만 맡기지 않고
+    `'height'`로 명시 + 포커스 시 지연 스크롤(`fix: coffee custom-input panel hidden
+    behind Android keyboard`). 겸사겸사 패치 버전 드리프트 3건(`expo`/`expo-linking`/
+    `expo-router`)도 `expo install --fix`로 해소.
+  - **`main`에 병합 완료** (merge commit `2f36363`, 커밋 6개 전부 포함). 병합 후
+    main에서 tsc/expo-doctor/expo export/jest 4종 재검증 통과.
 
-**마지막 검증된 커밋: HEAD (`git log --oneline -1`) — phase-4-2 브랜치, 병합 전.**
+**마지막 검증된 커밋: `2f36363` — "Merge branch 'phase-4-2' into main", `main` 브랜치.**
 
 ## 브랜치 현황
 
-- `main`: Android 네이티브 알람까지 병합된 상태(구형 4버킷 오프셋 학습 모델).
-- `phase-4-2`: 학습 모델 v2(latency/caffeineOnset) + 커피냅 3모드 + A그룹(도그푸딩
-  수정 5건 + 설정 화면) 전부 포함, **실기기 검증 대기 중, main 미병합**.
-- `fullscreen-intent`: **`main` 기준으로 분기** (phase-4-2가 아님 — 풀스크린 패치는
-  네이티브 알람 파이프라인에만 의존하고 학습 모델 v2와 무관해, phase-4-2의 검증·병합
-  일정에 묶이지 않도록 분리). B그룹(§ 아래) 작업 예정.
+- `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 전부 병합 완료,
+  실기기 검증까지 끝낸 최신 상태.
+- `phase-4-2`: main에 병합 완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는
+  사용자 지시 시).
+- `fullscreen-intent`: `main` 기준으로 분기, B그룹(풀스크린 인텐트) 작업 중 —
+  아래 참고.
+- `phase-4-3`: (예정) `main` 기준으로 분기해 후기 설문 개편 + 학습 로직 단순화
+  작업 진행.
 
 ## 지금 단계
 
-`phase-4-2` 브랜치에서 학습 모델 v2 + 커피냅 3모드 + A그룹 구현 완료, 검증 3종+jest 통과.
-**실기기 검증 전** — 아래 미해결 항목 확인 후 병합 여부 결정 필요. `fullscreen-intent`는
-`main`에서 분기해 B그룹(풀스크린 인텐트) 착수 예정. 그 외 신규 기능은
-[BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
+`main`이 학습 모델 v2 + A그룹까지 실기기 검증 완료 후 반영된 최신 상태. B그룹
+(`fullscreen-intent`)은 main 기준으로 계속 진행 중(아래 참고), Phase 4-3(자동 조정
+학습 폐지 + 4문항 설문 후기 화면)은 `phase-4-3` 브랜치에서 병행 진행 예정. 그 외
+신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
-- [ ] **Phase 4-2 실기기 검증 (다음 세션 최우선)**:
-  - [ ] 홈 화면 커피냅 버튼 → 칩 펼침/접힘 토글, 2x2 레이아웃 44pt 터치 타겟 확인
-  - [ ] 프리셋 칩(방금/5분전/10분전) 탭 시 즉시 낮잠 시작되는지
-  - [ ] 직접입력 칩: 숫자 입력, 실시간 미리보기 갱신, 확정 버튼으로 시작
-  - [ ] 직접입력에서 큰 "분 전" 값 입력 시 "카페인이 이미 돌고 있어요" 보정 문구 확인
-  - [ ] 칩 펼친 상태에서 1·2번(바로 잠듦/뒤척임) 버튼 탭 시 칩 무시하고 즉시 그 모드로 시작
-  - [ ] 커피냅 알람이 실제로 `coffeeDrankAt + caffeineOnset`에 맞게 울리는지
-  - [ ] 수면 화면: 커피냅일 때 "카페인 발현에 맞춰 ~" 문구, 일반 낮잠은 기존 문구
-  - [ ] 후기 화면: 3버튼 라벨의 스텝 숫자가 실제 적용값과 일치하는지(fast/slow/coffee 각각),
-        학습 상태 캡션이 모드에 맞게 나오는지("내 수면 대기시간" vs "내 카페인 발현")
-  - [ ] "직접 조정하기": fast/slow는 0~20분 범위, coffee는 15~35분 범위로 clamp되는지
-  - [ ] 구형 설치(4버킷 offsets) 위에 새 빌드 설치 시 v3 마이그레이션이 학습값을 합리적으로
-        이전하는지(fast/slow 값 유지, caffeineOnset은 25분으로 리셋됨을 확인)
-- [ ] **A그룹 실기기 검증**: 홈 화면 작은 화면(<700pt)에서 커피냅 칩/직접입력 펼침 시
-      스크롤·키보드 회피 확인, 알람 화면 하드웨어 뒤로가기 완전 무시 확인, 후기 화면
-      뒤로가기 시 홈 이동 확인, 롱프레스가 트랙 어디를 눌러도 인식되는지, 설정 화면에서
-      값 변경 후 홈 화면에 즉시 반영되는지(포커스 리로드), 오염된 fast 대기시간을
-      설정 화면에서 실측값으로 교정
-- [ ] `phase-4-2` → `main` 병합 여부/시점 결정 (위 두 실기기 검증 항목 완료 후)
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
+- [ ] `phase-4-2` 브랜치 정리(삭제) — main 병합 완료로 더 이상 필요 없음, 삭제는 사용자 확인 후
 
 ## B그룹 — 풀스크린 인텐트 (`fullscreen-intent` 브랜치, `main` 기준 분기)
 
@@ -132,9 +124,9 @@
       권한 + `canUseFullScreenIntent()` 런타임 확인
 - [ ] 목표: 잠금/백그라운드에서 알람 시각에 화면 자동 점등 + 해제 화면 직행
 - [ ] 실패 기준: 포크 수준 수정 필요 시 중단·보고
-- [ ] `phase-4-2`의 A그룹 검증·병합과 무관하게 독립 진행 — 단, `app/alarm.tsx` 등
-      `main`/`phase-4-2` 양쪽에서 건드린 파일은 나중에 phase-4-2 병합 시 충돌 가능성
-      있음(현재는 두 브랜치가 독립적이라 문제 없음)
+- [ ] `main`에 phase-4-2(A그룹)가 병합돼 `app/alarm.tsx`가 바뀌었으므로,
+      `fullscreen-intent`에도 `main`을 병합해 A그룹 변경사항(BackHandler 차단,
+      롱프레스 트랙 확장)과 합류시켜야 함(다음 항목)
 
 ---
 
