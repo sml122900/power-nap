@@ -77,7 +77,7 @@ export default function HomeScreen() {
       const alarmAt = startedAt + durationMs;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
       const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
-      const nap: ActiveNap = { mode, startedAt, alarmAt, notificationId };
+      const nap: ActiveNap = { mode, startedAt, alarmAt, notificationId, isTest: overrideMs !== undefined };
       await saveActiveNap(nap);
       router.replace('/sleep');
     } finally {

@@ -19,7 +19,7 @@ import Animated, {
 
 import { configureAlarmAudioModeAsync } from '@/audio';
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from '@/notifications';
-import { clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
+import { appendNapRecord, clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
@@ -114,6 +114,19 @@ export default function AlarmScreen() {
       // 총 시간을 계산한다 — NapRecord.offsetMinutes에 쓰인다.
       const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
       const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
+      if (active.isTest) {
+        // 테스트 낮잠(홈 화면 단축 버튼)은 후기를 받지 않는다 — 학습 반영 없이 기록만 남기고 홈으로.
+        await appendNapRecord({
+          completedAt: Date.now(),
+          mode: active.mode,
+          offsetMinutes,
+          result: 'test',
+          isTest: true,
+        });
+        await clearActiveNap();
+        router.replace('/');
+        return;
+      }
       await savePendingFeedback({ mode: active.mode, offsetMinutes });
     }
     // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로

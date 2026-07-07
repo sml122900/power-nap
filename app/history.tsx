@@ -23,6 +23,8 @@ function resultLabel(result: NapRecordResult): string {
       return '아직 부족해요';
     case 'manual':
       return '직접 조정';
+    case 'test':
+      return '테스트';
   }
 }
 
@@ -54,6 +56,11 @@ export default function HistoryScreen() {
             <View style={styles.row}>
               <View style={styles.rowHead}>
                 <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
+                {item.isTest && (
+                  <View style={styles.testBadge}>
+                    <Text style={styles.testBadgeText}>테스트</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.rowDetail}>
                 {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
@@ -126,6 +133,19 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontFamily: fontFamily.bold,
     color: colors.ink,
+  },
+  testBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
+  },
+  testBadgeText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
   },
   rowDetail: {
     fontSize: 14,

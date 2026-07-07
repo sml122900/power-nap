@@ -5,9 +5,11 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
+  appendNapRecord,
   applyFeedback,
   applyManualAdjustment,
   computeCoffeeAlarmAt,
+  getNapRecords,
   getSettings,
   type Settings,
 } from './store';
@@ -183,6 +185,33 @@ describe('applyManualAdjustment', () => {
     expect(settings.latency.fast).toBe(7);
     expect(settings.latency.slow).toBe(10);
     expect(settings.caffeineOnset).toBe(25);
+  });
+});
+
+describe('test nap records', () => {
+  it('recording an isTest nap does not touch latency/caffeineOnset/converged', async () => {
+    await applyFeedback('fast', 'notEnough'); // 실사용 학습값이 이미 존재하는 상태를 재현
+    const before = await getSettings();
+
+    await appendNapRecord({
+      completedAt: 1_700_000_000_000,
+      mode: 'fast',
+      offsetMinutes: 0,
+      result: 'test',
+      isTest: true,
+    });
+
+    const after = await getSettings();
+    expect(after).toEqual(before);
+
+    const records = await getNapRecords();
+    expect(records[records.length - 1]).toEqual({
+      completedAt: 1_700_000_000_000,
+      mode: 'fast',
+      offsetMinutes: 0,
+      result: 'test',
+      isTest: true,
+    });
   });
 });
 

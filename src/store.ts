@@ -23,6 +23,7 @@ export interface ActiveNap {
   alarmAt: number; // epoch ms — 절대시각. 카운트다운은 항상 이 값 기준
   coffeeDrankAt?: number; // epoch ms — mode === 'coffee'일 때만. 커피를 실제로 마신 시각
   notificationId: string | null;
+  isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
 }
 
 export type NapFeedback = 'tooDeep' | 'justRight' | 'notEnough';
@@ -36,7 +37,7 @@ export interface PendingFeedback {
 }
 
 // 후기 제출 시마다 append-only로 남기는 기록 (Phase 4-1) — 현재는 UI 없음, 히스토리/분석 원료.
-export type NapRecordResult = NapFeedback | 'manual';
+export type NapRecordResult = NapFeedback | 'manual' | 'test';
 
 export interface NapRecord {
   completedAt: number; // epoch ms — 후기 제출 시각
@@ -44,6 +45,7 @@ export interface NapRecord {
   offsetMinutes: number; // 이번 낮잠에 사용된 총 시간(분)
   result: NapRecordResult;
   manualAdjustmentMinutes?: number; // '직접 조정하기'로 제출한 경우의 변화량(분, 부호 있음)
+  isTest?: boolean; // 테스트 낮잠(ActiveNap.isTest 승계) — 히스토리에 표시만, 학습 반영 없음.
 }
 
 const KEYS = {
