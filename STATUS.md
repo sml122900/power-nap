@@ -42,7 +42,7 @@
   - **의도적으로 미룬 것 3건(다음 단계 후보, PROJECT.md §4 "알려진 한계" 참고)**:
     풀스크린 인텐트/화면 자동점등 미구현(알림 본문을 직접 탭해야 해제 화면 진입), 알림 스와이프
     삭제 시 화면 없이 소리 꺼짐, 커스텀 사운드(`alarm.wav`) 미지원(라이브러리 기본음 사용).
-- **[브랜치 `fullscreen-intent`, main 미병합] B그룹 — 풀스크린 인텐트 + 화면 자동점등**:
+- **B그룹 — 풀스크린 인텐트 + 화면 자동점등** (`fullscreen-intent` 브랜치, `main` 기준 분기):
   - config plugin `plugins/withFullScreenAlarmIntent.js` 신규: (1) 매니페스트에
     `USE_FULL_SCREEN_INTENT` 권한 + `MainActivity`에 `showWhenLocked`/`turnScreenOn` 속성
     주입, (2) `node_modules/expo-alarm-module`의 `Helper.java`(알림 빌더, 라이브러리가
@@ -55,34 +55,99 @@
     pristine `expo-alarm-module` 위에서 1회(재설치 후에도 재현됨) + `gradlew assembleDebug`
     전체 빌드 성공(APK 생성, 패치된 Java 정상 컴파일) + 매니페스트에 권한/MainActivity
     속성 반영 확인. **실기기 설치는 하지 않음** — phase-4-2 검증 이후 사용자 지시 대기.
+  - `main`(phase-4-2/A그룹 포함) 병합 완료 — `app/alarm.tsx`는 두 브랜치 모두 건드렸지만
+    실제 충돌은 없었음(A그룹은 BackHandler/롱프레스 트랙 확장, B그룹은 이 파일을 직접
+    건드리지 않고 config plugin·네이티브 소스 패치로만 구현했기 때문). git이 자동 병합.
 
-**마지막 검증된 커밋: HEAD (`git log --oneline -1`) — "Merge branch 'spike/native-alarm' into main" (`918c3ee`).**
-tsc/expo-doctor/expo export 3종 + jest 11개 통과(브랜치에서), 병합 후 `main` push 완료.
-(`fullscreen-intent` 브랜치는 별도로 위 항목 검증 완료, push 완료.)
+- **학습 모델 v2 + 커피냅 3모드** (`main`에 병합 완료) — PROJECT.md §5·§6,
+  BACKLOG.md "구현됨(Phase 4-2)"/"카페인 발현시간 근거" 참고:
+  - 데이터 모델 v3: `offsets` 4버킷 → `latency{fast,slow}`(0~20분) + `caffeineOnset`
+    (15~35분, 기본 25분)로 교체. `coffee: boolean` 필드 폐지, `NapMode`에 `'coffee'` 3번째
+    값 추가. v1/v2 → v3 마이그레이션(caffeineOnset은 구형 커피 버킷 값 승계 안 함, 항상
+    기본값에서 재시작 — 사용자 확정).
+  - 수면 화면 커피 토글 완전 제거(재예약 코드 포함) — 커피 여부/시각은 홈 화면에서 낮잠
+    시작 전에 이미 확정.
+  - 홈 화면에 "커피냅" 버튼 추가, 탭하면 기존 3버튼 아래로 칩 4개(방금/5분전/10분전/
+    직접입력)가 펼쳐짐(토글, ≤150ms 애니메이션). 프리셋은 즉시 시작, 직접입력만 숫자입력+
+    실시간 미리보기+확정 버튼 예외 경로. `computeCoffeeAlarmAt`으로 "이미 카페인이 돌고
+    있음" 보정(now+10분) 처리.
+  - 후기 화면 3버튼 라벨을 실제 스텝으로 동적 표시(기존 ±5 하드코딩 버그 함께 수정 —
+    Phase 4-1 스텝 개편 이후 라벨이 안 갱신됐던 문제), 학습 상태 캡션 추가, "직접
+    조정하기"가 latency/caffeineOnset을 모드에 맞게 직접 편집.
+  - jest 20개 통과(기존 11개 + 마이그레이션/3모드 학습/보정로직 신규 9개), tsc/expo-doctor/
+    expo export 3종 통과.
+
+- **도그푸딩 발견 5건 수정 + 설정 화면 (A그룹, `main`에 병합 완료)**:
+  - A-0 조사: 홈 버튼 fast(35분) > slow(30분) 역전은 v3 마이그레이션 버그 아님(코드
+    전수 확인, mode 매핑 이상 없음) — 도그푸딩 중 테스트 낮잠(10초/1분 버튼)이 전부
+    fast 모드로 latency.fast를 오염시킨 결과로 판정. `ActiveNap`/`NapRecord`에 `isTest`
+    플래그 추가 → 테스트 낮잠은 후기 화면을 건너뛰고 학습 미반영, 히스토리에 "테스트"
+    배지만 표시. 기존 오염값은 코드로 되돌리지 않음 — A-4 설정 화면에서 사용자가 직접
+    교정 필요(fast 대기시간이 실제보다 부풀려져 있음).
+  - 홈 화면 ScrollView + KeyboardAvoidingView 전환 — 커피냅 칩/직접입력 펼침 시
+    작은 화면에서 잘리거나 키보드에 가리는 문제 해결, 펼침 시 자동 스크롤.
+  - Android 뒤로가기 정리: 알람 화면은 하드웨어 뒤로가기 완전 차단(해제는 슬라이드/
+    롱프레스만), 후기 화면은 뒤로가기 시 홈으로(알람 화면 복귀 방지). 수면 화면은
+    기존 기본 동작이 이미 안전해 코드 변경 없음(백그라운드 전환돼도 네이티브 알람이
+    낮잠을 책임짐).
+  - 알람 해제 롱프레스 인식 영역을 손잡이(56pt)에서 슬라이드 트랙 전체+안내 문구로
+    확대(도그푸딩에서 롱프레스 실패 리포트 반영).
+  - 설정 화면(`/settings`) 신규: 수면 대기시간(잠듦/뒤척임, 0~20분)·카페인 발현시간
+    (15~35분)을 스테퍼+숫자입력으로 직접 조정, 항목별 "20 + n = 총 n분" 미리보기.
+    `applyManualAdjustment` 재사용(converged 유지), NapRecord에 `manual-settings`로
+    기록(후기 화면의 `manual` 경로와 구분). 홈 화면 "지난 낮잠 기록" 옆에 "설정" 링크.
+  - jest 21개 통과, tsc/expo-doctor/expo export 3종 통과. 커밋 3개로 분리
+    (`fix: isolate test naps...` / `fix: home overflow, back nav, long-press hitbox` /
+    `feat: settings screen (A-4)`).
+  - **실기기 검증 완료**(디버그 빌드, Metro 포트 8080 연결): 뒤로가기 차단/이동, 롱프레스
+    트랙 확장, 설정 화면 전부 정상 확인. 확인 과정에서 커피냅 직접입력 시 Android
+    키보드가 입력창/미리보기/확정 버튼을 가리는 추가 버그 발견·수정 —
+    `KeyboardAvoidingView`의 Android `behavior`를 `adjustResize`에만 맡기지 않고
+    `'height'`로 명시 + 포커스 시 지연 스크롤(`fix: coffee custom-input panel hidden
+    behind Android keyboard`). 겸사겸사 패치 버전 드리프트 3건(`expo`/`expo-linking`/
+    `expo-router`)도 `expo install --fix`로 해소.
+  - **`main`에 병합 완료** (merge commit `2f36363`, 커밋 6개 전부 포함). 병합 후
+    main에서 tsc/expo-doctor/expo export/jest 4종 재검증 통과.
+
+**마지막 검증된 커밋: `2f36363` — "Merge branch 'phase-4-2' into main", `main` 브랜치.**
+
+## 브랜치 현황
+
+- `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 전부 병합 완료,
+  실기기 검증까지 끝낸 최신 상태.
+- `phase-4-2`: main에 병합 완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는
+  사용자 지시 시).
+- `fullscreen-intent`: `main` 기준으로 분기, B그룹(풀스크린 인텐트) 작업 중 —
+  아래 참고.
+- `phase-4-3`: (예정) `main` 기준으로 분기해 후기 설문 개편 + 학습 로직 단순화
+  작업 진행.
 
 ## 지금 단계
 
-Android 네이티브 알람 전환이 `main`에 병합·배포 완료됐고, 이 릴리즈 빌드가 **도그푸딩
-3기 기준 버전**이다. `fullscreen-intent` 브랜치(main 기준 분기)에서 풀스크린 인텐트
-패치 구현·컴파일 검증까지 완료 — **실기기 검증 대기, main 미병합**. `phase-4-2`(학습
-모델 v2 + A그룹)도 별도로 실기기 검증 대기 중(자세한 내용은 해당 브랜치의 STATUS.md).
-그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
+`main`이 학습 모델 v2 + A그룹까지 실기기 검증 완료 후 반영된 최신 상태. B그룹
+(`fullscreen-intent`)은 main 기준으로 계속 진행 중(아래 참고), Phase 4-3(자동 조정
+학습 폐지 + 4문항 설문 후기 화면)은 `phase-4-3` 브랜치에서 병행 진행 예정. 그 외
+신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
-- [ ] **`fullscreen-intent` 실기기 검증**: 잠금 화면 상태에서 알람 시각에 화면이 자동으로
-      켜지며 해제 화면으로 직행하는지, `canUseFullScreenIntent()` 로그로 실제 권한 부여
-      여부 확인(도그푸딩 기기는 직접 설치라 허용일 가능성 높음), 권한 미부여 시에도 알람
-      자체(소리/진동)는 정상 발화하는지(폴백 확인), 기존 알림 탭→해제 화면 진입 경로가
-      깨지지 않았는지
-- [ ] `fullscreen-intent` → `main` 병합 여부/시점 결정 (위 실기기 검증 완료 후)
-- [ ] 수면 화면 커피 토글 OFF 상태 "켜면 오후 h:mm 알람 (n분)" 프리뷰 값 실기기 재검증
-      (버그 3건 수정에 포함됐으나 네이티브 알람 작업에 밀려 별도 확인 안 됨)
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
-- [ ] Phase 4-1 실기기 확인 (신규):
-  - [ ] 기존 설치 위에 새 빌드 설치 시 학습값이 유지되는지 (구형→4버킷 마이그레이션 실증)
-  - [ ] 수면 중 커피 토글 ON/OFF 시 알람 시각·알림 재예약이 정확한지 (알림이 중복/유령으로 남지 않는지)
-  - [ ] 커피냅 후기가 커피 버킷(fastCoffee/slowCoffee)에만 반영되고 비커피 버킷은 그대로인지
+- [ ] `phase-4-2` 브랜치 정리(삭제) — main 병합 완료로 더 이상 필요 없음, 삭제는 사용자 확인 후
+
+## B그룹 — 풀스크린 인텐트 (`fullscreen-intent` 브랜치, `main` 기준 분기)
+
+- [x] config plugin으로 `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 +
+      알림에 `setFullScreenIntent()` 주입 + `USE_FULL_SCREEN_INTENT` 권한 + 런타임
+      `canUseFullScreenIntent()` 로그 — 구현·컴파일 검증 완료(위 참고)
+- [x] `main`(phase-4-2/A그룹) 병합 완료 — `app/alarm.tsx` 충돌 없이 자동 병합됨
+- [ ] **실기기 검증**: 잠금 화면 상태에서 알람 시각에 화면이 자동으로 켜지며 해제
+      화면으로 직행하는지, `canUseFullScreenIntent()` 로그로 실제 권한 부여 여부
+      확인(도그푸딩 기기는 직접 설치라 허용일 가능성 높음), 권한 미부여 시에도
+      알람 자체(소리/진동)는 정상 발화하는지(폴백 확인), 기존 알림 탭→해제 화면
+      진입 경로가 깨지지 않았는지, A그룹의 뒤로가기 차단/롱프레스 확장도 이 병합
+      브랜치에서 여전히 동작하는지
+- [ ] 릴리즈 빌드 준비 완료 후 사용자 설치 지시 대기(설치는 아직 안 함)
+- [ ] `fullscreen-intent` → `main` 병합 여부/시점 결정 (위 실기기 검증 완료 후)
 
 ---
 

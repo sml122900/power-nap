@@ -13,20 +13,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { formatKoreanTime } from '@/format';
-import { cancelAlarmNotificationAsync, scheduleAlarmNotificationAsync } from '@/notifications';
-import {
-  bucketFor,
-  clearActiveNap,
-  getActiveNap,
-  getSettings,
-  saveActiveNap,
-  type ActiveNap,
-  type Settings,
-} from '@/store';
+import { cancelAlarmNotificationAsync } from '@/notifications';
+import { clearActiveNap, getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
-
-const DEFAULT_OFFSETS: Settings['offsets'] = { fast: 20, slow: 30, fastCoffee: 20, slowCoffee: 30 };
 
 export default function SleepScreen() {
   const router = useRouter();
@@ -34,7 +24,6 @@ export default function SleepScreen() {
   useKeepAwake('nap-sleep');
 
   const [nap, setNap] = useState<ActiveNap | null>(null);
-  const [offsets, setOffsets] = useState<Settings['offsets']>(DEFAULT_OFFSETS);
   const [, setTick] = useState(0);
 
   // ActiveNap이 없을 때 '/'로 보내는 판단은 useNapWatchdog의 check()가 전담한다
@@ -44,11 +33,6 @@ export default function SleepScreen() {
     getActiveNap().then((loaded) => {
       if (loaded) setNap(loaded);
     });
-  }, []);
-
-  // 커피 토글 전에도 켰을 때의 알람 시각을 미리 보여주기 위한 오프셋 값.
-  useEffect(() => {
-    getSettings().then((settings) => setOffsets(settings.offsets));
   }, []);
 
   // 카운트다운은 감산이 아니라 매 tick마다 alarmAt(절대시각) - Date.now()를 다시 계산한다.
@@ -96,28 +80,6 @@ export default function SleepScreen() {
     opacity: breathOpacity.value,
   }));
 
-  // 커피 토글은 알람 시각을 즉시 재계산한다: startedAt + 해당 버킷(coffee 여부) 오프셋.
-  // 재계산 값이 지금부터 30초도 안 남았으면(토글이 늦게 눌리거나 오프셋이 이미 지난 경우)
-  // now+30초로 가드한다. 예약/취소는 반드시 쌍으로 — 기존 백업 알림을 먼저 취소하고
-  // 새 시각으로 재예약한 뒤 notificationId를 갱신한다(CLAUDE.md 예약/취소 쌍 원칙).
-  const MIN_LEAD_MS = 30_000;
-
-  const onToggleCoffee = async () => {
-    if (!nap) return;
-    const coffee = !nap.coffee;
-    const settings = await getSettings();
-    const bucket = bucketFor(nap.mode, coffee);
-    const recalculated = nap.startedAt + settings.offsets[bucket] * 60_000;
-    const alarmAt = Math.max(recalculated, Date.now() + MIN_LEAD_MS);
-
-    await cancelAlarmNotificationAsync(nap.notificationId);
-    const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
-
-    const updated: ActiveNap = { ...nap, coffee, alarmAt, notificationId };
-    setNap(updated);
-    await saveActiveNap(updated);
-  };
-
   const onCancel = async () => {
     if (!nap) return;
     await cancelAlarmNotificationAsync(nap.notificationId);
@@ -135,10 +97,10 @@ export default function SleepScreen() {
   const ss = totalSec % 60;
   const countdownText = `${mm}:${String(ss).padStart(2, '0')}`;
 
-  // 커피 켜기 전에도 "켜면 몇 시에, 몇 분짜리 낮잠이 되는지" 미리 보여준다(§DESIGN_HANDOFF:
-  // 요소 추가 없이 텍스트로 해결). 실제 예약 계산(onToggleCoffee)과 동일한 MIN_LEAD_MS 가드.
-  const coffeePreviewOffset = offsets[bucketFor(nap.mode, true)];
-  const coffeePreviewAlarmAt = Math.max(nap.startedAt + coffeePreviewOffset * 60_000, Date.now() + MIN_LEAD_MS);
+  const wakeAtText =
+    nap.mode === 'coffee'
+      ? `카페인 발현에 맞춰 ${formatKoreanTime(new Date(nap.alarmAt))}에 깨워드릴게요`
+      : `${formatKoreanTime(new Date(nap.alarmAt))}에 깨워드릴게요`;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -146,30 +108,11 @@ export default function SleepScreen() {
         <Animated.View style={[styles.breathDot, breathStyle]} />
         <Text style={styles.label}>알람까지</Text>
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
-        <Text style={[styles.wakeAt, tabularNums]}>{formatKoreanTime(new Date(nap.alarmAt))}에 깨워드릴게요</Text>
+        <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
 
         {nap.notificationId === null && (
           <Text style={styles.permissionHint}>앱을 켠 채로 두면 알람이 울려요</Text>
         )}
-
-        <Pressable
-          onPress={onToggleCoffee}
-          style={[styles.coffeeRow, nap.coffee && styles.coffeeRowOn]}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: nap.coffee }}
-        >
-          <View style={styles.coffeeText}>
-            <Text style={[styles.coffeeTitle, nap.coffee && styles.coffeeTitleOn]}>방금 커피 마셨어요</Text>
-            <Text style={[styles.coffeeSubtitle, nap.coffee && styles.coffeeSubtitleOn]}>
-              {nap.coffee
-                ? '깰 때쯤 효과가 시작돼요'
-                : `켜면 ${formatKoreanTime(new Date(coffeePreviewAlarmAt))} 알람 (${coffeePreviewOffset}분)`}
-            </Text>
-          </View>
-          <View style={[styles.toggleTrack, nap.coffee && styles.toggleTrackOn]}>
-            <View style={[styles.toggleThumb, nap.coffee && styles.toggleThumbOn]} />
-          </View>
-        </Pressable>
       </View>
 
       <Pressable onPress={onCancel} style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostBtnPressed]}>
@@ -217,6 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.semibold,
     color: colors.nightSoft,
+    textAlign: 'center',
   },
   permissionHint: {
     marginTop: 14,
@@ -224,65 +168,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     color: colors.amber,
     textAlign: 'center',
-  },
-  coffeeRow: {
-    marginTop: 32,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.onDarkBorder,
-  },
-  coffeeRowOn: {
-    backgroundColor: colors.amberTint,
-    borderColor: colors.amberBorder,
-  },
-  coffeeText: {
-    gap: 2,
-    flexShrink: 1,
-  },
-  coffeeTitle: {
-    fontSize: 15,
-    fontFamily: fontFamily.bold,
-    color: colors.surface,
-  },
-  // amberTint 배경(밝은 크림색)으로 바뀌면 night 배경용 흰 텍스트는 대비가 사라진다.
-  // ink/inkSoft는 amberTint 위에서 각각 15.3:1 / 5.4:1로 WCAG AA(4.5:1) 이상을 만족한다.
-  // (참고: 기존 amberTextOn(#A06818)은 amberTint 위에서 약 4.25:1로 기준 미달이라 폐기)
-  coffeeTitleOn: {
-    color: colors.ink,
-  },
-  coffeeSubtitle: {
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    color: colors.nightSoft,
-  },
-  coffeeSubtitleOn: {
-    color: colors.inkSoft,
-  },
-  toggleTrack: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.toggleTrackOff,
-    justifyContent: 'center',
-    padding: 3,
-  },
-  toggleTrackOn: {
-    backgroundColor: colors.amber,
-  },
-  toggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-  },
-  toggleThumbOn: {
-    transform: [{ translateX: 20 }],
   },
   ghostBtn: {
     paddingVertical: 16,

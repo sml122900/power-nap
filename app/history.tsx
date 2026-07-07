@@ -8,7 +8,9 @@ import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult } fro
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
-  return mode === 'fast' ? '바로 잠듦' : '뒤척임';
+  if (mode === 'fast') return '바로 잠듦';
+  if (mode === 'slow') return '뒤척임';
+  return '커피냅';
 }
 
 function resultLabel(result: NapRecordResult): string {
@@ -21,6 +23,10 @@ function resultLabel(result: NapRecordResult): string {
       return '아직 부족해요';
     case 'manual':
       return '직접 조정';
+    case 'manual-settings':
+      return '설정에서 조정';
+    case 'test':
+      return '테스트';
   }
 }
 
@@ -52,12 +58,17 @@ export default function HistoryScreen() {
             <View style={styles.row}>
               <View style={styles.rowHead}>
                 <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
-                {item.coffee && <Text style={styles.coffeeBadge}>커피</Text>}
+                {item.isTest && (
+                  <View style={styles.testBadge}>
+                    <Text style={styles.testBadgeText}>테스트</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.rowDetail}>
                 {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
                 {resultLabel(item.result)}
-                {item.result === 'manual' && item.manualAdjustmentMinutes !== undefined && (
+                {(item.result === 'manual' || item.result === 'manual-settings') &&
+                  item.manualAdjustmentMinutes !== undefined && (
                   <Text style={tabularNums}>
                     {' '}
                     ({item.manualAdjustmentMinutes > 0 ? '+' : ''}
@@ -126,17 +137,18 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.ink,
   },
-  coffeeBadge: {
-    fontSize: 11.5,
-    fontFamily: fontFamily.semibold,
-    color: colors.amber,
-    backgroundColor: colors.amberTint,
-    borderWidth: 1,
-    borderColor: colors.amberBorder,
-    borderRadius: 8,
+  testBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    overflow: 'hidden',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
+  },
+  testBadgeText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
   },
   rowDetail: {
     fontSize: 14,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -8,21 +8,37 @@ import {
   appendNapRecord,
   applyFeedback,
   applyManualAdjustment,
-  bucketFor,
+  CAFFEINE_ONSET_MAX,
+  CAFFEINE_ONSET_MIN,
   clearPendingFeedback,
   getPendingFeedback,
   getSettings,
-  OFFSET_MAX,
-  OFFSET_MIN,
+  LATENCY_MAX,
+  LATENCY_MIN,
   stepFor,
   type NapFeedback,
   type NapMode,
+  type Settings,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
-// step은 버킷별 수렴 상태에 따라 ±3/±2로 갈리므로(store.ts stepFor) 하드코딩하지 않고
+function modeName(mode: NapMode): string {
+  if (mode === 'fast') return '바로 잠듦';
+  if (mode === 'slow') return '뒤척임';
+  return '커피냅';
+}
+
+// step은 모드별 수렴 상태에 따라 ±3/±2로 갈리므로(store.ts stepFor) 하드코딩하지 않고
 // 렌더 시점에 ctx.step으로 채운다 — 그래야 실제 applyFeedback 결과와 라벨이 어긋나지 않는다.
-function buildFeedbackOptions(step: number): { feedback: NapFeedback; title: string; detail: string }[] {
+// 커피냅은 caffeineOnset에 반영됨을 문구로 드러낸다.
+function buildFeedbackOptions(mode: NapMode, step: number): { feedback: NapFeedback; title: string; detail: string }[] {
+  if (mode === 'coffee') {
+    return [
+      { feedback: 'tooDeep', title: '너무 깊게 잤어요', detail: `다음엔 카페인 발현시간을 ${step}분 줄일게요` },
+      { feedback: 'justRight', title: '딱 좋았어요', detail: '지금 발현시간 그대로 유지할게요' },
+      { feedback: 'notEnough', title: '아직 부족해요', detail: `다음엔 카페인 발현시간을 ${step}분 늘릴게요` },
+    ];
+  }
   return [
     { feedback: 'tooDeep', title: '너무 깊게 잤어요', detail: `머리가 무거워요 — 다음엔 ${step}분 줄일게요` },
     { feedback: 'justRight', title: '딱 좋았어요', detail: '지금 시간 그대로 유지할게요' },
@@ -34,26 +50,24 @@ const MANUAL_STEP = 1;
 
 interface FeedbackContext {
   mode: NapMode;
-  coffee: boolean;
-  offsetMinutes: number; // 이번 낮잠에 실제 사용된 오프셋(분) — NapRecord용
-  baseOffset: number; // 현재 저장된 버킷 오프셋(분) — 스테퍼 시작값
-  step: number; // 이 버킷에 다음 3버튼 후기가 적용될 스텝 크기(분)
-}
-
-function modeName(mode: NapMode): string {
-  return mode === 'fast' ? '바로 잠듦' : '뒤척임';
+  offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
+  baseValue: number; // latency[mode] 또는 caffeineOnset — 매뉴얼 스테퍼 시작값
+  step: number; // 다음 3버튼 후기가 적용될 스텝 크기(분)
+  latency: Settings['latency']; // 학습 상태 캡션용
+  caffeineOnset: number; // 학습 상태 캡션용
 }
 
 function buildToastMessage(mode: NapMode, feedback: NapFeedback, before: number, after: number): string {
   const name = modeName(mode);
+  const label = mode === 'coffee' ? '카페인 발현시간' : '대기시간';
   if (feedback === 'justRight') {
-    return `좋아요. ${name} 모드는 ${after}분 그대로 유지할게요.`;
+    return `좋아요. ${name} ${label}은 ${after}분 그대로 유지할게요.`;
   }
   if (after === before) {
     const bound = feedback === 'tooDeep' ? '최소' : '최대';
     return `${bound} 시간이라 더 조정하지 않았어요.`;
   }
-  return `다음 ${name} 낮잠은 ${after}분으로 맞춰둘게요.`;
+  return `다음 ${name}은 ${label} ${after}분으로 맞춰둘게요.`;
 }
 
 export default function FeedbackScreen() {
@@ -61,7 +75,7 @@ export default function FeedbackScreen() {
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualValue, setManualValue] = useState<number | null>(null);
-  // 입력창에 보여줄 원본 문자열 — 타이핑 중간에 clamp를 걸면("1" 입력 시 바로 10으로
+  // 입력창에 보여줄 원본 문자열 — 타이핑 중간에 clamp를 걸면("1" 입력 시 바로 하한으로
   // 튐) 사용자가 두 자리 수를 정상적으로 입력할 수 없다. 확정(blur/제출)에서만 clamp한다.
   const [manualText, setManualText] = useState('');
   const submittingRef = useRef(false);
@@ -74,15 +88,26 @@ export default function FeedbackScreen() {
         return;
       }
       const settings = await getSettings();
-      const bucket = bucketFor(pending.mode, pending.coffee);
+      const baseValue = pending.mode === 'coffee' ? settings.caffeineOnset : settings.latency[pending.mode];
       setCtx({
         mode: pending.mode,
-        coffee: pending.coffee,
         offsetMinutes: pending.offsetMinutes,
-        baseOffset: settings.offsets[bucket],
-        step: stepFor(settings, bucket),
+        baseValue,
+        step: stepFor(settings, pending.mode),
+        latency: settings.latency,
+        caffeineOnset: settings.caffeineOnset,
       });
     });
+  }, [router]);
+
+  // 알람 화면으로는 절대 못 돌아가야 한다(§6.4) — 이 화면에 진입한 시점에 이미
+  // ActiveNap이 지워져 있으므로 뒤로가기는 홈으로 보낸다.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/');
+      return true;
+    });
+    return () => subscription.remove();
   }, [router]);
 
   const onSelect = async (feedback: NapFeedback) => {
@@ -90,14 +115,12 @@ export default function FeedbackScreen() {
     submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const bucket = bucketFor(ctx.mode, ctx.coffee);
-    const before = ctx.baseOffset;
-    const updated = await applyFeedback(ctx.mode, ctx.coffee, feedback);
-    const after = updated.offsets[bucket];
+    const before = ctx.baseValue;
+    const updated = await applyFeedback(ctx.mode, feedback);
+    const after = ctx.mode === 'coffee' ? updated.caffeineOnset : updated.latency[ctx.mode];
     await appendNapRecord({
       completedAt: Date.now(),
       mode: ctx.mode,
-      coffee: ctx.coffee,
       offsetMinutes: ctx.offsetMinutes,
       result: feedback,
     });
@@ -107,17 +130,21 @@ export default function FeedbackScreen() {
     router.replace({ pathname: '/', params: { toast } });
   };
 
+  const manualBounds = () =>
+    ctx?.mode === 'coffee' ? { min: CAFFEINE_ONSET_MIN, max: CAFFEINE_ONSET_MAX } : { min: LATENCY_MIN, max: LATENCY_MAX };
+
   const openManual = () => {
     if (!ctx) return;
-    setManualValue(ctx.baseOffset);
-    setManualText(String(ctx.baseOffset));
+    setManualValue(ctx.baseValue);
+    setManualText(String(ctx.baseValue));
     setManualOpen(true);
   };
 
   const adjustManual = (delta: number) => {
+    const { min, max } = manualBounds();
     setManualValue((v) => {
       if (v === null) return v;
-      const next = Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, v + delta));
+      const next = Math.min(max, Math.max(min, v + delta));
       setManualText(String(next));
       return next;
     });
@@ -130,9 +157,10 @@ export default function FeedbackScreen() {
   // 텍스트 입력을 확정해 clamp된 숫자로 되돌린다 — blur 시, 그리고 적용 버튼을 눌러
   // 아직 blur가 일어나지 않은 상태에서도 최신 입력값을 반영하기 위해 재사용한다.
   const commitManualText = (): number => {
+    const { min, max } = manualBounds();
     const parsed = parseInt(manualText, 10);
-    const base = manualValue ?? OFFSET_MIN;
-    const next = Number.isNaN(parsed) ? base : Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, parsed));
+    const base = manualValue ?? min;
+    const next = Number.isNaN(parsed) ? base : Math.min(max, Math.max(min, parsed));
     setManualValue(next);
     setManualText(String(next));
     return next;
@@ -144,34 +172,46 @@ export default function FeedbackScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const finalValue = commitManualText();
-    const manualAdjustmentMinutes = finalValue - ctx.baseOffset;
-    await applyManualAdjustment(ctx.mode, ctx.coffee, finalValue);
+    const manualAdjustmentMinutes = finalValue - ctx.baseValue;
+    await applyManualAdjustment(ctx.mode, finalValue);
     await appendNapRecord({
       completedAt: Date.now(),
       mode: ctx.mode,
-      coffee: ctx.coffee,
       offsetMinutes: ctx.offsetMinutes,
       result: 'manual',
       manualAdjustmentMinutes,
     });
     await clearPendingFeedback();
 
-    router.replace({ pathname: '/', params: { toast: `다음 ${modeName(ctx.mode)} 낮잠은 ${finalValue}분으로 맞춰둘게요.` } });
+    const label = ctx.mode === 'coffee' ? '카페인 발현시간' : '대기시간';
+    router.replace({
+      pathname: '/',
+      params: { toast: `다음 ${modeName(ctx.mode)}은 ${label} ${finalValue}분으로 맞춰둘게요.` },
+    });
   };
 
   if (!ctx) {
     return <View style={styles.container} />;
   }
 
+  const { min: manualMin, max: manualMax } = manualBounds();
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
         <Text style={styles.title}>낮잠 어땠어요?</Text>
         <Text style={styles.subtitle}>다음 낮잠 시간에 바로 반영돼요.</Text>
+        {ctx.mode === 'coffee' ? (
+          <Text style={styles.statusLine}>내 카페인 발현: {ctx.caffeineOnset}분</Text>
+        ) : (
+          <Text style={styles.statusLine}>
+            내 수면 대기시간: 잠듦 {ctx.latency.fast}분 · 뒤척임 {ctx.latency.slow}분
+          </Text>
+        )}
       </View>
 
       <View style={styles.buttons}>
-        {buildFeedbackOptions(ctx.step).map((option) => (
+        {buildFeedbackOptions(ctx.mode, ctx.step).map((option) => (
           <Pressable
             key={option.feedback}
             onPress={() => onSelect(option.feedback)}
@@ -207,7 +247,7 @@ export default function FeedbackScreen() {
                 keyboardType="number-pad"
                 maxLength={2}
                 textAlign="center"
-                accessibilityLabel="분 직접 입력 (10~35)"
+                accessibilityLabel={`분 직접 입력 (${manualMin}~${manualMax})`}
               />
               <Text style={styles.manualUnitText}>분</Text>
             </View>
@@ -258,6 +298,12 @@ const styles = StyleSheet.create({
     lineHeight: 22.5,
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
+  },
+  statusLine: {
+    marginTop: 10,
+    fontSize: 12.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
   },
   buttons: {
     marginTop: 36,
