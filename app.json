@@ -40,7 +40,8 @@
       ],
       "expo-notifications",
       "expo-asset",
-      "expo-alarm-module"
+      "expo-alarm-module",
+      "./plugins/withFullScreenAlarmIntent.js"
     ]
   }
 }
