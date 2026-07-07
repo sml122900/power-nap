@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -98,6 +98,16 @@ export default function FeedbackScreen() {
         caffeineOnset: settings.caffeineOnset,
       });
     });
+  }, [router]);
+
+  // 알람 화면으로는 절대 못 돌아가야 한다(§6.4) — 이 화면에 진입한 시점에 이미
+  // ActiveNap이 지워져 있으므로 뒤로가기는 홈으로 보낸다.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/');
+      return true;
+    });
+    return () => subscription.remove();
   }, [router]);
 
   const onSelect = async (feedback: NapFeedback) => {

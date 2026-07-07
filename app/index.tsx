@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -43,6 +53,16 @@ export default function HomeScreen() {
   const [customOpen, setCustomOpen] = useState(false);
   // 입력창 원본 문자열 — 확정(blur/시작 버튼) 시에만 clamp한다(feedback.tsx와 동일 패턴).
   const [minutesAgoText, setMinutesAgoText] = useState('0');
+  const scrollRef = useRef<ScrollView>(null);
+
+  // 커피냅 칩/직접입력 패널이 펼쳐지면 새로 드러난 영역(칩 그리드 또는 미리보기+확정 버튼)이
+  // 화면 아래로 잘릴 수 있어 자동으로 스크롤해 보여준다. 패널이 버튼 목록 맨 아래쪽이라
+  // scrollToEnd로 충분하다 — 레이아웃이 반영될 시간을 주기 위해 한 틱 미룬다.
+  useEffect(() => {
+    if (!coffeeOpen) return;
+    const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    return () => clearTimeout(id);
+  }, [coffeeOpen, customOpen]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -136,119 +156,127 @@ export default function HomeScreen() {
     : { entering: FadeIn.duration(CHIP_ANIM_MS), exiting: FadeOut.duration(CHIP_ANIM_MS) };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.topRow}>
-        <Text style={styles.nowLabel}>지금</Text>
-        <Text style={[styles.nowTime, tabularNums]}>{formatKoreanTime(now)}</Text>
-      </View>
-
-      <Pressable onPress={() => router.push('/history')} hitSlop={12} style={styles.historyLink}>
-        <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
-      </Pressable>
-
-      <View style={styles.head}>
-        <Text style={styles.title}>졸리면{'\n'}그냥 누르세요</Text>
-        <Text style={styles.subtitle}>계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.</Text>
-      </View>
-
-      <View style={styles.buttons}>
-        <Pressable
-          onPress={() => startFastSlow('fast')}
-          style={({ pressed }) => [styles.napBtn, styles.primary, pressed && styles.primaryPressed]}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.primaryMode}>바로 잠들 것 같아요</Text>
-          <Text style={[styles.primaryDetail, tabularNums]}>
-            {fastTotal}분 뒤 · {formatKoreanTime(fastAlarmAt)} 알람
-          </Text>
-        </Pressable>
+          <View style={styles.topRow}>
+            <Text style={styles.nowLabel}>지금</Text>
+            <Text style={[styles.nowTime, tabularNums]}>{formatKoreanTime(now)}</Text>
+          </View>
 
-        <Pressable
-          onPress={() => startFastSlow('slow')}
-          style={({ pressed }) => [styles.napBtn, styles.secondary, pressed && styles.secondaryPressed]}
-        >
-          <Text style={styles.secondaryMode}>좀 뒤척일 것 같아요</Text>
-          <Text style={[styles.secondaryDetail, tabularNums]}>
-            {slowTotal}분 뒤 · {formatKoreanTime(slowAlarmAt)} 알람
-          </Text>
-        </Pressable>
+          <Pressable onPress={() => router.push('/history')} hitSlop={12} style={styles.historyLink}>
+            <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
+          </Pressable>
 
-        <Pressable
-          onPress={toggleCoffeeOpen}
-          style={({ pressed }) => [styles.napBtn, styles.coffeeBtn, (pressed || coffeeOpen) && styles.coffeeBtnActive]}
-        >
-          <Text style={styles.coffeeMode}>커피냅</Text>
-          <Text style={[styles.coffeeDetail, tabularNums]}>커피 마시고 {caffeineOnset}분 뒤 기상</Text>
-        </Pressable>
+          <View style={styles.head}>
+            <Text style={styles.title}>졸리면{'\n'}그냥 누르세요</Text>
+            <Text style={styles.subtitle}>계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.</Text>
+          </View>
 
-        {coffeeOpen && !customOpen && (
-          <Animated.View style={styles.coffeeChipGrid} {...chipAnim}>
-            <Pressable onPress={() => startCoffeeNap(0)} style={styles.coffeeChip}>
-              <Text style={styles.coffeeChipText}>방금</Text>
+          <View style={styles.buttons}>
+            <Pressable
+              onPress={() => startFastSlow('fast')}
+              style={({ pressed }) => [styles.napBtn, styles.primary, pressed && styles.primaryPressed]}
+            >
+              <Text style={styles.primaryMode}>바로 잠들 것 같아요</Text>
+              <Text style={[styles.primaryDetail, tabularNums]}>
+                {fastTotal}분 뒤 · {formatKoreanTime(fastAlarmAt)} 알람
+              </Text>
             </Pressable>
-            <Pressable onPress={() => startCoffeeNap(5)} style={styles.coffeeChip}>
-              <Text style={styles.coffeeChipText}>5분 전</Text>
-            </Pressable>
-            <Pressable onPress={() => startCoffeeNap(10)} style={styles.coffeeChip}>
-              <Text style={styles.coffeeChipText}>10분 전</Text>
-            </Pressable>
-            <Pressable onPress={openCustom} style={styles.coffeeChip}>
-              <Text style={styles.coffeeChipText}>직접 입력</Text>
-            </Pressable>
-          </Animated.View>
-        )}
-
-        {coffeeOpen && customOpen && (
-          <Animated.View style={styles.coffeeCustomPanel} {...chipAnim}>
-            <View style={styles.coffeeCustomInputRow}>
-              <TextInput
-                style={[styles.coffeeCustomInput, tabularNums]}
-                value={minutesAgoText}
-                onChangeText={(text) => setMinutesAgoText(text.replace(/[^0-9]/g, '').slice(0, 3))}
-                onBlur={commitMinutesAgoText}
-                onSubmitEditing={commitMinutesAgoText}
-                keyboardType="number-pad"
-                maxLength={3}
-                textAlign="center"
-                accessibilityLabel="몇 분 전에 커피를 마셨는지 입력 (0~120분)"
-              />
-              <Text style={styles.coffeeCustomUnit}>분 전</Text>
-            </View>
-
-            {customPreview.corrected && (
-              <Text style={styles.coffeeNotice}>카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요</Text>
-            )}
-            <Text style={[styles.coffeePreviewText, tabularNums]}>
-              {formatKoreanTime(new Date(customPreview.alarmAt))} 알람 ({customPreviewMinutes}분 뒤)
-            </Text>
 
             <Pressable
-              onPress={() => startCoffeeNap(commitMinutesAgoText())}
-              style={({ pressed }) => [styles.coffeeConfirmBtn, pressed && styles.coffeeConfirmBtnPressed]}
+              onPress={() => startFastSlow('slow')}
+              style={({ pressed }) => [styles.napBtn, styles.secondary, pressed && styles.secondaryPressed]}
             >
-              <Text style={styles.coffeeConfirmText}>이 시간으로 시작</Text>
+              <Text style={styles.secondaryMode}>좀 뒤척일 것 같아요</Text>
+              <Text style={[styles.secondaryDetail, tabularNums]}>
+                {slowTotal}분 뒤 · {formatKoreanTime(slowAlarmAt)} 알람
+              </Text>
             </Pressable>
-          </Animated.View>
-        )}
 
-        <Text style={styles.learnNote}>
-          후기를 반영해 시간이 자동으로 조정돼요{'\n'}
-          <Text style={styles.learnNoteBold}>
-            학습된 시간 — 바로 잠듦 {fastTotal}분 · 뒤척임 {slowTotal}분
-          </Text>
-        </Text>
+            <Pressable
+              onPress={toggleCoffeeOpen}
+              style={({ pressed }) => [styles.napBtn, styles.coffeeBtn, (pressed || coffeeOpen) && styles.coffeeBtnActive]}
+            >
+              <Text style={styles.coffeeMode}>커피냅</Text>
+              <Text style={[styles.coffeeDetail, tabularNums]}>커피 마시고 {caffeineOnset}분 뒤 기상</Text>
+            </Pressable>
 
-        {/* 실기기 테스트용 단축 낮잠 버튼 — 노출 여부는 src/config.ts SHOW_TEST_BUTTONS로 관리 */}
-        {SHOW_TEST_BUTTONS && (
-          <View style={styles.devRow}>
-            <Pressable onPress={() => startFastSlow('fast', 60_000)} style={styles.devBtn}>
-              <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
-            </Pressable>
-            <Pressable onPress={() => startFastSlow('fast', 10_000)} style={styles.devBtn}>
-              <Text style={styles.devBtnText}>테스트: 10초</Text>
-            </Pressable>
+            {coffeeOpen && !customOpen && (
+              <Animated.View style={styles.coffeeChipGrid} {...chipAnim}>
+                <Pressable onPress={() => startCoffeeNap(0)} style={styles.coffeeChip}>
+                  <Text style={styles.coffeeChipText}>방금</Text>
+                </Pressable>
+                <Pressable onPress={() => startCoffeeNap(5)} style={styles.coffeeChip}>
+                  <Text style={styles.coffeeChipText}>5분 전</Text>
+                </Pressable>
+                <Pressable onPress={() => startCoffeeNap(10)} style={styles.coffeeChip}>
+                  <Text style={styles.coffeeChipText}>10분 전</Text>
+                </Pressable>
+                <Pressable onPress={openCustom} style={styles.coffeeChip}>
+                  <Text style={styles.coffeeChipText}>직접 입력</Text>
+                </Pressable>
+              </Animated.View>
+            )}
+
+            {coffeeOpen && customOpen && (
+              <Animated.View style={styles.coffeeCustomPanel} {...chipAnim}>
+                <View style={styles.coffeeCustomInputRow}>
+                  <TextInput
+                    style={[styles.coffeeCustomInput, tabularNums]}
+                    value={minutesAgoText}
+                    onChangeText={(text) => setMinutesAgoText(text.replace(/[^0-9]/g, '').slice(0, 3))}
+                    onBlur={commitMinutesAgoText}
+                    onSubmitEditing={commitMinutesAgoText}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    textAlign="center"
+                    accessibilityLabel="몇 분 전에 커피를 마셨는지 입력 (0~120분)"
+                  />
+                  <Text style={styles.coffeeCustomUnit}>분 전</Text>
+                </View>
+
+                {customPreview.corrected && (
+                  <Text style={styles.coffeeNotice}>카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요</Text>
+                )}
+                <Text style={[styles.coffeePreviewText, tabularNums]}>
+                  {formatKoreanTime(new Date(customPreview.alarmAt))} 알람 ({customPreviewMinutes}분 뒤)
+                </Text>
+
+                <Pressable
+                  onPress={() => startCoffeeNap(commitMinutesAgoText())}
+                  style={({ pressed }) => [styles.coffeeConfirmBtn, pressed && styles.coffeeConfirmBtnPressed]}
+                >
+                  <Text style={styles.coffeeConfirmText}>이 시간으로 시작</Text>
+                </Pressable>
+              </Animated.View>
+            )}
+
+            <Text style={styles.learnNote}>
+              후기를 반영해 시간이 자동으로 조정돼요{'\n'}
+              <Text style={styles.learnNoteBold}>
+                학습된 시간 — 바로 잠듦 {fastTotal}분 · 뒤척임 {slowTotal}분
+              </Text>
+            </Text>
+
+            {/* 실기기 테스트용 단축 낮잠 버튼 — 노출 여부는 src/config.ts SHOW_TEST_BUTTONS로 관리 */}
+            {SHOW_TEST_BUTTONS && (
+              <View style={styles.devRow}>
+                <Pressable onPress={() => startFastSlow('fast', 60_000)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
+                </Pressable>
+                <Pressable onPress={() => startFastSlow('fast', 10_000)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>테스트: 10초</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
-        )}
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {toastMessage && (
         <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.toast}>
@@ -260,9 +288,15 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  flex: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 32,
