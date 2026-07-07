@@ -42,22 +42,40 @@
   - **의도적으로 미룬 것 3건(다음 단계 후보, PROJECT.md §4 "알려진 한계" 참고)**:
     풀스크린 인텐트/화면 자동점등 미구현(알림 본문을 직접 탭해야 해제 화면 진입), 알림 스와이프
     삭제 시 화면 없이 소리 꺼짐, 커스텀 사운드(`alarm.wav`) 미지원(라이브러리 기본음 사용).
+- **[브랜치 `fullscreen-intent`, main 미병합] B그룹 — 풀스크린 인텐트 + 화면 자동점등**:
+  - config plugin `plugins/withFullScreenAlarmIntent.js` 신규: (1) 매니페스트에
+    `USE_FULL_SCREEN_INTENT` 권한 + `MainActivity`에 `showWhenLocked`/`turnScreenOn` 속성
+    주입, (2) `node_modules/expo-alarm-module`의 `Helper.java`(알림 빌더, 라이브러리가
+    `setFullScreenIntent` 옵션 자체를 제공 안 함)에 `.setFullScreenIntent(...)` 호출과
+    `canUseFullScreenIntent()` 런타임 로그를 소스 레벨로 패치 — `android/`(gitignore) 대신
+    `withDangerousMod`로 매 `expo prebuild`마다 재적용되게 함(patch-package 방식).
+    버전 결합(expo-alarm-module 1.2.0 기준) 명시, 코드 안 맞으면 조용히 스킵 대신 에러.
+  - 라이브러리 포크 없이 config plugin만으로 구현 가능 — 중단 기준(포크 수준 수정 필요) 미해당.
+  - 검증 완료: `expo prebuild --clean` 2회 연속(멱등성, 중복 패치 없음) + 방금 재설치한
+    pristine `expo-alarm-module` 위에서 1회(재설치 후에도 재현됨) + `gradlew assembleDebug`
+    전체 빌드 성공(APK 생성, 패치된 Java 정상 컴파일) + 매니페스트에 권한/MainActivity
+    속성 반영 확인. **실기기 설치는 하지 않음** — phase-4-2 검증 이후 사용자 지시 대기.
 
 **마지막 검증된 커밋: HEAD (`git log --oneline -1`) — "Merge branch 'spike/native-alarm' into main" (`918c3ee`).**
 tsc/expo-doctor/expo export 3종 + jest 11개 통과(브랜치에서), 병합 후 `main` push 완료.
+(`fullscreen-intent` 브랜치는 별도로 위 항목 검증 완료, push 완료.)
 
 ## 지금 단계
 
 Android 네이티브 알람 전환이 `main`에 병합·배포 완료됐고, 이 릴리즈 빌드가 **도그푸딩
-3기 기준 버전**이다. 풀스크린 인텐트/화면 자동점등 패치는 별도 브랜치에서 다음 지시로
-진행 예정 — 지금은 착수하지 않음. 그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드
-동결 유지.
+3기 기준 버전**이다. `fullscreen-intent` 브랜치(main 기준 분기)에서 풀스크린 인텐트
+패치 구현·컴파일 검증까지 완료 — **실기기 검증 대기, main 미병합**. `phase-4-2`(학습
+모델 v2 + A그룹)도 별도로 실기기 검증 대기 중(자세한 내용은 해당 브랜치의 STATUS.md).
+그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
-- [ ] (다음 단계, 별도 브랜치·별도 지시 대기) 풀스크린 인텐트 + 화면 자동점등 네이티브 패치
-      — Expo config plugin으로 `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 +
-      알림에 `setFullScreenIntent()` 주입 필요(라이브러리가 기본 제공 안 함)
+- [ ] **`fullscreen-intent` 실기기 검증**: 잠금 화면 상태에서 알람 시각에 화면이 자동으로
+      켜지며 해제 화면으로 직행하는지, `canUseFullScreenIntent()` 로그로 실제 권한 부여
+      여부 확인(도그푸딩 기기는 직접 설치라 허용일 가능성 높음), 권한 미부여 시에도 알람
+      자체(소리/진동)는 정상 발화하는지(폴백 확인), 기존 알림 탭→해제 화면 진입 경로가
+      깨지지 않았는지
+- [ ] `fullscreen-intent` → `main` 병합 여부/시점 결정 (위 실기기 검증 완료 후)
 - [ ] 수면 화면 커피 토글 OFF 상태 "켜면 오후 h:mm 알람 (n분)" 프리뷰 값 실기기 재검증
       (버그 3건 수정에 포함됐으나 네이티브 알람 작업에 밀려 별도 확인 안 됨)
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
