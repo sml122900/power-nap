@@ -2,6 +2,8 @@
 // Phase 4-2: 알람 = 기준시각 + 소요시간 모델로 개편.
 // - 일반 낮잠(fast/slow): 알람 = 시작 + TARGET_SLEEP_MIN(상수) + latency[mode](학습)
 // - 커피냅(coffee): 알람 = 커피 마신 시각 + caffeineOnset(학습)
+// Phase 4-3: 자동 ±스텝 조정(및 converged) 폐지. latency/caffeineOnset은 이제 수동
+// 조정(applyManualAdjustment)으로만 바뀐다 — 근거는 PROJECT.md §5 참고.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -11,9 +13,8 @@ export type NapMode = 'fast' | 'slow' | 'coffee'; // 바로 잠듦 / 뒤척임 /
 export const TARGET_SLEEP_MIN = 20;
 
 export interface Settings {
-  latency: Record<'fast' | 'slow', number>; // 분 — 목표수면 외에 추가로 필요한 대기시간(학습)
-  caffeineOnset: number; // 분 — 커피 마신 시각부터 카페인 발현까지(학습)
-  converged: Record<'fast' | 'slow' | 'caffeine', boolean>; // "딱 좋았어요" 1회 이상 여부 — 스텝 크기 분기 기준
+  latency: Record<'fast' | 'slow', number>; // 분 — 목표수면 외에 추가로 필요한 대기시간(수동 조정)
+  caffeineOnset: number; // 분 — 커피 마신 시각부터 카페인 발현까지(수동 조정)
   totalNaps: number;
 }
 
@@ -26,7 +27,10 @@ export interface ActiveNap {
   isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
 }
 
+// 레거시(Phase 4-2 이전) 3버튼 후기 결과 — 신규 레코드는 더 이상 안 씀,
+// 히스토리 화면의 구형 NapRecord 렌더링 하위호환용으로만 타입을 유지한다.
 export type NapFeedback = 'tooDeep' | 'justRight' | 'notEnough';
+export type NapRecordResult = NapFeedback | 'manual' | 'manual-settings' | 'test';
 
 // 알람 해제 → 후기 화면으로 넘어갈 때 ActiveNap 대신 이 키에 최소 정보만 옮겨 담는다.
 // §6.4: 후기 화면에서 앱이 죽어도 ActiveNap이 남아있지 않아야 재실행 시 알람 화면으로
@@ -36,16 +40,40 @@ export interface PendingFeedback {
   offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
 }
 
-// 후기 제출 시마다 append-only로 남기는 기록 (Phase 4-1) — 현재는 UI 없음, 히스토리/분석 원료.
-export type NapRecordResult = NapFeedback | 'manual' | 'manual-settings' | 'test';
+// 후기 화면 4문항 설문(Phase 4-3) — 상/중/하 3단계, latency/caffeineOnset에 영향 없음
+// (순수 데이터 수집 — BACKLOG v2 AI 분석의 원료).
+export type SurveyRating = 'high' | 'mid' | 'low';
 
+export interface NapSurvey {
+  posture: SurveyRating; // 자세 편안함
+  noise: SurveyRating; // 소음 차단
+  light: SurveyRating; // 빛 차단
+  satisfaction: SurveyRating; // 수면 만족도
+}
+
+// 후기 제출 시마다 append-only로 남기는 기록 — 현재는 히스토리 열람 외 UI 없음,
+// 향후 분석 기능의 원료. v1(레거시)/v2(Phase 4-3) 포맷이 공존한다 — result가 있으면
+// v1, survey/manualAdjust가 있으면 v2. 신규 레코드는 항상 v2 포맷으로 남는다.
 export interface NapRecord {
   completedAt: number; // epoch ms — 후기 제출 시각
   mode: NapMode;
   offsetMinutes: number; // 이번 낮잠에 사용된 총 시간(분)
-  result: NapRecordResult;
-  manualAdjustmentMinutes?: number; // '직접 조정하기'로 제출한 경우의 변화량(분, 부호 있음)
   isTest?: boolean; // 테스트 낮잠(ActiveNap.isTest 승계) — 히스토리에 표시만, 학습 반영 없음.
+
+  // v1(레거시, Phase 4-2 이전 3버튼 후기/직접조정) — 신규 레코드는 설정하지 않는다.
+  result?: NapRecordResult;
+  manualAdjustmentMinutes?: number; // '직접 조정하기'로 제출한 경우의 변화량(분, 부호 있음)
+
+  // v2(Phase 4-3) — 4문항 설문 + 선택 메모. survey는 "건너뛰기" 제출 시 null.
+  survey?: NapSurvey | null;
+  memo?: string;
+  // 수동 조정(설정 화면 또는 후기 화면 "직접 조정하기") 기록 — latency/caffeineOnset을
+  // 바꾸는 유일한 경로라 어디서 왔는지(source) 구분해 남긴다.
+  manualAdjust?: {
+    source: 'feedback' | 'settings';
+    beforeMinutes: number;
+    afterMinutes: number;
+  };
 }
 
 const KEYS = {
@@ -60,16 +88,9 @@ const KEYS = {
 const DEFAULT_LATENCY: Record<'fast' | 'slow', number> = { fast: 0, slow: 10 };
 const DEFAULT_CAFFEINE_ONSET = 25;
 
-const DEFAULT_CONVERGED: Record<'fast' | 'slow' | 'caffeine', boolean> = {
-  fast: false,
-  slow: false,
-  caffeine: false,
-};
-
 const DEFAULT_SETTINGS: Settings = {
   latency: DEFAULT_LATENCY,
   caffeineOnset: DEFAULT_CAFFEINE_ONSET,
-  converged: DEFAULT_CONVERGED,
   totalNaps: 0,
 };
 
@@ -79,9 +100,6 @@ export const LATENCY_MAX = 20;
 export const CAFFEINE_ONSET_MIN = 15;
 export const CAFFEINE_ONSET_MAX = 35;
 
-const STEP_UNCONVERGED = 3;
-const STEP_CONVERGED = 2;
-
 export function clampLatency(minutes: number): number {
   return Math.min(LATENCY_MAX, Math.max(LATENCY_MIN, minutes));
 }
@@ -90,19 +108,12 @@ export function clampCaffeineOnset(minutes: number): number {
   return Math.min(CAFFEINE_ONSET_MAX, Math.max(CAFFEINE_ONSET_MIN, minutes));
 }
 
-// 해당 모드에 다음 후기가 적용될 스텝 크기(분) — 후기 화면 미리보기 라벨이 이 값을
-// 하드코딩하지 않고 재사용해야 실제 적용값과 어긋나지 않는다.
-export function stepFor(settings: Settings, mode: NapMode): number {
-  const convergedKey = mode === 'coffee' ? 'caffeine' : mode;
-  return settings.converged[convergedKey] ? STEP_CONVERGED : STEP_UNCONVERGED;
-}
-
 // 구형 저장 형태 마이그레이션:
 // - v1({fast,slow} 2개 오프셋)과 v2({fast,slow,fastCoffee,slowCoffee} 4버킷)는 둘 다
 //   offsets.fast/offsets.slow를 갖고 있어 같은 경로로 처리한다(fastCoffee/slowCoffee는
 //   신규 모델(caffeineOnset)과 개념이 달라 승계하지 않고 버린다 — 사용자 확정 사항).
 // - latency = clamp(offsets[mode] − TARGET_SLEEP_MIN), caffeineOnset은 항상 기본값(25)에서
-//   다시 시작, converged.fast/slow는 승계, converged.caffeine은 false.
+//   다시 시작. `converged`는 Phase 4-3에서 폐지된 필드라 있어도 읽지 않고 버린다.
 export async function getSettings(): Promise<Settings> {
   const raw = await AsyncStorage.getItem(KEYS.settings);
   if (!raw) return DEFAULT_SETTINGS;
@@ -111,7 +122,6 @@ export async function getSettings(): Promise<Settings> {
     latency?: Partial<Record<'fast' | 'slow', number>>;
     caffeineOnset?: number;
     offsets?: Partial<Record<'fast' | 'slow', number>>;
-    converged?: Partial<Record<'fast' | 'slow' | 'caffeine', boolean>>;
     totalNaps?: number;
   };
   try {
@@ -128,29 +138,18 @@ export async function getSettings(): Promise<Settings> {
         slow: parsed.latency.slow ?? DEFAULT_LATENCY.slow,
       },
       caffeineOnset: parsed.caffeineOnset ?? DEFAULT_CAFFEINE_ONSET,
-      converged: {
-        fast: parsed.converged?.fast ?? false,
-        slow: parsed.converged?.slow ?? false,
-        caffeine: parsed.converged?.caffeine ?? false,
-      },
       totalNaps: parsed.totalNaps ?? 0,
     };
   }
 
   // v1 또는 v2 — offsets 기반 구형 형태.
   const rawOffsets = parsed.offsets ?? {};
-  const rawConverged = parsed.converged ?? {};
   const migrated: Settings = {
     latency: {
       fast: clampLatency((rawOffsets.fast ?? TARGET_SLEEP_MIN) - TARGET_SLEEP_MIN),
       slow: clampLatency((rawOffsets.slow ?? TARGET_SLEEP_MIN + 10) - TARGET_SLEEP_MIN),
     },
     caffeineOnset: DEFAULT_CAFFEINE_ONSET,
-    converged: {
-      fast: rawConverged.fast ?? false,
-      slow: rawConverged.slow ?? false,
-      caffeine: false,
-    },
     totalNaps: parsed.totalNaps ?? 0,
   };
   await saveSettings(migrated);
@@ -161,41 +160,8 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings));
 }
 
-// 학습 규칙 (Phase 4-2): 미수렴이면 스텝 ±3분, 수렴("딱 좋았어요" 1회 이상)이면 ±2분.
-// 너무 깊게 잤어요 -step / 딱 좋았어요 변화 없음(converged=true로 전환) / 아직 부족해요 +step.
-// fast/slow는 latency[mode]에 반영(clamp 0~20), coffee는 caffeineOnset에 반영(clamp 15~35).
-export async function applyFeedback(mode: NapMode, feedback: NapFeedback): Promise<Settings> {
-  const settings = await getSettings();
-  const step = stepFor(settings, mode);
-  const delta = feedback === 'tooDeep' ? -step : feedback === 'notEnough' ? step : 0;
-
-  if (mode === 'coffee') {
-    const nextCaffeineOnset = clampCaffeineOnset(settings.caffeineOnset + delta);
-    const nextConverged = feedback === 'justRight' ? true : settings.converged.caffeine;
-    const next: Settings = {
-      ...settings,
-      caffeineOnset: nextCaffeineOnset,
-      converged: { ...settings.converged, caffeine: nextConverged },
-      totalNaps: settings.totalNaps + 1,
-    };
-    await saveSettings(next);
-    return next;
-  }
-
-  const nextLatency = clampLatency(settings.latency[mode] + delta);
-  const nextConverged = feedback === 'justRight' ? true : settings.converged[mode];
-  const next: Settings = {
-    ...settings,
-    latency: { ...settings.latency, [mode]: nextLatency },
-    converged: { ...settings.converged, [mode]: nextConverged },
-    totalNaps: settings.totalNaps + 1,
-  };
-  await saveSettings(next);
-  return next;
-}
-
-// 후기 화면 보조 경로("직접 조정하기") 전용: 절대값을 clamp해 그대로 반영한다.
-// 3버튼 학습 로직(step/converged)과 무관 — converged 플래그는 건드리지 않는다.
+// 후기 화면 "직접 조정하기" 및 설정 화면 전용: 절대값을 clamp해 그대로 반영한다.
+// Phase 4-3부터 latency/caffeineOnset을 바꾸는 유일한 경로 — PROJECT.md §5 참고.
 // fast/slow는 latency를, coffee는 caffeineOnset을 직접 설정한다.
 export async function applyManualAdjustment(mode: NapMode, targetMinutes: number): Promise<Settings> {
   const settings = await getSettings();

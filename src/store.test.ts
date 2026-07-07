@@ -6,7 +6,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   appendNapRecord,
-  applyFeedback,
   applyManualAdjustment,
   computeCoffeeAlarmAt,
   getNapRecords,
@@ -29,7 +28,6 @@ describe('getSettings migration', () => {
 
     expect(settings.latency).toEqual({ fast: 0, slow: 13 }); // clamp(18-20,0,20)=0, clamp(33-20,0,20)=13
     expect(settings.caffeineOnset).toBe(25);
-    expect(settings.converged).toEqual({ fast: false, slow: false, caffeine: false });
     expect(settings.totalNaps).toBe(7);
   });
 
@@ -47,8 +45,23 @@ describe('getSettings migration', () => {
 
     expect(settings.latency).toEqual({ fast: 0, slow: 8 }); // clamp(17-20,0,20)=0, clamp(28-20,0,20)=8
     expect(settings.caffeineOnset).toBe(25); // fastCoffee/slowCoffee는 승계하지 않고 기본값으로 리셋
-    expect(settings.converged).toEqual({ fast: true, slow: false, caffeine: false });
     expect(settings.totalNaps).toBe(12);
+  });
+
+  it('drops a legacy converged field instead of reading it (Phase 4-3 removed the concept)', async () => {
+    await AsyncStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        latency: { fast: 5, slow: 15 },
+        caffeineOnset: 30,
+        converged: { fast: true, slow: false, caffeine: true },
+        totalNaps: 3,
+      })
+    );
+
+    const settings = await getSettings();
+    expect(settings).toEqual({ latency: { fast: 5, slow: 15 }, caffeineOnset: 30, totalNaps: 3 });
+    expect((settings as unknown as { converged?: unknown }).converged).toBeUndefined();
   });
 
   it('persists the migrated shape so a second load does not re-derive from a stale legacy value', async () => {
@@ -65,7 +78,6 @@ describe('getSettings migration', () => {
     const original: Settings = {
       latency: { fast: 5, slow: 15 },
       caffeineOnset: 30,
-      converged: { fast: true, slow: false, caffeine: true },
       totalNaps: 3,
     };
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(original));
@@ -75,100 +87,13 @@ describe('getSettings migration', () => {
   });
 });
 
-describe('applyFeedback — fast/slow (latency)', () => {
-  it('only changes the latency for the matching mode', async () => {
-    await applyFeedback('fast', 'notEnough');
-    const settings = await getSettings();
-
-    expect(settings.latency.fast).toBe(3); // 0 + unconverged step 3
-    expect(settings.latency.slow).toBe(10);
-    expect(settings.caffeineOnset).toBe(25);
-  });
-
-  it('flips converged on justRight and does not change latency', async () => {
-    const before = await getSettings();
-    const updated = await applyFeedback('slow', 'justRight');
-
-    expect(updated.converged.slow).toBe(true);
-    expect(updated.latency.slow).toBe(before.latency.slow);
-  });
-
-  it('uses step 3 before convergence and step 2 after', async () => {
-    let settings = await applyFeedback('fast', 'notEnough');
-    expect(settings.latency.fast).toBe(3); // 0 + 3
-
-    settings = await applyFeedback('fast', 'justRight');
-    expect(settings.converged.fast).toBe(true);
-    expect(settings.latency.fast).toBe(3); // unchanged
-
-    settings = await applyFeedback('fast', 'notEnough');
-    expect(settings.latency.fast).toBe(5); // 3 + converged step 2
-  });
-
-  it('clamps at the 0 minute floor', async () => {
-    for (let i = 0; i < 10; i++) {
-      await applyFeedback('fast', 'tooDeep');
-    }
-    const settings = await getSettings();
-    expect(settings.latency.fast).toBe(0);
-  });
-
-  it('clamps at the 20 minute ceiling', async () => {
-    for (let i = 0; i < 10; i++) {
-      await applyFeedback('slow', 'notEnough');
-    }
-    const settings = await getSettings();
-    expect(settings.latency.slow).toBe(20);
-  });
-
-  it('increments totalNaps on every submission', async () => {
-    await applyFeedback('fast', 'justRight');
-    const settings = await applyFeedback('fast', 'notEnough');
-    expect(settings.totalNaps).toBe(2);
-  });
-});
-
-describe('applyFeedback — coffee (caffeineOnset)', () => {
-  it('adjusts caffeineOnset and leaves latency untouched', async () => {
-    const settings = await applyFeedback('coffee', 'notEnough');
-    expect(settings.caffeineOnset).toBe(28); // 25 + unconverged step 3
-    expect(settings.latency).toEqual({ fast: 0, slow: 10 });
-  });
-
-  it('uses its own converged flag, independent of fast/slow', async () => {
-    await applyFeedback('fast', 'justRight');
-    const settings = await applyFeedback('coffee', 'notEnough');
-    expect(settings.converged.fast).toBe(true);
-    expect(settings.converged.caffeine).toBe(false);
-    expect(settings.caffeineOnset).toBe(28); // still unconverged step 3
-  });
-
-  it('clamps at the 15 minute floor', async () => {
-    for (let i = 0; i < 10; i++) {
-      await applyFeedback('coffee', 'tooDeep');
-    }
-    const settings = await getSettings();
-    expect(settings.caffeineOnset).toBe(15);
-  });
-
-  it('clamps at the 35 minute ceiling', async () => {
-    for (let i = 0; i < 10; i++) {
-      await applyFeedback('coffee', 'notEnough');
-    }
-    const settings = await getSettings();
-    expect(settings.caffeineOnset).toBe(35);
-  });
-});
-
 describe('applyManualAdjustment', () => {
-  it('sets latency directly for fast/slow, clamped, without touching converged', async () => {
+  it('sets latency directly for fast/slow, clamped', async () => {
     let settings = await applyManualAdjustment('slow', 50);
     expect(settings.latency.slow).toBe(20);
-    expect(settings.converged.slow).toBe(false);
 
     settings = await applyManualAdjustment('slow', -5);
     expect(settings.latency.slow).toBe(0);
-    expect(settings.converged.slow).toBe(false);
   });
 
   it('sets caffeineOnset directly for coffee, clamped', async () => {
@@ -189,8 +114,8 @@ describe('applyManualAdjustment', () => {
 });
 
 describe('test nap records', () => {
-  it('recording an isTest nap does not touch latency/caffeineOnset/converged', async () => {
-    await applyFeedback('fast', 'notEnough'); // 실사용 학습값이 이미 존재하는 상태를 재현
+  it('recording an isTest nap does not touch latency/caffeineOnset', async () => {
+    await applyManualAdjustment('fast', 12); // 실사용 값이 이미 존재하는 상태를 재현
     const before = await getSettings();
 
     await appendNapRecord({
@@ -212,6 +137,82 @@ describe('test nap records', () => {
       result: 'test',
       isTest: true,
     });
+  });
+});
+
+describe('Phase 4-3 survey records', () => {
+  it('round-trips a submitted survey + memo without touching latency/caffeineOnset', async () => {
+    const before = await getSettings();
+
+    await appendNapRecord({
+      completedAt: 1_700_000_000_000,
+      mode: 'slow',
+      offsetMinutes: 32,
+      survey: { posture: 'high', noise: 'mid', light: 'low', satisfaction: 'mid' },
+      memo: '창밖이 좀 시끄러웠음',
+    });
+
+    const after = await getSettings();
+    expect(after).toEqual(before); // 설문은 순수 데이터 수집 — latency/caffeineOnset 불변
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.survey).toEqual({ posture: 'high', noise: 'mid', light: 'low', satisfaction: 'mid' });
+    expect(record.memo).toBe('창밖이 좀 시끄러웠음');
+    expect(record.result).toBeUndefined(); // v2 레코드는 레거시 result 필드를 안 씀
+  });
+
+  it('round-trips a skipped survey as survey: null', async () => {
+    await appendNapRecord({
+      completedAt: 1_700_000_000_001,
+      mode: 'coffee',
+      offsetMinutes: 25,
+      survey: null,
+    });
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.survey).toBeNull();
+    expect(record.memo).toBeUndefined();
+  });
+
+  it('round-trips a manual adjustment from the feedback screen', async () => {
+    const updated = await applyManualAdjustment('slow', 14);
+    expect(updated.latency.slow).toBe(14);
+
+    await appendNapRecord({
+      completedAt: 1_700_000_000_002,
+      mode: 'slow',
+      offsetMinutes: 30,
+      manualAdjust: { source: 'feedback', beforeMinutes: 10, afterMinutes: 14 },
+    });
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.manualAdjust).toEqual({ source: 'feedback', beforeMinutes: 10, afterMinutes: 14 });
+    expect(record.survey).toBeUndefined();
+  });
+
+  it('records both legacy (v1) and Phase 4-3 (v2) shaped entries in the same history', async () => {
+    await appendNapRecord({
+      completedAt: 1_700_000_000_003,
+      mode: 'fast',
+      offsetMinutes: 20,
+      result: 'justRight',
+    });
+    await appendNapRecord({
+      completedAt: 1_700_000_000_004,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: { posture: 'mid', noise: 'mid', light: 'mid', satisfaction: 'high' },
+    });
+
+    const records = await getNapRecords();
+    expect(records).toHaveLength(2);
+    expect(records[0].result).toBe('justRight');
+    expect(records[0].survey).toBeUndefined();
+    expect(records[1].result).toBeUndefined();
+    expect(records[1].survey).toEqual({ posture: 'mid', noise: 'mid', light: 'mid', satisfaction: 'high' });
   });
 });
 

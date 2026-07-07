@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { formatKoreanDateTime } from '@/format';
-import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult } from '@/store';
+import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult, type NapSurvey, type SurveyRating } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
@@ -28,6 +28,31 @@ function resultLabel(result: NapRecordResult): string {
     case 'test':
       return '테스트';
   }
+}
+
+const RATING_LABEL: Record<SurveyRating, string> = { high: '상', mid: '중', low: '하' };
+
+export function surveySummary(survey: NapSurvey): string {
+  return `자세${RATING_LABEL[survey.posture]} 소음${RATING_LABEL[survey.noise]} 빛${RATING_LABEL[survey.light]} · 만족${RATING_LABEL[survey.satisfaction]}`;
+}
+
+// v1(레거시 3버튼 후기/직접조정)과 v2(Phase 4-3 설문/수동조정) 포맷이 한 히스토리에
+// 공존한다 — result가 있으면 v1, 없으면 v2로 판정한다(store.ts NapRecord 참고).
+export function detailText(item: NapRecord): string {
+  if (item.result !== undefined) {
+    const suffix =
+      (item.result === 'manual' || item.result === 'manual-settings') && item.manualAdjustmentMinutes !== undefined
+        ? ` (${item.manualAdjustmentMinutes > 0 ? '+' : ''}${item.manualAdjustmentMinutes}분)`
+        : '';
+    return `${resultLabel(item.result)}${suffix}`;
+  }
+  if (item.manualAdjust) {
+    const sourceLabel = item.manualAdjust.source === 'settings' ? '설정에서 조정' : '직접 조정';
+    return `${sourceLabel} (${item.manualAdjust.beforeMinutes}→${item.manualAdjust.afterMinutes}분)`;
+  }
+  if (item.survey === null) return '설문 건너뜀';
+  if (item.survey) return surveySummary(item.survey);
+  return '';
 }
 
 export default function HistoryScreen() {
@@ -66,16 +91,9 @@ export default function HistoryScreen() {
               </View>
               <Text style={styles.rowDetail}>
                 {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
-                {resultLabel(item.result)}
-                {(item.result === 'manual' || item.result === 'manual-settings') &&
-                  item.manualAdjustmentMinutes !== undefined && (
-                  <Text style={tabularNums}>
-                    {' '}
-                    ({item.manualAdjustmentMinutes > 0 ? '+' : ''}
-                    {item.manualAdjustmentMinutes}분)
-                  </Text>
-                )}
+                {detailText(item)}
               </Text>
+              {item.memo && <Text style={styles.memoText}>"{item.memo}"</Text>}
             </View>
           )}
         />
@@ -154,5 +172,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
+  },
+  memoText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: colors.inkFaint,
+    fontStyle: 'italic',
   },
 });
