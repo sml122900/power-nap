@@ -37,7 +37,7 @@ export interface PendingFeedback {
 }
 
 // 후기 제출 시마다 append-only로 남기는 기록 (Phase 4-1) — 현재는 UI 없음, 히스토리/분석 원료.
-export type NapRecordResult = NapFeedback | 'manual' | 'test';
+export type NapRecordResult = NapFeedback | 'manual' | 'manual-settings' | 'test';
 
 export interface NapRecord {
   completedAt: number; // epoch ms — 후기 제출 시각

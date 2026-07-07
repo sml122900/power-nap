@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
@@ -69,12 +69,16 @@ export default function HomeScreen() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    getSettings().then((settings) => {
-      setLatency(settings.latency);
-      setCaffeineOnset(settings.caffeineOnset);
-    });
-  }, []);
+  // 설정 화면에서 값을 바꾸고 뒤로가기(pop)로 돌아왔을 때도 최신값을 반영해야 한다 —
+  // 그 화면은 replace가 아니라 push/pop이라 이 화면이 리마운트되지 않는다.
+  useFocusEffect(
+    useCallback(() => {
+      getSettings().then((settings) => {
+        setLatency(settings.latency);
+        setCaffeineOnset(settings.caffeineOnset);
+      });
+    }, [])
+  );
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
@@ -168,9 +172,15 @@ export default function HomeScreen() {
             <Text style={[styles.nowTime, tabularNums]}>{formatKoreanTime(now)}</Text>
           </View>
 
-          <Pressable onPress={() => router.push('/history')} hitSlop={12} style={styles.historyLink}>
-            <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
-          </Pressable>
+          <View style={styles.topLinksRow}>
+            <Pressable onPress={() => router.push('/history')} hitSlop={12}>
+              <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
+            </Pressable>
+            <Text style={styles.topLinksSeparator}>·</Text>
+            <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
+              <Text style={styles.historyLinkText}>설정</Text>
+            </Pressable>
+          </View>
 
           <View style={styles.head}>
             <Text style={styles.title}>졸리면{'\n'}그냥 누르세요</Text>
@@ -316,9 +326,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.inkSoft,
   },
-  historyLink: {
+  topLinksRow: {
+    flexDirection: 'row',
     alignSelf: 'flex-start',
+    alignItems: 'center',
     marginTop: 12,
+    gap: 8,
+  },
+  topLinksSeparator: {
+    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
   },
   historyLinkText: {
     fontSize: 13,

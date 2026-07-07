@@ -23,6 +23,8 @@ function resultLabel(result: NapRecordResult): string {
       return '아직 부족해요';
     case 'manual':
       return '직접 조정';
+    case 'manual-settings':
+      return '설정에서 조정';
     case 'test':
       return '테스트';
   }
@@ -65,7 +67,8 @@ export default function HistoryScreen() {
               <Text style={styles.rowDetail}>
                 {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
                 {resultLabel(item.result)}
-                {item.result === 'manual' && item.manualAdjustmentMinutes !== undefined && (
+                {(item.result === 'manual' || item.result === 'manual-settings') &&
+                  item.manualAdjustmentMinutes !== undefined && (
                   <Text style={tabularNums}>
                     {' '}
                     ({item.manualAdjustmentMinutes > 0 ? '+' : ''}
