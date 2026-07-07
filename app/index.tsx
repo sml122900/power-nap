@@ -161,7 +161,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.container}
@@ -240,6 +240,13 @@ export default function HomeScreen() {
                     style={[styles.coffeeCustomInput, tabularNums]}
                     value={minutesAgoText}
                     onChangeText={(text) => setMinutesAgoText(text.replace(/[^0-9]/g, '').slice(0, 3))}
+                    onFocus={() => {
+                      // KeyboardAvoidingView가 키보드 높이만큼 컨테이너를 줄여줘도 스크롤
+                      // 위치까지 자동으로 따라가진 않는다 — 입력창이 여전히 가려질 수 있다.
+                      // 키보드 등장 애니메이션이 끝난 뒤 스크롤해야 줄어든 기준으로 끝까지
+                      // 내려간다(즉시 호출하면 애니메이션 전 크기로 계산돼 모자람).
+                      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
+                    }}
                     onBlur={commitMinutesAgoText}
                     onSubmitEditing={commitMinutesAgoText}
                     keyboardType="number-pad"
