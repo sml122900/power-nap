@@ -92,7 +92,25 @@
   - **`main`에 병합 완료** (merge commit `2f36363`, 커밋 6개 전부 포함). 병합 후
     main에서 tsc/expo-doctor/expo export/jest 4종 재검증 통과.
 
-**마지막 검증된 커밋: `2f36363` — "Merge branch 'phase-4-2' into main", `main` 브랜치.**
+- **Phase 4-3 — 자동 조정 학습 폐지 + 4문항 설문 후기 화면** (`phase-4-3` 브랜치,
+  `main` 기준 분기, **main 미병합**) — PROJECT.md §5·§6·§8, BACKLOG.md "구현됨(Phase 4-3)"/
+  "학습 구조 전환 근거" 참고:
+  - `applyFeedback`/`converged`/적응형 스텝 전부 삭제. latency/caffeineOnset을 바꾸는
+    경로는 수동 조정(설정 화면, 후기 화면 "직접 조정하기")뿐 — 근거: 만성 수면부족
+    사용자의 "부족함" 피드백은 수면부채 신호일 수 있어 자동 조정은 과잉 반응 위험.
+  - 후기 화면 3버튼 → 4문항 설문(자세 편안함/소음 차단/빛 차단/수면 만족도, 각
+    상·중·하, 기본값 '중')+선택 메모+"기록하기" 제출 버튼+"건너뛰기"(그래도 기록은
+    저장, survey: null). 설문 응답은 latency/caffeineOnset에 영향 없음(순수 데이터
+    수집, 향후 BACKLOG v2 분석 원료).
+  - NapRecord v2 스키마(`survey`/`memo`/`manualAdjust`)를 기존 v1(`result`/
+    `manualAdjustmentMinutes`) 옆에 추가 — 과거 기록 변경·삭제 없이 히스토리에서
+    양쪽 포맷 모두 렌더. `history.tsx`의 `detailText`/`surveySummary`는 직접 단위
+    테스트하도록 export.
+  - jest 22개 통과(store 17개 + history 5개, 신규 `app/history.test.ts`), tsc/
+    expo-doctor/expo export 3종 통과. 커밋 2개(`refactor: replace auto-adjustment...`
+    / `docs: reflect Phase 4-3...`), push 완료. **실기기 미검증, main 미병합**.
+
+**마지막 검증된 커밋: `38e5330` — "docs: reflect Phase 4-3 learning-model + survey redesign", `phase-4-3` 브랜치.**
 
 ## 브랜치 현황
 
@@ -100,17 +118,20 @@
   실기기 검증까지 끝낸 최신 상태.
 - `phase-4-2`: main에 병합 완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는
   사용자 지시 시).
-- `fullscreen-intent`: `main` 기준으로 분기, B그룹(풀스크린 인텐트) 작업 중 —
-  아래 참고.
-- `phase-4-3`: (예정) `main` 기준으로 분기해 후기 설문 개편 + 학습 로직 단순화
-  작업 진행.
+- `fullscreen-intent`: `main` 기준으로 분기, config plugin 구현+컴파일 검증 완료
+  (릴리즈 빌드까지 준비됨), `main`(A그룹 포함) 병합도 완료 — `app/alarm.tsx` 충돌
+  없이 자동 병합됨. **실기기 검증 대기**.
+- `phase-4-3`: `main` 기준으로 분기, 학습 로직 단순화 + 후기 설문 개편 구현·검증 3종+
+  jest 통과, push 완료. **실기기 검증 대기, main 미병합**.
 
 ## 지금 단계
 
-`main`이 학습 모델 v2 + A그룹까지 실기기 검증 완료 후 반영된 최신 상태. B그룹
-(`fullscreen-intent`)은 main 기준으로 계속 진행 중(아래 참고), Phase 4-3(자동 조정
-학습 폐지 + 4문항 설문 후기 화면)은 `phase-4-3` 브랜치에서 병행 진행 예정. 그 외
-신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
+세 갈래 다 검증/병합 대기 중:
+- `fullscreen-intent`(B그룹): 구현 완료, 릴리즈 APK 빌드까지 준비됨. **실기기 설치는
+  사용자 지시 대기**(아직 설치 안 함).
+- `phase-4-3`: 구현 완료, 검증 3종+jest 통과. **실기기 검증 대기**.
+
+그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
@@ -119,14 +140,25 @@
 
 ## B그룹 — 풀스크린 인텐트 (`fullscreen-intent` 브랜치, `main` 기준 분기)
 
-- [ ] config plugin으로 `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 +
-      알림에 `setFullScreenIntent()` 주입(라이브러리가 기본 제공 안 함) + `USE_FULL_SCREEN_INTENT`
-      권한 + `canUseFullScreenIntent()` 런타임 확인
-- [ ] 목표: 잠금/백그라운드에서 알람 시각에 화면 자동 점등 + 해제 화면 직행
-- [ ] 실패 기준: 포크 수준 수정 필요 시 중단·보고
-- [ ] `main`에 phase-4-2(A그룹)가 병합돼 `app/alarm.tsx`가 바뀌었으므로,
-      `fullscreen-intent`에도 `main`을 병합해 A그룹 변경사항(BackHandler 차단,
-      롱프레스 트랙 확장)과 합류시켜야 함(다음 항목)
+- [x] config plugin으로 `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 +
+      알림에 `setFullScreenIntent()` 주입 + `USE_FULL_SCREEN_INTENT` 권한 +
+      `canUseFullScreenIntent()` 런타임 확인 — 구현·컴파일 검증 완료
+- [x] `main`(A그룹 포함) 병합 완료 — `app/alarm.tsx` 충돌 없이 자동 병합
+- [x] 릴리즈 빌드 준비(`gradlew assembleRelease` 성공, APK 생성)
+- [ ] 실기기 설치·검증 — 사용자 지시 대기(잠금 화면 자동 점등, `canUseFullScreenIntent()`
+      권한 로그, 폴백 동작, 기존 알림 탭 경로 유지 확인)
+- [ ] `fullscreen-intent` → `main` 병합 여부/시점 결정 (실기기 검증 후)
+
+## Phase 4-3 — 학습 로직 단순화 + 후기 설문 (`phase-4-3` 브랜치, `main` 기준 분기)
+
+- [x] `applyFeedback`/`converged`/적응형 스텝 삭제, 수동 조정만 남김
+- [x] 후기 화면 4문항 설문+메모+건너뛰기, NapRecord v2 스키마, 히스토리 v1/v2 렌더
+- [x] jest 22개 + 검증 3종 통과, push 완료
+- [ ] **실기기 검증**: 설문 제출/건너뛰기/메모 저장이 실제로 기록되는지, 세그먼트
+      탭 반응·기본값(중) 확인, 설정 화면·"직접 조정하기" 양쪽에서 수동 조정이 여전히
+      정상 동작하는지, 히스토리에서 기존(v1) 기록과 신규(v2) 기록이 둘 다 깨지지
+      않고 보이는지(기존 AsyncStorage 데이터 위에서 확인 — 마이그레이션 아님, 공존)
+- [ ] `phase-4-3` → `main` 병합 여부/시점 결정 (실기기 검증 후)
 
 ---
 
