@@ -42,6 +42,32 @@
   - **의도적으로 미룬 것 3건(다음 단계 후보, PROJECT.md §4 "알려진 한계" 참고)**:
     풀스크린 인텐트/화면 자동점등 미구현(알림 본문을 직접 탭해야 해제 화면 진입), 알림 스와이프
     삭제 시 화면 없이 소리 꺼짐, 커스텀 사운드(`alarm.wav`) 미지원(라이브러리 기본음 사용).
+- **B그룹 — 풀스크린 인텐트 + 화면 자동점등** (`fullscreen-intent` 브랜치, `main` 기준 분기):
+  - config plugin `plugins/withFullScreenAlarmIntent.js` 신규: (1) 매니페스트에
+    `USE_FULL_SCREEN_INTENT` 권한 + `MainActivity`에 `showWhenLocked`/`turnScreenOn` 속성
+    주입, (2) `node_modules/expo-alarm-module`의 `Helper.java`(알림 빌더, 라이브러리가
+    `setFullScreenIntent` 옵션 자체를 제공 안 함)에 `.setFullScreenIntent(...)` 호출과
+    `canUseFullScreenIntent()` 런타임 로그를 소스 레벨로 패치 — `android/`(gitignore) 대신
+    `withDangerousMod`로 매 `expo prebuild`마다 재적용되게 함(patch-package 방식).
+    버전 결합(expo-alarm-module 1.2.0 기준) 명시, 코드 안 맞으면 조용히 스킵 대신 에러.
+  - 라이브러리 포크 없이 config plugin만으로 구현 가능 — 중단 기준(포크 수준 수정 필요) 미해당.
+  - 검증 완료: `expo prebuild --clean` 2회 연속(멱등성, 중복 패치 없음) + 방금 재설치한
+    pristine `expo-alarm-module` 위에서 1회(재설치 후에도 재현됨) + `gradlew assembleDebug`
+    전체 빌드 성공(APK 생성, 패치된 Java 정상 컴파일) + 매니페스트에 권한/MainActivity
+    속성 반영 확인.
+  - `main`(phase-4-2/A그룹 포함) 병합 완료 — `app/alarm.tsx`는 두 브랜치 모두 건드렸지만
+    실제 충돌은 없었음(A그룹은 BackHandler/롱프레스 트랙 확장, B그룹은 이 파일을 직접
+    건드리지 않고 config plugin·네이티브 소스 패치로만 구현했기 때문). git이 자동 병합.
+  - **실기기 검증 완료** (`gradlew assembleRelease` → `adb install -r`로 직접 설치):
+    화면 꺼짐/잠금 상태에서 알람 시각에 자동 점등 + 해제 화면 직행 확인(실사용 낮잠
+    시나리오 통과). 화면 켜진 채 잠금 해제 상태에서는 Android 정책상 풀스크린 대신
+    헤드업 알림으로 강등되는 것도 확인 — OS 자체 정책(포그라운드에서 전체화면 액티비티
+    금지)이라 앱에서 우회 불가, 버그 아님. 두 경우 모두 알람음/진동은 정상 발화.
+    슬라이드/롱프레스 해제(A그룹)도 이 병합 빌드에서 정상 동작 확인. 결과를
+    PROJECT.md §4에 알려진 특성으로 기록.
+  - **`main`에 병합 완료** (merge commit, B그룹 커밋 전부 포함). 병합 후 main에서
+    tsc/expo-doctor/expo export/jest 4종 재검증 통과.
+
 - **학습 모델 v2 + 커피냅 3모드** (`main`에 병합 완료) — PROJECT.md §5·§6,
   BACKLOG.md "구현됨(Phase 4-2)"/"카페인 발현시간 근거" 참고:
   - 데이터 모델 v3: `offsets` 4버킷 → `latency{fast,slow}`(0~20분) + `caffeineOnset`
@@ -108,56 +134,48 @@
     테스트하도록 export.
   - jest 22개 통과(store 17개 + history 5개, 신규 `app/history.test.ts`), tsc/
     expo-doctor/expo export 3종 통과. 커밋 2개(`refactor: replace auto-adjustment...`
-    / `docs: reflect Phase 4-3...`), push 완료. **실기기 미검증, main 미병합**.
+    / `docs: reflect Phase 4-3...`), push 완료.
+  - `main`(B그룹/풀스크린 인텐트 포함) 재병합 완료 — CLAUDE.md/PROJECT.md는 자동 병합,
+    STATUS.md만 충돌(둘 다 이 파일을 갱신해서) 수동 정리. **실기기 미검증, main 미병합**.
 
-**마지막 검증된 커밋: `38e5330` — "docs: reflect Phase 4-3 learning-model + survey redesign", `phase-4-3` 브랜치.**
+**마지막 검증된 커밋: HEAD — `main` 재병합 이후, `phase-4-3` 브랜치.**
 
 ## 브랜치 현황
 
-- `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 전부 병합 완료,
-  실기기 검증까지 끝낸 최신 상태.
+- `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 + B그룹(풀스크린 인텐트)
+  전부 병합 완료, 실기기 검증까지 끝낸 최신 상태.
 - `phase-4-2`: main에 병합 완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는
   사용자 지시 시).
-- `fullscreen-intent`: `main` 기준으로 분기, config plugin 구현+컴파일 검증 완료
-  (릴리즈 빌드까지 준비됨), `main`(A그룹 포함) 병합도 완료 — `app/alarm.tsx` 충돌
-  없이 자동 병합됨. **실기기 검증 대기**.
-- `phase-4-3`: `main` 기준으로 분기, 학습 로직 단순화 + 후기 설문 개편 구현·검증 3종+
-  jest 통과, push 완료. **실기기 검증 대기, main 미병합**.
+- `fullscreen-intent`: main에 병합 완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는
+  사용자 지시 시).
+- `phase-4-3`: `main`(B그룹 포함 최신) 재병합 완료, 별도 git worktree
+  (`power-nap-phase43`)에서 작업 중 — 학습 로직 단순화 + 4문항 설문 후기 화면
+  구현·검증 3종+jest 통과, push 완료. **실기기 검증 대기, main 미병합**.
 
 ## 지금 단계
 
-세 갈래 다 검증/병합 대기 중:
-- `fullscreen-intent`(B그룹): 구현 완료, 릴리즈 APK 빌드까지 준비됨. **실기기 설치는
-  사용자 지시 대기**(아직 설치 안 함).
-- `phase-4-3`: 구현 완료, 검증 3종+jest 통과. **실기기 검증 대기**.
-
+`main`이 네이티브 알람 + 학습 모델 v2 + A그룹 + B그룹(풀스크린 인텐트)까지 전부
+실기기 검증 완료 후 반영된 최신 상태. `phase-4-3`(자동 조정 학습 폐지 + 4문항 설문
+후기 화면)는 이제 그 최신 main을 기준으로 재병합까지 마쳤고, 남은 건 실기기 검증뿐.
 그 외 신규 기능은 [BACKLOG.md](BACKLOG.md) 참조, 코드 동결 유지.
 
 ## 미해결 항목
 
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
-- [ ] `phase-4-2` 브랜치 정리(삭제) — main 병합 완료로 더 이상 필요 없음, 삭제는 사용자 확인 후
-
-## B그룹 — 풀스크린 인텐트 (`fullscreen-intent` 브랜치, `main` 기준 분기)
-
-- [x] config plugin으로 `MainActivity`에 `turnScreenOn`/`showWhenLocked` 플래그 +
-      알림에 `setFullScreenIntent()` 주입 + `USE_FULL_SCREEN_INTENT` 권한 +
-      `canUseFullScreenIntent()` 런타임 확인 — 구현·컴파일 검증 완료
-- [x] `main`(A그룹 포함) 병합 완료 — `app/alarm.tsx` 충돌 없이 자동 병합
-- [x] 릴리즈 빌드 준비(`gradlew assembleRelease` 성공, APK 생성)
-- [ ] 실기기 설치·검증 — 사용자 지시 대기(잠금 화면 자동 점등, `canUseFullScreenIntent()`
-      권한 로그, 폴백 동작, 기존 알림 탭 경로 유지 확인)
-- [ ] `fullscreen-intent` → `main` 병합 여부/시점 결정 (실기기 검증 후)
+- [ ] `phase-4-2`/`fullscreen-intent` 브랜치 정리(삭제) — 둘 다 main 병합 완료로 더 이상
+      필요 없음, 삭제는 사용자 확인 후
 
 ## Phase 4-3 — 학습 로직 단순화 + 후기 설문 (`phase-4-3` 브랜치, `main` 기준 분기)
 
 - [x] `applyFeedback`/`converged`/적응형 스텝 삭제, 수동 조정만 남김
 - [x] 후기 화면 4문항 설문+메모+건너뛰기, NapRecord v2 스키마, 히스토리 v1/v2 렌더
 - [x] jest 22개 + 검증 3종 통과, push 완료
+- [x] `main`(B그룹 포함) 재병합 완료
 - [ ] **실기기 검증**: 설문 제출/건너뛰기/메모 저장이 실제로 기록되는지, 세그먼트
       탭 반응·기본값(중) 확인, 설정 화면·"직접 조정하기" 양쪽에서 수동 조정이 여전히
       정상 동작하는지, 히스토리에서 기존(v1) 기록과 신규(v2) 기록이 둘 다 깨지지
-      않고 보이는지(기존 AsyncStorage 데이터 위에서 확인 — 마이그레이션 아님, 공존)
+      않고 보이는지(기존 AsyncStorage 데이터 위에서 확인 — 마이그레이션 아님, 공존),
+      B그룹(풀스크린 인텐트)이 이 병합 빌드에서도 여전히 동작하는지
 - [ ] `phase-4-3` → `main` 병합 여부/시점 결정 (실기기 검증 후)
 
 ---
