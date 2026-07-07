@@ -26,9 +26,9 @@ export const colors = {
   onDarkOverlaySubtle: 'rgba(255,255,255,0.14)', // 알람 화면 커피 배지 배경
   onDarkHint: 'rgba(255,255,255,0.35)', // 대체 해제 수단 같은 최소 강조 안내 텍스트
 
-  // 커피 토글(§6.2) 전용 보조 색
-  toggleTrackOff: '#D6DBE7',
+  // 커피냅 버튼/칩 전용 보조 색
   amberBorder: '#F0D3A4',
+  amberPress: '#F5E4C3', // amberTint보다 한 단계 진한 프레스 상태 — brandPress/secondaryPressed와 같은 역할
 } as const;
 
 export const radius = {

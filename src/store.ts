@@ -1,53 +1,51 @@
 // AsyncStorage 래퍼 — PROJECT.md 섹션 5 (데이터 모델 & 학습 로직) 기준.
+// Phase 4-2: 알람 = 기준시각 + 소요시간 모델로 개편.
+// - 일반 낮잠(fast/slow): 알람 = 시작 + TARGET_SLEEP_MIN(상수) + latency[mode](학습)
+// - 커피냅(coffee): 알람 = 커피 마신 시각 + caffeineOnset(학습)
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type NapMode = 'fast' | 'slow'; // 바로 잠듦 / 뒤척임
+export type NapMode = 'fast' | 'slow' | 'coffee'; // 바로 잠듦 / 뒤척임 / 커피냅
 
-// 학습 오프셋은 (모드 × 커피 여부) 4개 버킷으로 독립 관리한다 (Phase 4-1).
-export type OffsetBucket = 'fast' | 'slow' | 'fastCoffee' | 'slowCoffee';
-
-export function bucketFor(mode: NapMode, coffee: boolean): OffsetBucket {
-  if (mode === 'fast') return coffee ? 'fastCoffee' : 'fast';
-  return coffee ? 'slowCoffee' : 'slow';
-}
+// 일반 낮잠의 목표 수면 시간(분) — 학습 대상 아님, 고정 상수.
+export const TARGET_SLEEP_MIN = 20;
 
 export interface Settings {
-  offsets: Record<OffsetBucket, number>; // 분
-  converged: Record<OffsetBucket, boolean>; // 버킷별 "딱 좋았어요" 1회 이상 여부 — 스텝 크기 분기 기준
+  latency: Record<'fast' | 'slow', number>; // 분 — 목표수면 외에 추가로 필요한 대기시간(학습)
+  caffeineOnset: number; // 분 — 커피 마신 시각부터 카페인 발현까지(학습)
+  converged: Record<'fast' | 'slow' | 'caffeine', boolean>; // "딱 좋았어요" 1회 이상 여부 — 스텝 크기 분기 기준
   totalNaps: number;
 }
 
 export interface ActiveNap {
   mode: NapMode;
-  startedAt: number; // epoch ms
+  startedAt: number; // epoch ms — 낮잠(또는 커피냅 확정) 시작 시각
   alarmAt: number; // epoch ms — 절대시각. 카운트다운은 항상 이 값 기준
-  coffee: boolean;
+  coffeeDrankAt?: number; // epoch ms — mode === 'coffee'일 때만. 커피를 실제로 마신 시각
   notificationId: string | null;
+  isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
 }
 
 export type NapFeedback = 'tooDeep' | 'justRight' | 'notEnough';
 
 // 알람 해제 → 후기 화면으로 넘어갈 때 ActiveNap 대신 이 키에 최소 정보만 옮겨 담는다.
 // §6.4: 후기 화면에서 앱이 죽어도 ActiveNap이 남아있지 않아야 재실행 시 알람 화면으로
-// 잘못 복원되지 않는다 — clearActiveNap을 먼저 해버리므로 필요한 값을 여기 잠시 보관해둔다.
-// coffee/offsetMinutes는 버킷 판정(bucketFor)과 NapRecord 기록에 쓰인다.
+// 잘못 복원되지 않는다.
 export interface PendingFeedback {
   mode: NapMode;
-  coffee: boolean;
-  offsetMinutes: number; // 이번 낮잠에 실제 사용된(수면 중 커피 토글 재계산 포함) 오프셋 분
+  offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
 }
 
 // 후기 제출 시마다 append-only로 남기는 기록 (Phase 4-1) — 현재는 UI 없음, 히스토리/분석 원료.
-export type NapRecordResult = NapFeedback | 'manual';
+export type NapRecordResult = NapFeedback | 'manual' | 'manual-settings' | 'test';
 
 export interface NapRecord {
   completedAt: number; // epoch ms — 후기 제출 시각
   mode: NapMode;
-  coffee: boolean;
-  offsetMinutes: number; // 이번 낮잠에 사용된 오프셋(분)
+  offsetMinutes: number; // 이번 낮잠에 사용된 총 시간(분)
   result: NapRecordResult;
   manualAdjustmentMinutes?: number; // '직접 조정하기'로 제출한 경우의 변화량(분, 부호 있음)
+  isTest?: boolean; // 테스트 낮잠(ActiveNap.isTest 승계) — 히스토리에 표시만, 학습 반영 없음.
 }
 
 const KEYS = {
@@ -57,50 +55,63 @@ const KEYS = {
   napRecords: 'powernap:napRecords',
 } as const;
 
-const DEFAULT_OFFSETS: Record<OffsetBucket, number> = {
-  fast: 20,
-  slow: 30,
-  fastCoffee: 20,
-  slowCoffee: 30,
-};
+// v2({fast,slow,fastCoffee,slowCoffee} 오프셋) 시절의 기본값과 동일한 총 시간이 나오도록
+// 맞춘 값 — fast: 20(=TARGET_SLEEP_MIN+0), slow: 30(=TARGET_SLEEP_MIN+10).
+const DEFAULT_LATENCY: Record<'fast' | 'slow', number> = { fast: 0, slow: 10 };
+const DEFAULT_CAFFEINE_ONSET = 25;
 
-const DEFAULT_CONVERGED: Record<OffsetBucket, boolean> = {
+const DEFAULT_CONVERGED: Record<'fast' | 'slow' | 'caffeine', boolean> = {
   fast: false,
   slow: false,
-  fastCoffee: false,
-  slowCoffee: false,
+  caffeine: false,
 };
 
 const DEFAULT_SETTINGS: Settings = {
-  offsets: DEFAULT_OFFSETS,
+  latency: DEFAULT_LATENCY,
+  caffeineOnset: DEFAULT_CAFFEINE_ONSET,
   converged: DEFAULT_CONVERGED,
   totalNaps: 0,
 };
 
-export const OFFSET_MIN = 10;
-export const OFFSET_MAX = 35;
+export const LATENCY_MIN = 0;
+export const LATENCY_MAX = 20;
+// 근거: BACKLOG.md "카페인 발현시간 근거" 섹션 참고.
+export const CAFFEINE_ONSET_MIN = 15;
+export const CAFFEINE_ONSET_MAX = 35;
+
 const STEP_UNCONVERGED = 3;
 const STEP_CONVERGED = 2;
 
-export function clampOffset(minutes: number): number {
-  return Math.min(OFFSET_MAX, Math.max(OFFSET_MIN, minutes));
+export function clampLatency(minutes: number): number {
+  return Math.min(LATENCY_MAX, Math.max(LATENCY_MIN, minutes));
 }
 
-// 해당 버킷에 다음 후기가 적용될 스텝 크기(분) — 후기 화면 미리보기 라벨이 이 값을
+export function clampCaffeineOnset(minutes: number): number {
+  return Math.min(CAFFEINE_ONSET_MAX, Math.max(CAFFEINE_ONSET_MIN, minutes));
+}
+
+// 해당 모드에 다음 후기가 적용될 스텝 크기(분) — 후기 화면 미리보기 라벨이 이 값을
 // 하드코딩하지 않고 재사용해야 실제 적용값과 어긋나지 않는다.
-export function stepFor(settings: Settings, bucket: OffsetBucket): number {
-  return settings.converged[bucket] ? STEP_CONVERGED : STEP_UNCONVERGED;
+export function stepFor(settings: Settings, mode: NapMode): number {
+  const convergedKey = mode === 'coffee' ? 'caffeine' : mode;
+  return settings.converged[convergedKey] ? STEP_CONVERGED : STEP_UNCONVERGED;
 }
 
-// 구형 저장 형태({fast, slow}만 있는 offsets)를 4버킷으로 이전한다: fastCoffee<-fast,
-// slowCoffee<-slow로 복사해 기존 학습값을 유실하지 않는다. 이미 4버킷이면 그대로 통과.
+// 구형 저장 형태 마이그레이션:
+// - v1({fast,slow} 2개 오프셋)과 v2({fast,slow,fastCoffee,slowCoffee} 4버킷)는 둘 다
+//   offsets.fast/offsets.slow를 갖고 있어 같은 경로로 처리한다(fastCoffee/slowCoffee는
+//   신규 모델(caffeineOnset)과 개념이 달라 승계하지 않고 버린다 — 사용자 확정 사항).
+// - latency = clamp(offsets[mode] − TARGET_SLEEP_MIN), caffeineOnset은 항상 기본값(25)에서
+//   다시 시작, converged.fast/slow는 승계, converged.caffeine은 false.
 export async function getSettings(): Promise<Settings> {
   const raw = await AsyncStorage.getItem(KEYS.settings);
   if (!raw) return DEFAULT_SETTINGS;
 
   let parsed: {
-    offsets?: Partial<Record<OffsetBucket, number>>;
-    converged?: Partial<Record<OffsetBucket, boolean>>;
+    latency?: Partial<Record<'fast' | 'slow', number>>;
+    caffeineOnset?: number;
+    offsets?: Partial<Record<'fast' | 'slow', number>>;
+    converged?: Partial<Record<'fast' | 'slow' | 'caffeine', boolean>>;
     totalNaps?: number;
   };
   try {
@@ -109,50 +120,74 @@ export async function getSettings(): Promise<Settings> {
     return DEFAULT_SETTINGS;
   }
 
-  const rawOffsets = parsed.offsets ?? {};
-  const needsMigration = rawOffsets.fastCoffee === undefined || rawOffsets.slowCoffee === undefined;
-
-  const offsets: Record<OffsetBucket, number> = {
-    fast: rawOffsets.fast ?? DEFAULT_OFFSETS.fast,
-    slow: rawOffsets.slow ?? DEFAULT_OFFSETS.slow,
-    fastCoffee: rawOffsets.fastCoffee ?? rawOffsets.fast ?? DEFAULT_OFFSETS.fastCoffee,
-    slowCoffee: rawOffsets.slowCoffee ?? rawOffsets.slow ?? DEFAULT_OFFSETS.slowCoffee,
-  };
-
-  const rawConverged = parsed.converged ?? {};
-  const converged: Record<OffsetBucket, boolean> = {
-    fast: rawConverged.fast ?? false,
-    slow: rawConverged.slow ?? false,
-    fastCoffee: rawConverged.fastCoffee ?? false,
-    slowCoffee: rawConverged.slowCoffee ?? false,
-  };
-
-  const settings: Settings = { offsets, converged, totalNaps: parsed.totalNaps ?? 0 };
-
-  if (needsMigration) {
-    await saveSettings(settings);
+  if (parsed.latency) {
+    // 이미 v3 형태.
+    return {
+      latency: {
+        fast: parsed.latency.fast ?? DEFAULT_LATENCY.fast,
+        slow: parsed.latency.slow ?? DEFAULT_LATENCY.slow,
+      },
+      caffeineOnset: parsed.caffeineOnset ?? DEFAULT_CAFFEINE_ONSET,
+      converged: {
+        fast: parsed.converged?.fast ?? false,
+        slow: parsed.converged?.slow ?? false,
+        caffeine: parsed.converged?.caffeine ?? false,
+      },
+      totalNaps: parsed.totalNaps ?? 0,
+    };
   }
-  return settings;
+
+  // v1 또는 v2 — offsets 기반 구형 형태.
+  const rawOffsets = parsed.offsets ?? {};
+  const rawConverged = parsed.converged ?? {};
+  const migrated: Settings = {
+    latency: {
+      fast: clampLatency((rawOffsets.fast ?? TARGET_SLEEP_MIN) - TARGET_SLEEP_MIN),
+      slow: clampLatency((rawOffsets.slow ?? TARGET_SLEEP_MIN + 10) - TARGET_SLEEP_MIN),
+    },
+    caffeineOnset: DEFAULT_CAFFEINE_ONSET,
+    converged: {
+      fast: rawConverged.fast ?? false,
+      slow: rawConverged.slow ?? false,
+      caffeine: false,
+    },
+    totalNaps: parsed.totalNaps ?? 0,
+  };
+  await saveSettings(migrated);
+  return migrated;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings));
 }
 
-// 학습 규칙 (Phase 4-1): 버킷이 미수렴이면 스텝 ±3분, 수렴("딱 좋았어요" 1회 이상)이면 ±2분.
-// 너무 깊게 잤어요 -step / 딱 좋았어요 변화 없음(해당 버킷 converged=true로 전환) / 아직 부족해요 +step.
-// clamp [10, 35]. 후기는 (mode, coffee)가 가리키는 버킷에만 반영한다.
-export async function applyFeedback(mode: NapMode, coffee: boolean, feedback: NapFeedback): Promise<Settings> {
+// 학습 규칙 (Phase 4-2): 미수렴이면 스텝 ±3분, 수렴("딱 좋았어요" 1회 이상)이면 ±2분.
+// 너무 깊게 잤어요 -step / 딱 좋았어요 변화 없음(converged=true로 전환) / 아직 부족해요 +step.
+// fast/slow는 latency[mode]에 반영(clamp 0~20), coffee는 caffeineOnset에 반영(clamp 15~35).
+export async function applyFeedback(mode: NapMode, feedback: NapFeedback): Promise<Settings> {
   const settings = await getSettings();
-  const bucket = bucketFor(mode, coffee);
-  const step = settings.converged[bucket] ? STEP_CONVERGED : STEP_UNCONVERGED;
+  const step = stepFor(settings, mode);
   const delta = feedback === 'tooDeep' ? -step : feedback === 'notEnough' ? step : 0;
-  const nextOffset = clampOffset(settings.offsets[bucket] + delta);
-  const nextConverged = feedback === 'justRight' ? true : settings.converged[bucket];
 
+  if (mode === 'coffee') {
+    const nextCaffeineOnset = clampCaffeineOnset(settings.caffeineOnset + delta);
+    const nextConverged = feedback === 'justRight' ? true : settings.converged.caffeine;
+    const next: Settings = {
+      ...settings,
+      caffeineOnset: nextCaffeineOnset,
+      converged: { ...settings.converged, caffeine: nextConverged },
+      totalNaps: settings.totalNaps + 1,
+    };
+    await saveSettings(next);
+    return next;
+  }
+
+  const nextLatency = clampLatency(settings.latency[mode] + delta);
+  const nextConverged = feedback === 'justRight' ? true : settings.converged[mode];
   const next: Settings = {
-    offsets: { ...settings.offsets, [bucket]: nextOffset },
-    converged: { ...settings.converged, [bucket]: nextConverged },
+    ...settings,
+    latency: { ...settings.latency, [mode]: nextLatency },
+    converged: { ...settings.converged, [mode]: nextConverged },
     totalNaps: settings.totalNaps + 1,
   };
   await saveSettings(next);
@@ -161,22 +196,46 @@ export async function applyFeedback(mode: NapMode, coffee: boolean, feedback: Na
 
 // 후기 화면 보조 경로("직접 조정하기") 전용: 절대값을 clamp해 그대로 반영한다.
 // 3버튼 학습 로직(step/converged)과 무관 — converged 플래그는 건드리지 않는다.
-export async function applyManualAdjustment(
-  mode: NapMode,
-  coffee: boolean,
-  targetOffsetMinutes: number
-): Promise<Settings> {
+// fast/slow는 latency를, coffee는 caffeineOnset을 직접 설정한다.
+export async function applyManualAdjustment(mode: NapMode, targetMinutes: number): Promise<Settings> {
   const settings = await getSettings();
-  const bucket = bucketFor(mode, coffee);
-  const nextOffset = clampOffset(targetOffsetMinutes);
+
+  if (mode === 'coffee') {
+    const next: Settings = {
+      ...settings,
+      caffeineOnset: clampCaffeineOnset(targetMinutes),
+      totalNaps: settings.totalNaps + 1,
+    };
+    await saveSettings(next);
+    return next;
+  }
 
   const next: Settings = {
     ...settings,
-    offsets: { ...settings.offsets, [bucket]: nextOffset },
+    latency: { ...settings.latency, [mode]: clampLatency(targetMinutes) },
     totalNaps: settings.totalNaps + 1,
   };
   await saveSettings(next);
   return next;
+}
+
+// 커피냅 알람 시각 계산 — 계산 결과가 now+60초 미만이면(이미 카페인이 돌고 있을 시점)
+// 최소 now+10분으로 보정한다. 프리셋 칩(방금/5분전/10분전)과 직접 입력 모두 이 함수를
+// 거친다 — clamp 범위(caffeineOnset 15~35, 직접입력 0~120분전) 상 프리셋에서는 사실상
+// corrected가 발생하지 않지만, 로직을 한 곳에 모아 일관되게 검증한다.
+const CAFFEINE_ALREADY_ACTIVE_LEAD_MS = 60_000;
+const CAFFEINE_CORRECTION_MIN = 10;
+
+export function computeCoffeeAlarmAt(
+  coffeeDrankAt: number,
+  caffeineOnsetMinutes: number,
+  now: number
+): { alarmAt: number; corrected: boolean } {
+  const naive = coffeeDrankAt + caffeineOnsetMinutes * 60_000;
+  if (naive < now + CAFFEINE_ALREADY_ACTIVE_LEAD_MS) {
+    return { alarmAt: now + CAFFEINE_CORRECTION_MIN * 60_000, corrected: true };
+  }
+  return { alarmAt: naive, corrected: false };
 }
 
 export async function getActiveNap(): Promise<ActiveNap | null> {

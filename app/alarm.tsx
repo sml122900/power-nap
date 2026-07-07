@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import {
+  AccessibilityInfo,
+  BackHandler,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
@@ -19,7 +27,7 @@ import Animated, {
 
 import { configureAlarmAudioModeAsync } from '@/audio';
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from '@/notifications';
-import { clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
+import { appendNapRecord, clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
@@ -51,6 +59,13 @@ export default function AlarmScreen() {
   // mountedRef는 handleDismiss가 언마운트 이후(예: 지연된 콜백)에 실행돼 이미 해제된
   // player.pause()에 닿는 경로 자체를 없애기 위한 가드다.
   const mountedRef = useRef(true);
+
+  // 알람 화면은 오터치 방지를 위해 해제를 슬라이드/롱프레스로만 받는다(§6.3) —
+  // 하드웨어 뒤로가기로 빠져나가는 경로를 막는다.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     let hapticsInterval: ReturnType<typeof setInterval> | undefined;
@@ -110,8 +125,24 @@ export default function AlarmScreen() {
     const active = nap ?? (await getActiveNap());
     await cancelAlarmNotificationAsync(active?.notificationId ?? null);
     if (active) {
-      const offsetMinutes = Math.round((active.alarmAt - active.startedAt) / 60_000);
-      await savePendingFeedback({ mode: active.mode, coffee: active.coffee, offsetMinutes });
+      // 커피냅은 "커피 마신 시각" 기준, 일반 낮잠은 "낮잠 시작" 기준으로 실제 사용된
+      // 총 시간을 계산한다 — NapRecord.offsetMinutes에 쓰인다.
+      const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
+      const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
+      if (active.isTest) {
+        // 테스트 낮잠(홈 화면 단축 버튼)은 후기를 받지 않는다 — 학습 반영 없이 기록만 남기고 홈으로.
+        await appendNapRecord({
+          completedAt: Date.now(),
+          mode: active.mode,
+          offsetMinutes,
+          result: 'test',
+          isTest: true,
+        });
+        await clearActiveNap();
+        router.replace('/');
+        return;
+      }
+      await savePendingFeedback({ mode: active.mode, offsetMinutes });
     }
     // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
     // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
@@ -160,10 +191,12 @@ export default function AlarmScreen() {
       runOnJS(handleDismiss)();
     });
 
-  // 별도 텍스트 링크가 아니라 슬라이드 손잡이 자체에 롱프레스를 얹는다 — 사용자가 이미
-  // 만지는 지점과 다른 곳에 "3초간 눌러 끄기" 텍스트를 따로 두니 어디를 눌러야 하는지
-  // 못 찾는다는 피드백(실기기 검증)을 반영. Race: 가만히 3초 누르면 롱프레스가 이기고,
-  // 손가락이 움직이기 시작하면 Pan이 활성화되어 롱프레스는 취소된다.
+  // 손잡이(56pt)만으로는 히트박스가 좁아 도그푸딩에서 롱프레스 실패 리포트가 나왔다 —
+  // 이 Race를 트랙 전체+안내 문구를 감싸는 slideZone에 얹어 인식 영역을 넓힌다.
+  // Pan은 여전히 같은 제스처라 트랙 아무 곳에서 시작해도 손잡이가 상대 이동량만큼
+  // 끌려온다(절대 좌표 스냅 아님, 기존 손잡이 드래그와 동일한 상대 이동 로직).
+  // Race: 가만히 3초 누르면 롱프레스가 이기고, maxDistance(40pt)를 넘게 움직이면 Pan이
+  // 활성화되어 롱프레스는 취소된다.
   const thumbGesture = Gesture.Race(pan, longPress);
 
   const thumbStyle = useAnimatedStyle(() => ({
@@ -193,36 +226,38 @@ export default function AlarmScreen() {
           5분 더 자면 수면 관성 때문에 더 멍해져요.{'\n'}지금 바로 일어나는 게 제일 개운합니다.
         </Text>
 
-        {nap?.coffee && (
+        {nap?.mode === 'coffee' && (
           <View style={styles.coffeeBadge}>
             <Text style={styles.coffeeBadgeText}>지금부터 카페인 효과가 시작돼요</Text>
           </View>
         )}
       </View>
 
-      <View
-        style={styles.slideTrack}
-        onLayout={onTrackLayout}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="밀어서 알람 끄기"
-        accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
-        onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'activate') handleDismiss();
-        }}
-      >
-        <Animated.View style={[styles.slideTrackFill, trackFillStyle]} />
-        <Text style={styles.slideLabel} pointerEvents="none">
-          밀어서 끄기
-        </Text>
-        <GestureDetector gesture={thumbGesture}>
-          <Animated.View style={[styles.slideThumb, thumbStyle]} />
-        </GestureDetector>
-      </View>
+      <GestureDetector gesture={thumbGesture}>
+        <View style={styles.slideZone}>
+          <View
+            style={styles.slideTrack}
+            onLayout={onTrackLayout}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="밀어서 알람 끄기"
+            accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'activate') handleDismiss();
+            }}
+          >
+            <Animated.View style={[styles.slideTrackFill, trackFillStyle]} />
+            <Text style={styles.slideLabel} pointerEvents="none">
+              밀어서 끄기
+            </Text>
+            <Animated.View style={[styles.slideThumb, thumbStyle]} />
+          </View>
 
-      <Text style={styles.longPressHint} pointerEvents="none">
-        슬라이드가 어렵다면 손잡이를 3초간 눌러도 꺼져요
-      </Text>
+          <Text style={styles.longPressHint} pointerEvents="none">
+            슬라이드가 어렵다면 이 영역을 3초간 눌러도 꺼져요
+          </Text>
+        </View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }
@@ -325,6 +360,10 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.amber,
   },
+  // 롱프레스 인식 영역(트랙+안내 문구)의 공통 래퍼 — GestureDetector가 여기 하나에 얹힌다.
+  slideZone: {
+    gap: 6,
+  },
   slideTrack: {
     height: 64,
     borderRadius: radius.lg,
@@ -354,9 +393,10 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     backgroundColor: colors.brand,
   },
-  // 이제 탭 대상이 아니라 순수 안내문(제스처는 슬라이드 손잡이에 있음) — 밑줄 제거.
+  // 탭 대상이 아니라 순수 안내문(제스처는 slideZone 전체가 받음) — 밑줄 제거.
+  // marginTop은 slideZone의 gap이 대신하므로 여기서는 주지 않는다 — 트랙과 붙어
+  // 보이도록(한 영역이라는 인상을 주도록).
   longPressHint: {
-    marginTop: 14,
     textAlign: 'center',
     fontSize: 12.5,
     fontFamily: fontFamily.semibold,
