@@ -52,9 +52,9 @@ export default function SettingsScreen() {
     });
   }, []);
 
-  // 스테퍼/텍스트 확정 모두 이 경로로만 저장한다 — converged는 건드리지 않고(§5 확정 사항),
-  // NapRecord에 'manual-settings'로 남겨 후기 화면의 '직접 조정하기'(result: 'manual')와
-  // 구분한다.
+  // 스테퍼/텍스트 확정 모두 이 경로로만 저장한다. NapRecord.manualAdjust.source를
+  // 'settings'로 남겨 후기 화면의 "직접 조정하기"(source: 'feedback')와 구분한다 —
+  // Phase 4-3부터 latency/caffeineOnset을 바꾸는 경로는 이 두 곳뿐이다(§5).
   const commit = async (mode: NapMode, nextValue: number) => {
     const prevValue = settings ? valueFor(settings, mode) : nextValue;
     if (nextValue === prevValue) return;
@@ -66,8 +66,7 @@ export default function SettingsScreen() {
       completedAt: Date.now(),
       mode,
       offsetMinutes: mode === 'coffee' ? finalValue : TARGET_SLEEP_MIN + finalValue,
-      result: 'manual-settings',
-      manualAdjustmentMinutes: finalValue - prevValue,
+      manualAdjust: { source: 'settings', beforeMinutes: prevValue, afterMinutes: finalValue },
     });
   };
 
