@@ -55,9 +55,57 @@ export function detailText(item: NapRecord): string {
   return '';
 }
 
+export interface DetailRow {
+  label: string;
+  value: string;
+}
+
+// 리스트 행 탭 시 펼쳐지는 상세 뷰 전용 — 압축된 detailText()와 달리 설문 4항목을
+// 풀네임 라벨로 한 줄씩 나열한다("자세: 중" 등). manualAdjust/memo는 존재할 때만 추가.
+export function detailRows(item: NapRecord): DetailRow[] {
+  const rows: DetailRow[] = [
+    { label: '날짜', value: formatKoreanDateTime(new Date(item.completedAt)) },
+    { label: '모드', value: modeName(item.mode) },
+    { label: '사용 시간', value: `${item.offsetMinutes}분` },
+  ];
+
+  if (item.result !== undefined) {
+    const suffix =
+      (item.result === 'manual' || item.result === 'manual-settings') && item.manualAdjustmentMinutes !== undefined
+        ? ` (${item.manualAdjustmentMinutes > 0 ? '+' : ''}${item.manualAdjustmentMinutes}분)`
+        : '';
+    rows.push({ label: '후기 결과', value: `${resultLabel(item.result)}${suffix}` });
+  } else if (item.survey) {
+    rows.push(
+      { label: '자세', value: RATING_LABEL[item.survey.posture] },
+      { label: '소음', value: RATING_LABEL[item.survey.noise] },
+      { label: '빛 차단', value: RATING_LABEL[item.survey.light] },
+      { label: '만족도', value: RATING_LABEL[item.survey.satisfaction] }
+    );
+  } else if (item.survey === null) {
+    rows.push({ label: '설문', value: '건너뜀' });
+  }
+
+  if (item.manualAdjust) {
+    const sourceLabel = item.manualAdjust.source === 'settings' ? '설정에서 조정' : '직접 조정';
+    rows.push({
+      label: '수동 조정',
+      value: `${sourceLabel} (${item.manualAdjust.beforeMinutes}→${item.manualAdjust.afterMinutes}분)`,
+    });
+  }
+
+  if (item.memo) {
+    rows.push({ label: '메모', value: item.memo });
+  }
+
+  return rows;
+}
+
 export default function HistoryScreen() {
   const router = useRouter();
   const [records, setRecords] = useState<NapRecord[]>([]);
+  // 한 번에 하나만 펼친다(아코디언) — completedAt이 유니크 키.
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
     getNapRecords().then((r) => setRecords([...r].reverse()));
@@ -79,23 +127,43 @@ export default function HistoryScreen() {
           data={records}
           keyExtractor={(item) => String(item.completedAt)}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.row}>
-              <View style={styles.rowHead}>
-                <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
-                {item.isTest && (
-                  <View style={styles.testBadge}>
-                    <Text style={styles.testBadgeText}>테스트</Text>
+          renderItem={({ item }) => {
+            const isExpanded = expanded === item.completedAt;
+            return (
+              <Pressable
+                style={styles.row}
+                onPress={() => setExpanded(isExpanded ? null : item.completedAt)}
+                accessibilityRole="button"
+                accessibilityLabel="낮잠 기록 상세 보기"
+                accessibilityState={{ expanded: isExpanded }}
+              >
+                <View style={styles.rowHead}>
+                  <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
+                  {item.isTest && (
+                    <View style={styles.testBadge}>
+                      <Text style={styles.testBadgeText}>테스트</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.rowDetail}>
+                  {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
+                  {detailText(item)}
+                </Text>
+                {item.memo && !isExpanded && <Text style={styles.memoText}>"{item.memo}"</Text>}
+
+                {isExpanded && (
+                  <View style={styles.detailBlock}>
+                    {detailRows(item).map((row) => (
+                      <Text key={row.label} style={styles.detailLine}>
+                        <Text style={styles.detailLabel}>{row.label}: </Text>
+                        {row.value}
+                      </Text>
+                    ))}
                   </View>
                 )}
-              </View>
-              <Text style={styles.rowDetail}>
-                {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
-                {detailText(item)}
-              </Text>
-              {item.memo && <Text style={styles.memoText}>"{item.memo}"</Text>}
-            </View>
-          )}
+              </Pressable>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -178,5 +246,21 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: colors.inkFaint,
     fontStyle: 'italic',
+  },
+  detailBlock: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+    gap: 6,
+  },
+  detailLine: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: colors.ink,
+  },
+  detailLabel: {
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
   },
 });
