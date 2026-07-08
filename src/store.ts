@@ -70,7 +70,7 @@ export interface NapRecord {
   // 수동 조정(설정 화면 또는 후기 화면 "직접 조정하기") 기록 — latency/caffeineOnset을
   // 바꾸는 유일한 경로라 어디서 왔는지(source) 구분해 남긴다.
   manualAdjust?: {
-    source: 'feedback' | 'settings';
+    source: 'feedback' | 'settings' | 'ai-analysis';
     beforeMinutes: number;
     afterMinutes: number;
   };
@@ -81,7 +81,16 @@ const KEYS = {
   activeNap: 'powernap:activeNap',
   pendingFeedback: 'powernap:pendingFeedback',
   napRecords: 'powernap:napRecords',
+  aiConsent: 'powernap:aiConsent',
 } as const;
+
+// AI_ANALYSIS.md §2 "분석 가능 조건: NapRecord 최소 5개 이상" — 클라이언트(진입점 비활성)와
+// Edge Function(422 판정) 양쪽이 같은 값을 써야 해서 여기서 export한다.
+export const MIN_RECORDS_FOR_ANALYSIS = 5;
+
+export function canRunAnalysis(recordCount: number): boolean {
+  return recordCount >= MIN_RECORDS_FOR_ANALYSIS;
+}
 
 // v2({fast,slow,fastCoffee,slowCoffee} 오프셋) 시절의 기본값과 동일한 총 시간이 나오도록
 // 맞춘 값 — fast: 20(=TARGET_SLEEP_MIN+0), slow: 30(=TARGET_SLEEP_MIN+10).
@@ -106,6 +115,19 @@ export function clampLatency(minutes: number): number {
 
 export function clampCaffeineOnset(minutes: number): number {
   return Math.min(CAFFEINE_ONSET_MAX, Math.max(CAFFEINE_ONSET_MIN, minutes));
+}
+
+// AI 분석 리포트의 ± 제안(delta)을 현재 설정에 적용했을 때 나올 값 — analysis.tsx
+// "설정에 반영하기" 버튼이 쓴다. 여기 두는 이유: analysis.tsx는 aiAnalysis.ts(→
+// supabase.ts, 모듈 로드 시 env var 없으면 throw)를 끌어와서 화면 컴포넌트를 통해
+// import하면 .env 없는 환경에서 테스트가 못 돈다 — store.ts는 그런 부작용이 없다.
+export function computeSuggestionApplication(
+  mode: 'fast' | 'slow' | 'coffee',
+  currentValue: number,
+  delta: number
+): { before: number; after: number } {
+  const clamp = mode === 'coffee' ? clampCaffeineOnset : clampLatency;
+  return { before: currentValue, after: clamp(currentValue + delta) };
 }
 
 // 구형 저장 형태 마이그레이션:
@@ -254,4 +276,17 @@ export async function getNapRecords(): Promise<NapRecord[]> {
   } catch {
     return [];
   }
+}
+
+// AI 분석 전송 동의(AI_ANALYSIS.md §6) — null은 "아직 물어본 적 없음"(최초 진입 시
+// 동의 화면 노출), false는 "거부함"(재진입해도 다시 물어봄), true는 "동의함"(바로 분석
+// 화면으로). 설정 화면에서 이 값을 직접 뒤집을 수 있다("재동의 가능").
+export async function getAiConsent(): Promise<boolean | null> {
+  const raw = await AsyncStorage.getItem(KEYS.aiConsent);
+  if (raw === null) return null;
+  return raw === 'true';
+}
+
+export async function setAiConsent(consented: boolean): Promise<void> {
+  await AsyncStorage.setItem(KEYS.aiConsent, String(consented));
 }

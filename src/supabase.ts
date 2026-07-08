@@ -20,14 +20,22 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   },
 });
 
+export interface AnonymousSession {
+  userId: string;
+  accessToken: string;
+}
+
 // 익명 인증 세션 확보 — 세션이 없을 때만 새로 발급한다(재호출해도 기존 세션 유지).
-export async function ensureAnonymousSession(): Promise<string> {
+// accessToken을 함께 반환하는 이유: supabase-js의 functions.invoke()는 세션 JWT를
+// 자동으로 Authorization 헤더에 넣어주지 않는다(client.functions는 매번 새 인스턴스를
+// 만들고 정적 헤더만 물려받음) — 호출부(aiAnalysis.ts)가 직접 넣어야 한다.
+export async function ensureAnonymousSession(): Promise<AnonymousSession> {
   const { data } = await supabase.auth.getSession();
-  if (data.session) return data.session.user.id;
+  if (data.session) return { userId: data.session.user.id, accessToken: data.session.access_token };
 
   const { data: signInData, error } = await supabase.auth.signInAnonymously();
   if (error || !signInData.session) {
     throw error ?? new Error('익명 로그인 실패');
   }
-  return signInData.session.user.id;
+  return { userId: signInData.session.user.id, accessToken: signInData.session.access_token };
 }

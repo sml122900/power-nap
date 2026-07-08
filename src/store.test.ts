@@ -7,9 +7,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   appendNapRecord,
   applyManualAdjustment,
+  canRunAnalysis,
   computeCoffeeAlarmAt,
+  computeSuggestionApplication,
+  getAiConsent,
   getNapRecords,
   getSettings,
+  MIN_RECORDS_FOR_ANALYSIS,
+  setAiConsent,
   type Settings,
 } from './store';
 
@@ -213,6 +218,62 @@ describe('Phase 4-3 survey records', () => {
     expect(records[0].survey).toBeUndefined();
     expect(records[1].result).toBeUndefined();
     expect(records[1].survey).toEqual({ posture: 'mid', noise: 'mid', light: 'mid', satisfaction: 'high' });
+  });
+
+  it('round-trips a manualAdjust record with source ai-analysis', async () => {
+    await appendNapRecord({
+      completedAt: 1_700_000_000_005,
+      mode: 'slow',
+      offsetMinutes: 27,
+      manualAdjust: { source: 'ai-analysis', beforeMinutes: 10, afterMinutes: 7 },
+    });
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.manualAdjust).toEqual({ source: 'ai-analysis', beforeMinutes: 10, afterMinutes: 7 });
+  });
+});
+
+describe('AI 분석 동의 게이트', () => {
+  it('아무것도 저장하지 않았으면 null(아직 물어본 적 없음)', async () => {
+    expect(await getAiConsent()).toBeNull();
+  });
+
+  it('동의 저장 후 true를 돌려준다', async () => {
+    await setAiConsent(true);
+    expect(await getAiConsent()).toBe(true);
+  });
+
+  it('거부 저장 후 false를 돌려준다(재진입 시 다시 물어봐야 함)', async () => {
+    await setAiConsent(false);
+    expect(await getAiConsent()).toBe(false);
+  });
+});
+
+describe('canRunAnalysis — 5개 미만 비활성', () => {
+  it(`기록이 ${MIN_RECORDS_FOR_ANALYSIS}개 미만이면 false`, () => {
+    expect(canRunAnalysis(0)).toBe(false);
+    expect(canRunAnalysis(MIN_RECORDS_FOR_ANALYSIS - 1)).toBe(false);
+  });
+
+  it(`기록이 ${MIN_RECORDS_FOR_ANALYSIS}개 이상이면 true`, () => {
+    expect(canRunAnalysis(MIN_RECORDS_FOR_ANALYSIS)).toBe(true);
+    expect(canRunAnalysis(MIN_RECORDS_FOR_ANALYSIS + 3)).toBe(true);
+  });
+});
+
+describe('computeSuggestionApplication — AI 리포트 "설정에 반영하기"', () => {
+  it('latency 제안(음수 delta)을 현재 값에 더해 clamp한다', () => {
+    expect(computeSuggestionApplication('slow', 10, -3)).toEqual({ before: 10, after: 7 });
+  });
+
+  it('LATENCY_MIN 아래로는 안 내려간다', () => {
+    expect(computeSuggestionApplication('fast', 2, -10)).toEqual({ before: 2, after: 0 });
+  });
+
+  it('caffeineOnset 제안은 CAFFEINE_ONSET 범위로 clamp한다', () => {
+    expect(computeSuggestionApplication('coffee', 25, 20)).toEqual({ before: 25, after: 35 });
+    expect(computeSuggestionApplication('coffee', 25, -20)).toEqual({ before: 25, after: 15 });
   });
 });
 
