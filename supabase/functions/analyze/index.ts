@@ -6,7 +6,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@^0.110.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.110.0/helpers/zod';
 import { createClient } from 'npm:@supabase/supabase-js@^2.110.1';
 
-import { AnalysisReportSchema, buildAnalysisUserMessage, EFFORT, MAX_TOKENS, MODEL, SYSTEM_PROMPT } from './prompts/analysis-v1.ts';
+import { AnalysisReportSchema, buildAnalysisUserMessage, buildSystemPrompt, EFFORT, MAX_TOKENS, MODEL } from './prompts/analysis-v2.ts';
 
 const MIN_RECORDS = 5;
 const MAX_FOLLOWUP_TURNS = 3;
@@ -75,12 +75,16 @@ async function authenticate(req: Request): Promise<{ userId: string } | Response
 
 // 실패 시 크레딧 미차감을 위해 이 함수는 절대 credit_events/analyses를 건드리지 않는다 —
 // 호출부에서 성공한 결과만 record_analysis_result로 넘긴다.
-async function callAnalysis(records: unknown[], settings: { latency: { fast: number; slow: number }; caffeineOnset: number }) {
+async function callAnalysis(
+  records: unknown[],
+  settings: { latency: { fast: number; slow: number }; caffeineOnset: number },
+  locale: string,
+) {
   const params = {
     model: MODEL,
     max_tokens: MAX_TOKENS,
     output_config: { effort: EFFORT, format: zodOutputFormat(AnalysisReportSchema, 'analysis_report') },
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(locale),
     messages: [{ role: 'user' as const, content: buildAnalysisUserMessage(records, settings) }],
   };
 
@@ -114,6 +118,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
   const body = await req.json().catch(() => null);
   const records = body?.records;
   const settings = body?.settings;
+  const locale = body?.locale ?? 'ko';
   if (!Array.isArray(records) || !settings?.latency || typeof settings.caffeineOnset !== 'number') {
     return jsonResponse(422, { error: 'invalid_input', message: 'records/settings 형식이 올바르지 않다.' });
   }
@@ -145,7 +150,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
 
   let result: Awaited<ReturnType<typeof callAnalysis>>;
   try {
-    result = await callAnalysis(cappedRecords, settings);
+    result = await callAnalysis(cappedRecords, settings, locale);
   } catch (err) {
     return jsonResponse(500, { error: 'analysis_failed', message: '분석에 실패했다. 다시 시도해달라.', detail: String(err) });
   }
@@ -177,6 +182,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
 async function handleFollowup(userId: string, analysisId: number, req: Request): Promise<Response> {
   const body = await req.json().catch(() => null);
   const question = body?.question;
+  const locale = body?.locale ?? 'ko';
   if (typeof question !== 'string' || !question.trim()) {
     return jsonResponse(422, { error: 'invalid_input', message: 'question이 필요하다.' });
   }
@@ -207,7 +213,7 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
       model: MODEL,
       max_tokens: FOLLOWUP_MAX_TOKENS,
       output_config: { effort: EFFORT },
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(locale),
       messages,
     });
   } catch (err) {
