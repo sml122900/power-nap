@@ -147,6 +147,35 @@
     병합 후 main에서 tsc/expo-doctor/expo export/jest(26개) 4종 재검증 통과.
     **실기기 검증은 아직 — 사용자가 직접 진행**.
 
+- **Phase A — AI 분석 서버 기반**(`main`에 직접 커밋, 별도 브랜치 없음) — AI_ANALYSIS.md §7,
+  BACKLOG.md v2 아키텍처 결정 참고. "전부 로컬" 원칙을 처음 깨는 항목, 사용자 명시 확인 후 착수:
+  - `AI_ANALYSIS.md` 신규(제품 정의/비즈니스 규칙/아키텍처/데이터 모델/AI 파이프라인/앱 변경/
+    Phase 분할/리스크). CLAUDE.md "전부 로컬" 원칙을 "v1.1부터 AI 분석에 한해 서버 사용
+    (AI_ANALYSIS.md 참조), 그 외 기능은 여전히 로컬 전용"으로 갱신.
+  - Supabase 프로젝트 생성(신형 publishable/secret 키 체계, 레거시 anon/service_role 아님) —
+    프로젝트 생성·키 발급·익명 인증 활성화는 사용자가 대시보드에서 직접, 스키마·클라이언트·
+    검증은 코드로 분담.
+  - `supabase/migrations/0001_ai_analysis_init.sql`: `users`/`credits`/`credit_events`/
+    `analyses` 4테이블. RLS는 각자 자기 행만 read, insert/update 정책 없음(secret key 전용
+    — 클라이언트가 자기 크레딧을 직접 못 올림). 크레딧 원장 트리거(`credit_events` insert →
+    `credits.balance` 자동 반영, `balance >= 0` 제약으로 초과 소비 시 insert 자체 롤백).
+    `has_weekly_free()`: 월요일 00:00 KST 기준 주간 무료 판정 함수.
+  - `src/supabase.ts`: `@supabase/supabase-js` + `react-native-url-polyfill` + AsyncStorage
+    세션 저장. `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`만 앱에 노출,
+    `SUPABASE_SECRET_KEY`/`SUPABASE_ACCESS_TOKEN`은 `.env`에 있지만 앱 코드는 안 읽음(CLI 전용).
+    `.env.example` 신규 추적(gitignore에 `!.env.example` 예외 추가), 실제 `.env`는 그대로 무시.
+  - `supabase/tests/credit-ledger.test.ts`: 실 클라우드 프로젝트에 대해 도는 통합 테스트 5개
+    — 해피패스(purchase→analysis 잔액 반영), 초과 소비 차단(check 제약 롤백 실증), 중복 적립
+    방지(external_id unique), 주간 무료 판정 KST 경계(월요일 00:00 KST 전후로
+    `has_weekly_free()` 반전 확인 — UTC 유출 방지), RLS 음성 케이스(anon 세션의
+    `credit_events` 직접 insert 거부 확인).
+  - jest를 `app`/`supabase` 두 프로젝트로 분리 — jest-expo 프리셋이 전역 `fetch`를 Expo
+    winter 런타임 스텁으로 덮어써 실제 네트워크 호출이 깨지는 문제 발견. `supabase` 프로젝트는
+    순수 node 환경 + 최소 바벨 트랜스폼(`@babel/preset-typescript` + commonjs 변환)으로 분리해
+    우회, `babel-preset-expo`(EXPO_PUBLIC_* 인라인 플러그인 포함)를 아예 안 태운다.
+  - jest 31개 통과(app 26개 + supabase 통합 5개), tsc/expo-doctor/expo export 3종 통과.
+  - **Phase A 완료.** Phase B(Edge Function `analyze`, Claude API 파이프라인)는 별도 지시 시 착수.
+
 **마지막 검증된 커밋: `eb5737f` — "Merge branch 'phase-4-3' into main", `main` 브랜치.**
 
 ## 브랜치 현황
@@ -160,11 +189,13 @@
 
 ## 지금 단계
 
-**기능 개발 동결, 출시 준비 단계 진입.** `main`에 계획했던 기능(네이티브 알람,
-학습 모델 v2, 커피냅 3모드, A/B그룹, Phase 4-3 학습 개편)이 전부 병합됐다 — 남은 건
-Phase 4-3 실기기 검증과 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md
-코드 규칙 참고)뿐. 신규 기능은 [BACKLOG.md](BACKLOG.md)에 있는 것도 요청 없이
-착수하지 않는다(v1.1/v2 항목은 출시 이후 논의).
+**기능 개발 동결(v1) 유지, AI 분석(v1.1)만 사용자 명시 지시로 예외 진행 중.**
+`main`에 계획했던 v1 기능(네이티브 알람, 학습 모델 v2, 커피냅 3모드, A/B그룹, Phase 4-3
+학습 개편)은 전부 병합 완료 — 남은 건 Phase 4-3 실기기 검증과 출시 전 체크리스트
+(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
+(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase A(서버 기반)까지
+완료됨 — Phase B(Edge Function/AI 파이프라인)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md)
+항목은 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
 

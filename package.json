@@ -46,9 +46,32 @@
   },
   "private": true,
   "jest": {
-    "preset": "jest-expo",
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1"
-    }
+    "projects": [
+      {
+        "displayName": "app",
+        "preset": "jest-expo",
+        "moduleNameMapper": {
+          "^@/(.*)$": "<rootDir>/src/$1"
+        },
+        "testPathIgnorePatterns": ["/node_modules/", "<rootDir>/supabase/"]
+      },
+      {
+        "displayName": "supabase",
+        "testEnvironment": "node",
+        "testMatch": ["<rootDir>/supabase/**/*.test.ts"],
+        "setupFiles": ["<rootDir>/jest.env.setup.js"],
+        "transform": {
+          "^.+\\.tsx?$": [
+            "babel-jest",
+            {
+              "presets": ["@babel/preset-typescript"],
+              "plugins": ["@babel/plugin-transform-modules-commonjs"],
+              "babelrc": false,
+              "configFile": false
+            }
+          ]
+        }
+      }
+    ]
   }
 }
