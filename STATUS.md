@@ -176,6 +176,55 @@
   - jest 31개 통과(app 26개 + supabase 통합 5개), tsc/expo-doctor/expo export 3종 통과.
   - **Phase A 완료.** Phase B(Edge Function `analyze`, Claude API 파이프라인)는 별도 지시 시 착수.
 
+- **Phase B — AI 파이프라인**(`main`에 직접 커밋) — AI_ANALYSIS.md §5, 사용자 명시 지시로 착수:
+  - `supabase/migrations/0002_analysis_pipeline.sql`: `analyses.turns`(jsonb, 후속 대화
+    이력) 컬럼 추가. `record_analysis_result()` RPC — Claude 호출 **성공 후에만**
+    `credit_events` insert + `analyses` insert를 한 트랜잭션으로 묶는다("호출 전 예약 →
+    실패 시 환급" 대신 "성공 후 차감" 선택 — 예약→환급 방식은 환급 자체가 실패하면 사용자가
+    서비스 없이 차감만 당하는 상태가 남을 수 있어 AI_ANALYSIS.md §8 "실패 시 크레딧 미차감"
+    요구사항에 더 취약; 근거는 마이그레이션 주석 참고). `append_followup_turn()` RPC —
+    `followup_turns_used < 3` 조건을 UPDATE의 WHERE절에 넣어 동시 요청에서도 3턴 초과를
+    원자적으로 막는다.
+  - `supabase/migrations/0003_lock_rpc_permissions.sql`: **도그푸딩 중 발견한 보안 구멍
+    수정** — Postgres/Supabase가 새 함수의 EXECUTE를 기본적으로 anon/authenticated에도
+    열어두는데(0001의 `has_weekly_free`도 포함), `REVOKE ... FROM public`만으로는 안
+    막힌다는 걸 실제 anon 클라이언트로 RPC를 직접 호출해보고 발견(발견 즉시 수정 원칙).
+    `anon, authenticated`에서 명시적으로 revoke, `service_role`에만 grant. 수정 전/후
+    양쪽 다 anon 클라이언트로 직접 검증함.
+  - `supabase/functions/analyze/prompts/analysis-v1.ts`: 시스템 프롬프트(BACKLOG.md 문헌
+    근거 요약 + "제안만 하고 적용은 사용자가" 원칙 + 의학적 표현 제한 + 수면장애 의심 시
+    전문가 상담 권유) + zod 스키마(`latencyAdjust`/`caffeineOnsetAdjust`/`summary`/
+    `advice`/`confidence`) + 모델/토큰 상수.
+  - `supabase/functions/analyze/index.ts` (Deno): JWT 인증(`admin.auth.getUser`, 익명
+    세션 포함) → 기록 5개 미만 422 → `has_weekly_free()`로 무료/유료 분기(유료인데 잔액 0이면
+    402) → Claude 호출(`client.messages.parse` + `output_config.format`(zodOutputFormat)로
+    스키마 강제, 실패 시 1회 재시도) → 성공 시에만 `record_analysis_result` RPC로 원자적
+    기록. 후속 질문은 같은 함수에서 `analysisId` 유무로 분기, `append_followup_turn` RPC로
+    3턴 제한 강제.
+  - 모델: AI_ANALYSIS.md 원문의 `claude-sonnet-4-6`은 작성 시점 기준 구형 — 실제 구현은
+    `claude-sonnet-5`(현재 최신 Sonnet, structured outputs 지원)로 교체하고 문서도 갱신.
+  - `supabase/tests/analyze.test.ts`: 배포된 함수를 HTTPS로 직접 호출하는 통합 테스트
+    3개(401 미인증, 422 기록 부족, 200 정상 분석+후속질문+같은 주 재요청 402) — 매 실행마다
+    실제 Claude 호출 2회 발생(소액 비용, sonnet-5 max_tokens 캡).
+  - jest를 `app`/`supabase` 프로젝트로 나눈 구조가 아직 jest-expo 프리셋의 `EXPO_PUBLIC_*`
+    바벨 인라인 플러그인을 태워 `expo/virtual/env.js`(ESM) 파싱 에러가 났음 — `supabase`
+    프로젝트 전용 transform을 `@babel/preset-typescript` + commonjs 변환만으로 재구성해
+    `babel-preset-expo`를 완전히 배제, 해결.
+  - `tsconfig.json`에 `supabase/functions` exclude 추가 — Deno 전용 문법(`Deno.serve`,
+    `npm:` import specifier)이 앱 tsc 검사에 걸리는 문제 발견 즉시 수정.
+  - **로컬 `supabase functions serve` 검증은 Docker Desktop 데몬이 꺼져 있어 스킵** —
+    대신 배포 후 실제 HTTPS 엔드포인트로 401/422/200(실제 Claude 리포트)/후속질문/402
+    전체 시나리오를 직접 호출해 검증(이 방식이 로컬 serve보다 넓은 범위를 실증함,
+    다만 사용자가 요청한 정확한 절차는 아니었음 — Docker Desktop 켜면 이후 로컬 serve도
+    가능).
+  - 익명화 샘플: 기기 AsyncStorage에 직접 접근할 수 없어 store.ts `NapRecord` 스키마와
+    동일한 구조의 합성 데이터로 테스트(원본 스키마 자체에 개인정보 필드가 없어 실기록을
+    구했어도 실질적 차이는 적음).
+  - jest 34개 통과(기존 31개 + analyze 통합 3개), tsc(exclude 반영)/expo-doctor/expo export
+    3종 통과. 커밋 4개로 분리(migrations/prompt/function/tests).
+  - **Phase B 완료.** Phase C(앱 통합 — 동의 UI/분석 진입점/리포트 화면/후속질문 UI)는
+    별도 지시 시 착수.
+
 **마지막 검증된 커밋: `eb5737f` — "Merge branch 'phase-4-3' into main", `main` 브랜치.**
 
 ## 브랜치 현황
@@ -193,8 +242,8 @@
 `main`에 계획했던 v1 기능(네이티브 알람, 학습 모델 v2, 커피냅 3모드, A/B그룹, Phase 4-3
 학습 개편)은 전부 병합 완료 — 남은 건 Phase 4-3 실기기 검증과 출시 전 체크리스트
 (SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
-(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase A(서버 기반)까지
-완료됨 — Phase B(Edge Function/AI 파이프라인)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md)
+(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase B(Edge Function/AI
+파이프라인)까지 완료됨 — Phase C(앱 통합)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md)
 항목은 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
