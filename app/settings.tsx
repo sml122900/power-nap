@@ -3,7 +3,14 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
+import {
+  getLanguagePreference,
+  setLanguagePreference,
+  SUPPORTED_LANGUAGES,
+  type LanguagePreference,
+} from '@/i18n';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -22,31 +29,29 @@ import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 const STEP = 1;
 
-type Row = { mode: NapMode; label: string; min: number; max: number };
+type Row = { mode: NapMode; labelKey: string; min: number; max: number };
 
 const ROWS: Row[] = [
-  { mode: 'fast', label: '수면 대기시간 — 바로 잠들 것 같아요', min: LATENCY_MIN, max: LATENCY_MAX },
-  { mode: 'slow', label: '수면 대기시간 — 좀 뒤척일 것 같아요', min: LATENCY_MIN, max: LATENCY_MAX },
-  { mode: 'coffee', label: '카페인 발현시간', min: CAFFEINE_ONSET_MIN, max: CAFFEINE_ONSET_MAX },
+  { mode: 'fast', labelKey: 'rowLabel.fast', min: LATENCY_MIN, max: LATENCY_MAX },
+  { mode: 'slow', labelKey: 'rowLabel.slow', min: LATENCY_MIN, max: LATENCY_MAX },
+  { mode: 'coffee', labelKey: 'rowLabel.coffee', min: CAFFEINE_ONSET_MIN, max: CAFFEINE_ONSET_MAX },
 ];
+
+const LANGUAGE_PREFERENCES: LanguagePreference[] = ['system', ...SUPPORTED_LANGUAGES];
 
 function valueFor(settings: Settings, mode: NapMode): number {
   return mode === 'coffee' ? settings.caffeineOnset : settings.latency[mode];
 }
 
-function previewFor(mode: NapMode, value: number): string {
-  if (mode === 'coffee') return `커피 마시고 ${value}분 뒤 기상`;
-  const label = mode === 'fast' ? '바로 잠들 것 같아요' : '좀 뒤척일 것 같아요';
-  return `${label} = ${TARGET_SLEEP_MIN} + ${value} = 총 ${TARGET_SLEEP_MIN + value}분`;
-}
-
 export default function SettingsScreen() {
   const router = useRouter();
+  const { t } = useTranslation('settings');
   const [settings, setSettings] = useState<Settings | null>(null);
   // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
   // (feedback.tsx/index.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
   const [texts, setTexts] = useState<Record<NapMode, string>>({ fast: '', slow: '', coffee: '' });
   const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
+  const [languagePref, setLanguagePref] = useState<LanguagePreference | null>(null);
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -54,7 +59,14 @@ export default function SettingsScreen() {
       setTexts({ fast: String(s.latency.fast), slow: String(s.latency.slow), coffee: String(s.caffeineOnset) });
     });
     getAiConsent().then(setAiConsentState);
+    getLanguagePreference().then(setLanguagePref);
   }, []);
+
+  const onSelectLanguage = async (pref: LanguagePreference) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await setLanguagePreference(pref);
+    setLanguagePref(pref);
+  };
 
   // AI_ANALYSIS.md §6 "동의 철회" — 히스토리 화면의 "AI 분석" 진입 시 동의 화면과 별개로
   // 여기서 직접 뒤집을 수 있다("재동의 가능").
@@ -104,12 +116,23 @@ export default function SettingsScreen() {
     return <View style={styles.container} />;
   }
 
+  const previewFor = (mode: NapMode, value: number): string => {
+    if (mode === 'coffee') return t('previewCoffee', { value });
+    const rowLabelKey = mode === 'fast' ? 'rowLabel.fast' : 'rowLabel.slow';
+    return t('previewLatency', {
+      label: t(rowLabelKey),
+      target: TARGET_SLEEP_MIN,
+      value,
+      total: TARGET_SLEEP_MIN + value,
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
-        <Text style={styles.title}>설정</Text>
+        <Text style={styles.title}>{t('title')}</Text>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.closeText}>닫기</Text>
+          <Text style={styles.closeText}>{t('common:close')}</Text>
         </Pressable>
       </View>
 
@@ -118,12 +141,12 @@ export default function SettingsScreen() {
           const value = valueFor(settings, row.mode);
           return (
             <View key={row.mode} style={styles.card}>
-              <Text style={styles.label}>{row.label}</Text>
+              <Text style={styles.label}>{t(row.labelKey)}</Text>
               <View style={styles.stepperRow}>
                 <Pressable
                   onPress={() => onStep(row, -STEP)}
                   style={styles.stepBtn}
-                  accessibilityLabel={`${STEP}분 줄이기`}
+                  accessibilityLabel={t('stepDecreaseA11y', { step: STEP })}
                 >
                   <Text style={styles.stepBtnText}>−</Text>
                 </Pressable>
@@ -132,21 +155,21 @@ export default function SettingsScreen() {
                     style={[styles.input, tabularNums]}
                     value={texts[row.mode]}
                     onChangeText={(text) =>
-                      setTexts((t) => ({ ...t, [row.mode]: text.replace(/[^0-9]/g, '').slice(0, 2) }))
+                      setTexts((prev) => ({ ...prev, [row.mode]: text.replace(/[^0-9]/g, '').slice(0, 2) }))
                     }
                     onBlur={() => onCommitText(row)}
                     onSubmitEditing={() => onCommitText(row)}
                     keyboardType="number-pad"
                     maxLength={2}
                     textAlign="center"
-                    accessibilityLabel={`${row.label} 분 직접 입력 (${row.min}~${row.max})`}
+                    accessibilityLabel={t('inputA11y', { label: t(row.labelKey), min: row.min, max: row.max })}
                   />
-                  <Text style={styles.unit}>분</Text>
+                  <Text style={styles.unit}>{t('unit')}</Text>
                 </View>
                 <Pressable
                   onPress={() => onStep(row, STEP)}
                   style={styles.stepBtn}
-                  accessibilityLabel={`${STEP}분 늘리기`}
+                  accessibilityLabel={t('stepIncreaseA11y', { step: STEP })}
                 >
                   <Text style={styles.stepBtnText}>+</Text>
                 </Pressable>
@@ -158,14 +181,39 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.dataSection}>
-        <Text style={styles.dataSectionLabel}>데이터 및 분석</Text>
+        <Text style={styles.dataSectionLabel}>{t('dataSectionLabel')}</Text>
         <View style={styles.dataRow}>
           <Text style={styles.dataRowText}>
-            {aiConsent === true ? 'AI 분석 서버 전송에 동의함' : 'AI 분석 서버 전송에 동의하지 않음'}
+            {aiConsent === true ? t('consentGranted') : t('consentNotGranted')}
           </Text>
           <Pressable onPress={onToggleAiConsent} style={styles.dataToggleBtn}>
-            <Text style={styles.dataToggleBtnText}>{aiConsent === true ? '철회' : '동의'}</Text>
+            <Text style={styles.dataToggleBtnText}>
+              {aiConsent === true ? t('consentToggleRevoke') : t('consentToggleGrant')}
+            </Text>
           </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.dataSection}>
+        <Text style={styles.dataSectionLabel}>{t('languageSectionLabel')}</Text>
+        <View style={styles.languageOptionList}>
+          {LANGUAGE_PREFERENCES.map((pref) => {
+            const selected = languagePref === pref;
+            return (
+              <Pressable
+                key={pref}
+                onPress={() => onSelectLanguage(pref)}
+                style={[styles.languageOptionRow, selected && styles.languageOptionRowSelected]}
+                accessibilityRole="button"
+                accessibilityLabel={t(`languageOption.${pref}`)}
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.languageOptionText, selected && styles.languageOptionTextSelected]}>
+                  {t(`languageOption.${pref}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </SafeAreaView>
@@ -295,5 +343,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.bold,
     color: colors.ink,
+  },
+  languageOptionList: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  languageOptionRow: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  languageOptionRowSelected: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  languageOptionText: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  languageOptionTextSelected: {
+    color: colors.surface,
   },
 });
