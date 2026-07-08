@@ -3,6 +3,7 @@ import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -12,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { formatKoreanTime } from '@/format';
+import { formatTime } from '@/format';
 import { cancelAlarmNotificationAsync } from '@/notifications';
 import { clearActiveNap, getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
@@ -20,6 +21,7 @@ import { useNapWatchdog } from '@/useNapWatchdog';
 
 export default function SleepScreen() {
   const router = useRouter();
+  const { t } = useTranslation('sleep');
   const checkNapRoute = useNapWatchdog('/sleep');
   useKeepAwake('nap-sleep');
 
@@ -99,24 +101,22 @@ export default function SleepScreen() {
 
   const wakeAtText =
     nap.mode === 'coffee'
-      ? `카페인 발현에 맞춰 ${formatKoreanTime(new Date(nap.alarmAt))}에 깨워드릴게요`
-      : `${formatKoreanTime(new Date(nap.alarmAt))}에 깨워드릴게요`;
+      ? t('wakeAtCoffee', { time: formatTime(new Date(nap.alarmAt)) })
+      : t('wakeAtDefault', { time: formatTime(new Date(nap.alarmAt)) });
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.center}>
         <Animated.View style={[styles.breathDot, breathStyle]} />
-        <Text style={styles.label}>알람까지</Text>
+        <Text style={styles.label}>{t('countdownLabel')}</Text>
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
 
-        {nap.notificationId === null && (
-          <Text style={styles.permissionHint}>앱을 켠 채로 두면 알람이 울려요</Text>
-        )}
+        {nap.notificationId === null && <Text style={styles.permissionHint}>{t('permissionHint')}</Text>}
       </View>
 
       <Pressable onPress={onCancel} style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostBtnPressed]}>
-        <Text style={styles.ghostBtnText}>그만 자고 일어나기</Text>
+        <Text style={styles.ghostBtnText}>{t('cancelButton')}</Text>
       </Pressable>
     </SafeAreaView>
   );
