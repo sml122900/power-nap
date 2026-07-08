@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { formatFreeResetCountdown } from '@/analysisDisplay';
 import { formatKoreanDateTime } from '@/format';
 import {
   canRunAnalysis,
@@ -18,6 +19,7 @@ import {
   type WakeChecklist,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { useFreeResetStatus } from '@/useFreeResetStatus';
 
 function modeName(mode: NapMode): string {
   if (mode === 'fast') return '바로 잠듦';
@@ -137,19 +139,29 @@ export default function HistoryScreen() {
   const [records, setRecords] = useState<NapRecord[]>([]);
   // 한 번에 하나만 펼친다(아코디언) — completedAt이 유니크 키.
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [consented, setConsented] = useState<boolean | null>(null);
 
   useEffect(() => {
     getNapRecords().then((r) => setRecords([...r].reverse()));
+    getAiConsent().then(setConsented);
   }, []);
 
   // isTest 레코드는 학습에 반영되지 않는 것과 동일하게 분석 가능 여부 판정에서도 뺀다.
   const canAnalyze = canRunAnalysis(filterAnalyzableRecords(records).length);
+  // 동의 전에는 서버 호출 자체를 안 한다(전송 동의 원칙) — 동의 후 + 분석 가능할 때만 조회.
+  const freeReset = useFreeResetStatus(consented === true && canAnalyze);
 
   const onPressAiAnalysis = async () => {
     if (!canAnalyze) return;
-    const consented = await getAiConsent();
     router.push(consented === true ? '/analysis-period' : '/analysis-consent');
   };
+
+  const freeStatusCaption =
+    freeReset.hasWeeklyFree === true
+      ? '이번 주 무료 분석 가능'
+      : freeReset.remainingMs !== null
+        ? `다음 무료 분석까지 ${formatFreeResetCountdown(freeReset.remainingMs)}`
+        : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -184,6 +196,9 @@ export default function HistoryScreen() {
         <Text style={styles.aiAnalysisCaption}>
           낮잠 기록이 {MIN_RECORDS_FOR_ANALYSIS}회 쌓이면 분석할 수 있어요
         </Text>
+      )}
+      {canAnalyze && consented === true && freeStatusCaption && (
+        <Text style={styles.aiAnalysisCaption}>{freeStatusCaption}</Text>
       )}
 
       {records.length === 0 ? (

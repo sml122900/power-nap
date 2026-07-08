@@ -11,7 +11,7 @@ import {
   requestFollowup,
   type AnalysisReport,
 } from '@/aiAnalysis';
-import { turnsToExchanges, type FollowupExchange } from '@/analysisDisplay';
+import { formatFreeResetCountdown, turnsToExchanges, type FollowupExchange } from '@/analysisDisplay';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -23,6 +23,7 @@ import {
   type Settings,
 } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
+import { useFreeResetStatus } from '@/useFreeResetStatus';
 
 type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
 
@@ -45,6 +46,9 @@ export default function AnalysisScreen() {
   const [turnsRemaining, setTurnsRemaining] = useState(0);
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
+
+  // 402(무료 소진) 상태일 때만 상태를 조회한다 — 로딩/리포트 화면에서는 불필요한 서버 호출.
+  const freeReset = useFreeResetStatus(phase === 'insufficient_credit');
 
   // id(지난 분석 열람)/since(새 분석, 기간 필터)가 바뀔 때마다 완전히 다시 로드한다 —
   // 화면 인스턴스가 재사용될 수 있어(history → history 다른 id로 이동 등) useRef 1회성
@@ -176,6 +180,11 @@ export default function AnalysisScreen() {
         </View>
         <View style={styles.centerBody}>
           <Text style={styles.paragraph}>이번 주 무료 분석을 사용했어요.</Text>
+          {freeReset.remainingMs !== null && (
+            <Text style={styles.countdownText}>
+              다음 무료 분석까지 {formatFreeResetCountdown(freeReset.remainingMs)}
+            </Text>
+          )}
           <View style={styles.paymentPlaceholder}>
             <Text style={styles.paymentPlaceholderText}>추가 분석 1,000원 (준비 중)</Text>
           </View>
@@ -351,6 +360,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
+  },
+  countdownText: {
+    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
   },
   paymentPlaceholder: {
     paddingHorizontal: 20,
