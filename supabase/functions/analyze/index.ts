@@ -11,6 +11,10 @@ import { AnalysisReportSchema, buildAnalysisUserMessage, EFFORT, MAX_TOKENS, MOD
 const MIN_RECORDS = 5;
 const MAX_FOLLOWUP_TURNS = 3;
 const FOLLOWUP_MAX_TOKENS = 1024;
+// 토큰 비용 방어선 — records_snapshot이 프롬프트에 통째로 들어가므로 무한정 커지는 걸
+// 막는다. 클라이언트가 이미 기간 필터(AI_ANALYSIS.md §2)로 줄여서 보내는 게 정상 경로라
+// 이건 안전망일 뿐 — 초과분은 에러 없이 조용히 버리고 최신순 50개만 쓴다.
+const MAX_RECORDS = 50;
 
 // 플랫폼이 자동 주입하는 이름이 신형 키 체계 롤아웃 단계에 따라 다르다(단일 문자열
 // SUPABASE_SECRET_KEY, 또는 이름별 JSON SUPABASE_SECRET_KEYS) — 셋 다 시도한다.
@@ -89,6 +93,10 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
     return jsonResponse(422, { error: 'not_enough_records', message: `낮잠 기록이 ${MIN_RECORDS}개 이상 필요하다.` });
   }
 
+  const cappedRecords = [...records]
+    .sort((a: { completedAt?: number }, b: { completedAt?: number }) => (b?.completedAt ?? 0) - (a?.completedAt ?? 0))
+    .slice(0, MAX_RECORDS);
+
   const { data: freeAvailable, error: freeCheckError } = await admin.rpc('has_weekly_free', { p_user_id: userId });
   if (freeCheckError) return jsonResponse(500, { error: 'server_error', message: freeCheckError.message });
 
@@ -109,7 +117,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
 
   let result: Awaited<ReturnType<typeof callAnalysis>>;
   try {
-    result = await callAnalysis(records, settings);
+    result = await callAnalysis(cappedRecords, settings);
   } catch (err) {
     return jsonResponse(500, { error: 'analysis_failed', message: '분석에 실패했다. 다시 시도해달라.', detail: String(err) });
   }
@@ -117,7 +125,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
   const { data: analysisId, error: recordError } = await admin.rpc('record_analysis_result', {
     p_user_id: userId,
     p_charge_reason: chargeReason,
-    p_records_snapshot: records,
+    p_records_snapshot: cappedRecords,
     p_report: result.report,
     p_model: MODEL,
     p_tokens_in: result.tokensIn,
@@ -134,6 +142,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
     report: result.report,
     turnsRemaining: MAX_FOLLOWUP_TURNS,
     chargeReason,
+    recordsUsed: cappedRecords.length,
   });
 }
 

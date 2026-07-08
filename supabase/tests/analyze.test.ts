@@ -92,6 +92,7 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       expect(firstBody.report.advice.length).toBeGreaterThan(0);
       expect(['high', 'low']).toContain(firstBody.report.confidence);
       expect(firstBody.turnsRemaining).toBe(3);
+      expect(firstBody.recordsUsed).toBe(6);
 
       const followup = await callAnalyze(jwt, {
         analysisId: firstBody.analysisId,
@@ -106,6 +107,18 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
 
       const second = await callAnalyze(jwt, { records: napRecords(6), settings: SETTINGS });
       expect(second.status).toBe(402); // 이번 주 무료 이미 소진, 잔액 0
+    } finally {
+      await deleteTestUser(userId);
+    }
+  }, 60_000);
+
+  it('60개를 보내도 서버가 최신순 50개로 컷한다(토큰 비용 방어선)', async () => {
+    const { jwt, userId } = await createAnonUser();
+    try {
+      const res = await callAnalyze(jwt, { records: napRecords(60), settings: SETTINGS });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.recordsUsed).toBe(50);
     } finally {
       await deleteTestUser(userId);
     }
