@@ -39,7 +39,6 @@ void i18next.use(initReactI18next).init({
   defaultNS: 'common',
   interpolation: { escapeValue: false },
   returnNull: false,
-  initImmediate: false,
 });
 
 export async function getLanguagePreference(): Promise<LanguagePreference> {
