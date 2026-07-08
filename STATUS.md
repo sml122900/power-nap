@@ -327,7 +327,38 @@
     커밋 4개(데이터 계층/화면/Edge Function/문서)로 분리.
   - **Phase C 확장 완료(실기기 검증 대기).** 릴리즈 재빌드 → 설치 대기.
 
-**마지막 검증된 커밋: `ai-analysis-app` 브랜치, Phase C 확장 커밋들.**
+- **릴리즈 빌드 2차 + 실기기 재설치**: app.json/네이티브 설정 변경 없어 `prebuild` 없이
+  `gradlew assembleRelease`만 재실행, `adb install -r`로 설치 완료. 두 번째부터는 adb
+  인증이 바로 됨(첫 연결 때만 겪는 문제였음).
+
+- **무료 리셋 카운트다운**(`ai-analysis-app` 브랜치 이어서, 사용자 명시 지시) — 402
+  화면 + 히스토리 "AI 분석" 진입점에 "다음 무료 분석까지 N일 N시간 N분" 표시:
+  - **설계 제약 발견**: `has_weekly_free` RPC는 Phase B에서 이미 anon/authenticated로부터
+    잠가둔 상태(migrations/0003)라 클라이언트가 직접 못 부른다 — Edge Function에 가벼운
+    `mode: 'status'` 분기를 추가해 유일한 조회 경로로 삼음(NapRecord 없이 RPC 하나만
+    호출, Claude 비용 없음).
+  - 리셋 시각 계산은 Postgres `week_start_kst()`를 다시 호출하지 않고 Deno 쪽에
+    동일 공식을 그대로 복제(analyze.test.ts의 `mondayKstBoundaryUtc`와 같은 공식 —
+    이미 DB 함수와 일치함이 검증돼 있어 안전하게 재사용). 이 값 자체가 Edge Function
+    서버 시각 기준이라 기기 시각 조작과 무관("서버 시각 기준" 요구사항 충족).
+  - 클라이언트 카운트다운은 "서버가 준 remaining을 fetch 시점에 고정 → 이후엔 기기의
+    경과 시간(델타)만 더해 틱" 방식(`useFreeResetStatus`, 분 단위 갱신) — 기기의 절대
+    시각이 아니라 경과 시간만 신뢰하므로 기기 시각을 바꿔도 카운트다운 자체는 정상
+    흐름(단, 표시 목적일 뿐 실제 크레딧 판정은 항상 서버가 함 — 애초에 위조해도 의미 없음).
+  - 히스토리 진입점은 **동의 전에는 상태를 조회하지 않음**(consented===true && 분석
+    가능할 때만 훅 활성화) — "동의 전엔 서버로 아무것도 안 보낸다" 원칙 유지.
+  - **회귀 버그 발견·수정**: `useFreeResetStatus`(신규 훅)가 `aiAnalysis.ts` →
+    `supabase.ts`로 이어지는 체인을 끌어오면서, `supabase.ts`가 모듈 로드 시점에 env
+    var 없으면 즉시 throw하던 것 때문에 `app/history.tsx`를 import하는
+    `app/history.test.ts`(순수 함수 `detailText` 등만 테스트하는 파일)까지 덩달아
+    깨짐. `supabase.ts`를 지연 초기화(`getSupabase()`, 최초 실제 호출 시점에만 env var
+    확인)로 바꿔 근본 수정 — `.env` 없는 환경에서도 화면 컴포넌트를 끌어오는 테스트가
+    깨지지 않게 됨(같은 부류 문제가 세션 내내 반복돼 이번엔 아예 구조로 막음).
+  - jest 80개 통과(기존 73개 + analysisDisplay 5개 + analyze 통합 2개), tsc/expo-doctor/
+    expo export 3종 통과. 커밋 3개(Edge Function/데이터 계층/화면)로 분리, push 완료.
+  - **실기기 검증 대기** — 재빌드·재설치는 사용자 지시 시.
+
+**마지막 검증된 커밋: `ai-analysis-app` 브랜치, 무료 리셋 카운트다운 커밋들.**
 
 ## 브랜치 현황
 
