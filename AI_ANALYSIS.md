@@ -57,14 +57,17 @@
   (Handee/Lifebook에서 쓰는 패턴 그대로)
 - 프롬프트에 포함: BACKLOG.md의 문헌 근거(파워냅 유효구간 10~30분, 수면 관성,
   카페인 발현 20~30분/흡수 피크/개인차) + NapRecord 스냅샷 + 현재 설정값
-- 출력은 JSON 스키마 강제 + zod 검증, 실패 시 1회 재시도 후 실패 처리(크레딧 미차감):
+- 출력은 `output_config.format`(구 `output_format` 아님) + `zodOutputFormat`으로 JSON 스키마
+  강제와 zod 검증을 서버 사이드에서 한 번에 처리(`client.messages.parse()`), 실패 시 1회
+  재시도 후 실패 처리(크레딧 미차감):
   { latencyAdjust: {fast, slow} | null, caffeineOnsetAdjust: number | null,
     summary: string, advice: string[], confidence: 'high'|'low' }
 - 의학적 표현 수위: "진단/치료" 금지, "일반적인 수면 위생 정보이며 의학적 조언이
   아님" 고지를 리포트 하단 고정 표기. 수면장애 의심 패턴(만성 불면 언급 등)이
   메모에 보이면 전문가 상담 권유 문구로 대응 — 프롬프트에 명시
 - 후속 질문: 리포트 + 이전 턴을 컨텍스트로 재호출, 3턴 도달 시 입력창 비활성
-- 모델: claude-sonnet-4-6 (환경변수로 교체 가능), max_tokens 상한 명시로 비용 캡
+- 모델: claude-sonnet-5(환경변수로 교체 가능) — 작성 시점 최신 Sonnet, structured outputs
+  지원 모델. max_tokens 상한 명시로 비용 캡
 
 ## 6. 앱 쪽 변경
 
