@@ -34,6 +34,7 @@ export const colors = {
 export const radius = {
   lg: 24,
   md: 16,
+  sm: 6,
 } as const;
 
 // 위계는 폰트 굵기와 크기로만 표현한다 (아이콘/그라데이션 금지).

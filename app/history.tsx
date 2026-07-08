@@ -4,7 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { formatKoreanDateTime } from '@/format';
-import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult, type NapSurvey, type SurveyRating } from '@/store';
+import {
+  getNapRecords,
+  type NapMode,
+  type NapRecord,
+  type NapRecordResult,
+  type NapSurvey,
+  type SurveyRating,
+  type WakeChecklist,
+} from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
@@ -34,6 +42,21 @@ const RATING_LABEL: Record<SurveyRating, string> = { high: '상', mid: '중', lo
 
 export function surveySummary(survey: NapSurvey): string {
   return `자세${RATING_LABEL[survey.posture]} 소음${RATING_LABEL[survey.noise]} 빛${RATING_LABEL[survey.light]} · 만족${RATING_LABEL[survey.satisfaction]}`;
+}
+
+const WAKE_CHECKLIST_LABEL: { key: keyof WakeChecklist; label: string }[] = [
+  { key: 'immediate', label: '즉시 기상' },
+  { key: 'stretch', label: '기지개' },
+  { key: 'light', label: '빛' },
+  { key: 'water', label: '물' },
+];
+
+// 체크된 항목만 라벨을 이어붙인다 — appendNapRecord가 전부 미체크면 필드를 생략하므로
+// 여기 도달했다면 최소 1개는 체크된 상태.
+export function wakeChecklistSummary(checklist: WakeChecklist): string {
+  return WAKE_CHECKLIST_LABEL.filter((item) => checklist[item.key])
+    .map((item) => item.label)
+    .join(' · ');
 }
 
 // v1(레거시 3버튼 후기/직접조정)과 v2(Phase 4-3 설문/수동조정) 포맷이 한 히스토리에
@@ -96,6 +119,10 @@ export function detailRows(item: NapRecord): DetailRow[] {
 
   if (item.memo) {
     rows.push({ label: '메모', value: item.memo });
+  }
+
+  if (item.wakeChecklist) {
+    rows.push({ label: '기상 루틴', value: wakeChecklistSummary(item.wakeChecklist) });
   }
 
   return rows;
