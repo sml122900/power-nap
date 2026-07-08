@@ -13,7 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
+import i18n from '@/i18n';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -33,24 +35,22 @@ import {
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
-  if (mode === 'fast') return '바로 잠듦';
-  if (mode === 'slow') return '뒤척임';
-  return '커피냅';
+  return i18n.t(`common:napMode.${mode}`);
 }
 
 type SurveyQuestionKey = keyof NapSurvey;
 
-const QUESTIONS: { key: SurveyQuestionKey; label: string }[] = [
-  { key: 'posture', label: '자세 편안함' },
-  { key: 'noise', label: '소음 차단' },
-  { key: 'light', label: '빛 차단' },
-  { key: 'satisfaction', label: '수면 만족도' },
+const QUESTIONS: { key: SurveyQuestionKey; questionKey: string }[] = [
+  { key: 'posture', questionKey: 'question.posture' },
+  { key: 'noise', questionKey: 'question.noise' },
+  { key: 'light', questionKey: 'question.light' },
+  { key: 'satisfaction', questionKey: 'question.satisfaction' },
 ];
 
-const RATINGS: { value: SurveyRating; label: string }[] = [
-  { value: 'high', label: '상' },
-  { value: 'mid', label: '중' },
-  { value: 'low', label: '하' },
+const RATINGS: { value: SurveyRating; ratingKey: string }[] = [
+  { value: 'high', ratingKey: 'common:rating.high' },
+  { value: 'mid', ratingKey: 'common:rating.mid' },
+  { value: 'low', ratingKey: 'common:rating.low' },
 ];
 
 // 문항당 기본값을 '중'으로 깔아둔다 — 전부 보통이면 탭 없이 바로 제출도 가능하고,
@@ -61,11 +61,11 @@ const MANUAL_STEP = 1;
 
 const DEFAULT_WAKE_CHECKLIST: WakeChecklist = { immediate: false, stretch: false, light: false, water: false };
 
-const WAKE_CHECKLIST_ITEMS: { key: keyof WakeChecklist; label: string }[] = [
-  { key: 'immediate', label: '바로 일어났어요 (스누즈 없이)' },
-  { key: 'stretch', label: '기지개를 켰어요' },
-  { key: 'light', label: '밝은 빛을 쬐었어요' },
-  { key: 'water', label: '물 한 잔 마셨어요' },
+const WAKE_CHECKLIST_ITEMS: { key: keyof WakeChecklist; labelKey: string }[] = [
+  { key: 'immediate', labelKey: 'checklist.immediate' },
+  { key: 'stretch', labelKey: 'checklist.stretch' },
+  { key: 'light', labelKey: 'checklist.light' },
+  { key: 'water', labelKey: 'checklist.water' },
 ];
 
 // 전부 미체크면 undefined를 반환해 기존 레코드와 동일한 형태(필드 생략)를 유지한다.
@@ -83,6 +83,7 @@ interface FeedbackContext {
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const { t } = useTranslation('feedback');
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [answers, setAnswers] = useState<NapSurvey>(DEFAULT_SURVEY);
   const [wakeChecklist, setWakeChecklist] = useState<WakeChecklist>(DEFAULT_WAKE_CHECKLIST);
@@ -138,7 +139,7 @@ export default function FeedbackScreen() {
       wakeChecklist: toWakeChecklistRecord(wakeChecklist),
     });
     await clearPendingFeedback();
-    router.replace({ pathname: '/', params: { toast: '기록했어요.' } });
+    router.replace({ pathname: '/', params: { toast: t('toastRecorded') } });
   };
 
   const onSkip = async () => {
@@ -209,10 +210,10 @@ export default function FeedbackScreen() {
     });
     await clearPendingFeedback();
 
-    const label = ctx.mode === 'coffee' ? '카페인 발현시간' : '대기시간';
+    const label = t(ctx.mode === 'coffee' ? 'manualLabelCaffeine' : 'manualLabelLatency');
     router.replace({
       pathname: '/',
-      params: { toast: `다음 ${modeName(ctx.mode)}은 ${label} ${finalValue}분으로 맞춰둘게요.` },
+      params: { toast: t('toastManualAdjust', { modeName: modeName(ctx.mode), label, minutes: finalValue }) },
     });
   };
 
@@ -227,13 +228,13 @@ export default function FeedbackScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.head}>
-            <Text style={styles.title}>낮잠 어땠어요?</Text>
-            <Text style={styles.subtitle}>짧게 체크만 해도 기록으로 남아요.</Text>
+            <Text style={styles.title}>{t('title')}</Text>
+            <Text style={styles.subtitle}>{t('subtitle')}</Text>
             {ctx.mode === 'coffee' ? (
-              <Text style={styles.statusLine}>내 카페인 발현: {ctx.caffeineOnset}분</Text>
+              <Text style={styles.statusLine}>{t('statusCoffee', { minutes: ctx.caffeineOnset })}</Text>
             ) : (
               <Text style={styles.statusLine}>
-                내 수면 대기시간: 잠듦 {ctx.latency.fast}분 · 뒤척임 {ctx.latency.slow}분
+                {t('statusDefault', { fast: ctx.latency.fast, slow: ctx.latency.slow })}
               </Text>
             )}
           </View>
@@ -241,7 +242,7 @@ export default function FeedbackScreen() {
           <View style={styles.survey}>
             {QUESTIONS.map((question) => (
               <View key={question.key} style={styles.surveyRow}>
-                <Text style={styles.surveyLabel}>{question.label}</Text>
+                <Text style={styles.surveyLabel}>{t(question.questionKey)}</Text>
                 <View style={styles.segmentRow}>
                   {RATINGS.map((rating) => {
                     const selected = answers[question.key] === rating.value;
@@ -254,11 +255,11 @@ export default function FeedbackScreen() {
                         }}
                         style={[styles.segmentBtn, selected && styles.segmentBtnSelected]}
                         accessibilityRole="button"
-                        accessibilityLabel={`${question.label} ${rating.label}`}
+                        accessibilityLabel={`${t(question.questionKey)} ${t(rating.ratingKey)}`}
                         accessibilityState={{ selected }}
                       >
                         <Text style={[styles.segmentBtnText, selected && styles.segmentBtnTextSelected]}>
-                          {rating.label}
+                          {t(rating.ratingKey)}
                         </Text>
                       </Pressable>
                     );
@@ -270,7 +271,7 @@ export default function FeedbackScreen() {
 
           {!memoOpen && (
             <Pressable onPress={() => setMemoOpen(true)} style={styles.memoLinkRow}>
-              <Text style={styles.memoLinkText}>메모 남기기</Text>
+              <Text style={styles.memoLinkText}>{t('memoLink')}</Text>
             </Pressable>
           )}
           {memoOpen && (
@@ -278,23 +279,23 @@ export default function FeedbackScreen() {
               style={styles.memoInput}
               value={memoText}
               onChangeText={setMemoText}
-              placeholder="남기고 싶은 것"
+              placeholder={t('memoPlaceholder')}
               placeholderTextColor={colors.inkFaint}
               multiline
             />
           )}
 
           <Pressable onPress={onSubmitSurvey} style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed]}>
-            <Text style={styles.submitBtnText}>기록하기</Text>
+            <Text style={styles.submitBtnText}>{t('submit')}</Text>
           </Pressable>
 
           <Pressable onPress={onSkip} style={styles.skipLinkRow}>
-            <Text style={styles.skipLinkText}>건너뛰기</Text>
+            <Text style={styles.skipLinkText}>{t('skip')}</Text>
           </Pressable>
 
           {!manualOpen && (
             <Pressable onPress={openManual} style={styles.manualLinkRow}>
-              <Text style={styles.manualLinkText}>직접 조정하기</Text>
+              <Text style={styles.manualLinkText}>{t('manualLink')}</Text>
             </Pressable>
           )}
 
@@ -303,7 +304,7 @@ export default function FeedbackScreen() {
               <Pressable
                 onPress={() => adjustManual(-MANUAL_STEP)}
                 style={styles.manualStepBtn}
-                accessibilityLabel="1분 줄이기"
+                accessibilityLabel={t('manualDecreaseA11y')}
               >
                 <Text style={styles.manualStepText}>−</Text>
               </Pressable>
@@ -317,25 +318,25 @@ export default function FeedbackScreen() {
                   keyboardType="number-pad"
                   maxLength={2}
                   textAlign="center"
-                  accessibilityLabel={`분 직접 입력 (${manualMin}~${manualMax})`}
+                  accessibilityLabel={t('manualInputA11y', { min: manualMin, max: manualMax })}
                 />
-                <Text style={styles.manualUnitText}>분</Text>
+                <Text style={styles.manualUnitText}>{t('manualUnit')}</Text>
               </View>
               <Pressable
                 onPress={() => adjustManual(MANUAL_STEP)}
                 style={styles.manualStepBtn}
-                accessibilityLabel="1분 늘리기"
+                accessibilityLabel={t('manualIncreaseA11y')}
               >
                 <Text style={styles.manualStepText}>+</Text>
               </Pressable>
               <Pressable onPress={onApplyManual} style={styles.manualApplyBtn}>
-                <Text style={styles.manualApplyText}>적용</Text>
+                <Text style={styles.manualApplyText}>{t('manualApply')}</Text>
               </Pressable>
             </View>
           )}
 
           <View style={styles.tipCard}>
-            <Text style={styles.tipCaption}>개운하게 깨는 법 — 한 것만 체크해보세요</Text>
+            <Text style={styles.tipCaption}>{t('tipCaption')}</Text>
             <View style={styles.checklist}>
               {WAKE_CHECKLIST_ITEMS.map((item) => {
                 const checked = wakeChecklist[item.key];
@@ -348,11 +349,11 @@ export default function FeedbackScreen() {
                     }}
                     style={styles.checklistRow}
                     accessibilityRole="checkbox"
-                    accessibilityLabel={item.label}
+                    accessibilityLabel={t(item.labelKey)}
                     accessibilityState={{ checked }}
                   >
                     <View style={[styles.checkbox, checked && styles.checkboxChecked]} />
-                    <Text style={styles.checklistLabel}>{item.label}</Text>
+                    <Text style={styles.checklistLabel}>{t(item.labelKey)}</Text>
                   </Pressable>
                 );
               })}
