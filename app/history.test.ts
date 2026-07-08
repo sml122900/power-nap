@@ -5,7 +5,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-import { detailRows, detailText, surveySummary } from './history';
+import { detailRows, detailText, surveySummary, wakeChecklistSummary } from './history';
 import type { NapRecord } from '@/store';
 
 describe('surveySummary', () => {
@@ -59,6 +59,16 @@ describe('detailText — v1 (legacy) vs v2 (Phase 4-3) records', () => {
   });
 });
 
+describe('wakeChecklistSummary', () => {
+  it('joins only the checked items with the label order fixed', () => {
+    expect(wakeChecklistSummary({ immediate: true, stretch: false, light: false, water: true })).toBe('즉시 기상 · 물');
+  });
+
+  it('renders a single checked item without a separator', () => {
+    expect(wakeChecklistSummary({ immediate: false, stretch: true, light: false, water: false })).toBe('기지개');
+  });
+});
+
 describe('detailRows — expanded detail view', () => {
   it('renders a legacy (v1) record with full-word result label, no survey rows', () => {
     const record: NapRecord = {
@@ -106,6 +116,29 @@ describe('detailRows — expanded detail view', () => {
     const rows = detailRows(record);
     expect(rows).toContainEqual({ label: '설문', value: '건너뜀' });
     expect(rows).toContainEqual({ label: '메모', value: '창밖이 좀 시끄러웠음' });
+  });
+
+  it('includes a wake-checklist row when at least one item is checked', () => {
+    const record: NapRecord = {
+      completedAt: 1_700_000_000_000,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: null,
+      wakeChecklist: { immediate: true, stretch: true, light: false, water: false },
+    };
+    const rows = detailRows(record);
+    expect(rows).toContainEqual({ label: '기상 루틴', value: '즉시 기상 · 기지개' });
+  });
+
+  it('omits the wake-checklist row when the field is absent', () => {
+    const record: NapRecord = {
+      completedAt: 1_700_000_000_000,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: null,
+    };
+    const rows = detailRows(record);
+    expect(rows.some((r) => r.label === '기상 루틴')).toBe(false);
   });
 
   it('includes a manualAdjust row without any survey rows', () => {
