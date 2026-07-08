@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { formatFreeResetCountdown } from '@/analysisDisplay';
-import { formatKoreanDateTime } from '@/format';
+import { formatDateTime } from '@/format';
+import i18n from '@/i18n';
 import {
   canRunAnalysis,
   filterAnalyzableRecords,
@@ -21,48 +23,49 @@ import {
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useFreeResetStatus } from '@/useFreeResetStatus';
 
+// 아래 순수 함수(modeName/resultLabel/surveySummary/wakeChecklistSummary/detailText/detailRows)는
+// history.test.ts가 직접 호출해 검증한다 — 화면 컴포넌트 밖이라 useTranslation() 훅을 못 쓰고
+// 전역 i18n 인스턴스(@/i18n)의 t()를 그대로 쓴다(리액트 렌더와 무관하게 항상 최신 언어를 반영).
 function modeName(mode: NapMode): string {
-  if (mode === 'fast') return '바로 잠듦';
-  if (mode === 'slow') return '뒤척임';
-  return '커피냅';
+  return i18n.t(`common:napMode.${mode}`);
 }
 
 function resultLabel(result: NapRecordResult): string {
-  switch (result) {
-    case 'tooDeep':
-      return '너무 깊게 잤어요';
-    case 'justRight':
-      return '딱 좋았어요';
-    case 'notEnough':
-      return '아직 부족해요';
-    case 'manual':
-      return '직접 조정';
-    case 'manual-settings':
-      return '설정에서 조정';
-    case 'test':
-      return '테스트';
-  }
+  return i18n.t(`history:resultLabel.${result}`);
 }
 
-const RATING_LABEL: Record<SurveyRating, string> = { high: '상', mid: '중', low: '하' };
+const RATING_KEYS: Record<SurveyRating, string> = { high: 'common:rating.high', mid: 'common:rating.mid', low: 'common:rating.low' };
 
 export function surveySummary(survey: NapSurvey): string {
-  return `자세${RATING_LABEL[survey.posture]} 소음${RATING_LABEL[survey.noise]} 빛${RATING_LABEL[survey.light]} · 만족${RATING_LABEL[survey.satisfaction]}`;
+  return i18n.t('history:surveySummary', {
+    posture: i18n.t(RATING_KEYS[survey.posture]),
+    noise: i18n.t(RATING_KEYS[survey.noise]),
+    light: i18n.t(RATING_KEYS[survey.light]),
+    satisfaction: i18n.t(RATING_KEYS[survey.satisfaction]),
+  });
 }
 
-const WAKE_CHECKLIST_LABEL: { key: keyof WakeChecklist; label: string }[] = [
-  { key: 'immediate', label: '즉시 기상' },
-  { key: 'stretch', label: '기지개' },
-  { key: 'light', label: '빛' },
-  { key: 'water', label: '물' },
+const WAKE_CHECKLIST_LABEL: { key: keyof WakeChecklist; labelKey: string }[] = [
+  { key: 'immediate', labelKey: 'history:wakeChecklist.immediate' },
+  { key: 'stretch', labelKey: 'history:wakeChecklist.stretch' },
+  { key: 'light', labelKey: 'history:wakeChecklist.light' },
+  { key: 'water', labelKey: 'history:wakeChecklist.water' },
 ];
 
 // 체크된 항목만 라벨을 이어붙인다 — appendNapRecord가 전부 미체크면 필드를 생략하므로
 // 여기 도달했다면 최소 1개는 체크된 상태.
 export function wakeChecklistSummary(checklist: WakeChecklist): string {
   return WAKE_CHECKLIST_LABEL.filter((item) => checklist[item.key])
-    .map((item) => item.label)
+    .map((item) => i18n.t(item.labelKey))
     .join(' · ');
+}
+
+function resultSuffix(minutes: number): string {
+  return i18n.t('history:resultSuffix', { sign: minutes > 0 ? '+' : '', minutes });
+}
+
+function manualAdjustLabel(source: 'settings' | 'feedback' | 'ai-analysis'): string {
+  return i18n.t(`history:manualAdjustLabel.${source === 'settings' ? 'settings' : 'feedback'}`);
 }
 
 // v1(레거시 3버튼 후기/직접조정)과 v2(Phase 4-3 설문/수동조정) 포맷이 한 히스토리에
@@ -71,15 +74,18 @@ export function detailText(item: NapRecord): string {
   if (item.result !== undefined) {
     const suffix =
       (item.result === 'manual' || item.result === 'manual-settings') && item.manualAdjustmentMinutes !== undefined
-        ? ` (${item.manualAdjustmentMinutes > 0 ? '+' : ''}${item.manualAdjustmentMinutes}분)`
+        ? resultSuffix(item.manualAdjustmentMinutes)
         : '';
     return `${resultLabel(item.result)}${suffix}`;
   }
   if (item.manualAdjust) {
-    const sourceLabel = item.manualAdjust.source === 'settings' ? '설정에서 조정' : '직접 조정';
-    return `${sourceLabel} (${item.manualAdjust.beforeMinutes}→${item.manualAdjust.afterMinutes}분)`;
+    return i18n.t('history:manualAdjustValue', {
+      label: manualAdjustLabel(item.manualAdjust.source),
+      before: item.manualAdjust.beforeMinutes,
+      after: item.manualAdjust.afterMinutes,
+    });
   }
-  if (item.survey === null) return '설문 건너뜀';
+  if (item.survey === null) return i18n.t('history:surveySkipped');
   if (item.survey) return surveySummary(item.survey);
   return '';
 }
@@ -93,42 +99,45 @@ export interface DetailRow {
 // 풀네임 라벨로 한 줄씩 나열한다("자세: 중" 등). manualAdjust/memo는 존재할 때만 추가.
 export function detailRows(item: NapRecord): DetailRow[] {
   const rows: DetailRow[] = [
-    { label: '날짜', value: formatKoreanDateTime(new Date(item.completedAt)) },
-    { label: '모드', value: modeName(item.mode) },
-    { label: '사용 시간', value: `${item.offsetMinutes}분` },
+    { label: i18n.t('history:detailRow.date'), value: formatDateTime(new Date(item.completedAt)) },
+    { label: i18n.t('history:detailRow.mode'), value: modeName(item.mode) },
+    { label: i18n.t('history:detailRow.duration'), value: i18n.t('history:detailRow.durationValue', { minutes: item.offsetMinutes }) },
   ];
 
   if (item.result !== undefined) {
     const suffix =
       (item.result === 'manual' || item.result === 'manual-settings') && item.manualAdjustmentMinutes !== undefined
-        ? ` (${item.manualAdjustmentMinutes > 0 ? '+' : ''}${item.manualAdjustmentMinutes}분)`
+        ? resultSuffix(item.manualAdjustmentMinutes)
         : '';
-    rows.push({ label: '후기 결과', value: `${resultLabel(item.result)}${suffix}` });
+    rows.push({ label: i18n.t('history:detailRow.feedbackResult'), value: `${resultLabel(item.result)}${suffix}` });
   } else if (item.survey) {
     rows.push(
-      { label: '자세', value: RATING_LABEL[item.survey.posture] },
-      { label: '소음', value: RATING_LABEL[item.survey.noise] },
-      { label: '빛 차단', value: RATING_LABEL[item.survey.light] },
-      { label: '만족도', value: RATING_LABEL[item.survey.satisfaction] }
+      { label: i18n.t('history:detailRow.posture'), value: i18n.t(RATING_KEYS[item.survey.posture]) },
+      { label: i18n.t('history:detailRow.noise'), value: i18n.t(RATING_KEYS[item.survey.noise]) },
+      { label: i18n.t('history:detailRow.light'), value: i18n.t(RATING_KEYS[item.survey.light]) },
+      { label: i18n.t('history:detailRow.satisfaction'), value: i18n.t(RATING_KEYS[item.survey.satisfaction]) }
     );
   } else if (item.survey === null) {
-    rows.push({ label: '설문', value: '건너뜀' });
+    rows.push({ label: i18n.t('history:detailRow.survey'), value: i18n.t('history:detailRow.surveySkippedValue') });
   }
 
   if (item.manualAdjust) {
-    const sourceLabel = item.manualAdjust.source === 'settings' ? '설정에서 조정' : '직접 조정';
     rows.push({
-      label: '수동 조정',
-      value: `${sourceLabel} (${item.manualAdjust.beforeMinutes}→${item.manualAdjust.afterMinutes}분)`,
+      label: i18n.t('history:detailRow.manualAdjust'),
+      value: i18n.t('history:manualAdjustValue', {
+        label: manualAdjustLabel(item.manualAdjust.source),
+        before: item.manualAdjust.beforeMinutes,
+        after: item.manualAdjust.afterMinutes,
+      }),
     });
   }
 
   if (item.memo) {
-    rows.push({ label: '메모', value: item.memo });
+    rows.push({ label: i18n.t('history:detailRow.memo'), value: item.memo });
   }
 
   if (item.wakeChecklist) {
-    rows.push({ label: '기상 루틴', value: wakeChecklistSummary(item.wakeChecklist) });
+    rows.push({ label: i18n.t('history:detailRow.wakeRoutine'), value: wakeChecklistSummary(item.wakeChecklist) });
   }
 
   return rows;
@@ -136,6 +145,7 @@ export function detailRows(item: NapRecord): DetailRow[] {
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { t } = useTranslation('history');
   const [records, setRecords] = useState<NapRecord[]>([]);
   // 한 번에 하나만 펼친다(아코디언) — completedAt이 유니크 키.
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -158,17 +168,17 @@ export default function HistoryScreen() {
 
   const freeStatusCaption =
     freeReset.hasWeeklyFree === true
-      ? '이번 주 무료 분석 가능'
+      ? t('freeAvailable')
       : freeReset.remainingMs !== null
-        ? `다음 무료 분석까지 ${formatFreeResetCountdown(freeReset.remainingMs)}`
+        ? t('freeCountdown', { time: formatFreeResetCountdown(freeReset.remainingMs) })
         : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
-        <Text style={styles.title}>낮잠 기록</Text>
+        <Text style={styles.title}>{t('title')}</Text>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.closeText}>닫기</Text>
+          <Text style={styles.closeText}>{t('common:close')}</Text>
         </Pressable>
       </View>
 
@@ -178,23 +188,25 @@ export default function HistoryScreen() {
           disabled={!canAnalyze}
           style={styles.aiAnalysisRow}
           accessibilityRole="button"
-          accessibilityLabel="AI 분석"
+          accessibilityLabel={t('aiAnalysisLabel')}
           accessibilityState={{ disabled: !canAnalyze }}
         >
-          <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>AI 분석</Text>
+          <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>
+            {t('aiAnalysisLabel')}
+          </Text>
         </Pressable>
         <Pressable
           onPress={() => router.push('/analysis-history')}
           style={styles.aiHistoryRow}
           accessibilityRole="button"
-          accessibilityLabel="지난 분석 보기"
+          accessibilityLabel={t('aiHistoryLabel')}
         >
-          <Text style={styles.aiHistoryText}>지난 분석 보기</Text>
+          <Text style={styles.aiHistoryText}>{t('aiHistoryLabel')}</Text>
         </Pressable>
       </View>
       {!canAnalyze && (
         <Text style={styles.aiAnalysisCaption}>
-          낮잠 기록이 {MIN_RECORDS_FOR_ANALYSIS}회 쌓이면 분석할 수 있어요
+          {t('aiAnalysisCaptionMin', { count: MIN_RECORDS_FOR_ANALYSIS })}
         </Text>
       )}
       {canAnalyze && consented === true && freeStatusCaption && (
@@ -202,7 +214,7 @@ export default function HistoryScreen() {
       )}
 
       {records.length === 0 ? (
-        <Text style={styles.emptyText}>아직 기록된 낮잠이 없어요.</Text>
+        <Text style={styles.emptyText}>{t('emptyText')}</Text>
       ) : (
         <FlatList
           data={records}
@@ -215,19 +227,20 @@ export default function HistoryScreen() {
                 style={styles.row}
                 onPress={() => setExpanded(isExpanded ? null : item.completedAt)}
                 accessibilityRole="button"
-                accessibilityLabel="낮잠 기록 상세 보기"
+                accessibilityLabel={t('rowDetailA11y')}
                 accessibilityState={{ expanded: isExpanded }}
               >
                 <View style={styles.rowHead}>
-                  <Text style={styles.rowDate}>{formatKoreanDateTime(new Date(item.completedAt))}</Text>
+                  <Text style={styles.rowDate}>{formatDateTime(new Date(item.completedAt))}</Text>
                   {item.isTest && (
                     <View style={styles.testBadge}>
-                      <Text style={styles.testBadgeText}>테스트</Text>
+                      <Text style={styles.testBadgeText}>{t('testBadge')}</Text>
                     </View>
                   )}
                 </View>
                 <Text style={styles.rowDetail}>
-                  {modeName(item.mode)} · <Text style={tabularNums}>{item.offsetMinutes}분</Text> ·{' '}
+                  {modeName(item.mode)} ·{' '}
+                  <Text style={tabularNums}>{t('detailRow.durationValue', { minutes: item.offsetMinutes })}</Text> ·{' '}
                   {detailText(item)}
                 </Text>
                 {item.memo && !isExpanded && <Text style={styles.memoText}>"{item.memo}"</Text>}
