@@ -12,7 +12,7 @@ export default function AnalysisConsentScreen() {
   const onAccept = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await setAiConsent(true);
-    router.replace('/analysis');
+    router.replace('/analysis-period');
   };
 
   const onDecline = async () => {

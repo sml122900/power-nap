@@ -1,14 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-import { isAnalysisError, requestAnalysis, requestFollowup, type AnalysisReport, type AnalysisResult } from '@/aiAnalysis';
+import {
+  getAnalysisDetail,
+  isAnalysisError,
+  requestAnalysis,
+  requestFollowup,
+  type AnalysisReport,
+} from '@/aiAnalysis';
+import { turnsToExchanges, type FollowupExchange } from '@/analysisDisplay';
 import {
   appendNapRecord,
   applyManualAdjustment,
   computeSuggestionApplication,
+  filterAnalyzableRecords,
   getNapRecords,
   getSettings,
   TARGET_SLEEP_MIN,
@@ -18,16 +26,16 @@ import { colors, fontFamily, radius } from '@/theme';
 
 type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
 
-interface FollowupExchange {
-  question: string;
-  answer: string;
-}
-
 export default function AnalysisScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string; since?: string }>();
+  const requestKey = params.id ? `history:${params.id}` : `fresh:${params.since ?? ''}`;
+
   const [phase, setPhase] = useState<Phase>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [analysisId, setAnalysisId] = useState<number | null>(null);
+  const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [recordsUsed, setRecordsUsed] = useState(0);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [appliedFast, setAppliedFast] = useState(false);
   const [appliedSlow, setAppliedSlow] = useState(false);
@@ -37,20 +45,55 @@ export default function AnalysisScreen() {
   const [turnsRemaining, setTurnsRemaining] = useState(0);
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
-  const startedRef = useRef(false);
 
+  // id(지난 분석 열람)/since(새 분석, 기간 필터)가 바뀔 때마다 완전히 다시 로드한다 —
+  // 화면 인스턴스가 재사용될 수 있어(history → history 다른 id로 이동 등) useRef 1회성
+  // 가드 대신 requestKey를 의존성으로 둔다. 매번 적용 상태/대화도 초기화한다.
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    let cancelled = false;
+    setPhase('loading');
+    setAppliedFast(false);
+    setAppliedSlow(false);
+    setAppliedCaffeine(false);
+    setExchanges([]);
+    setQuestion('');
+
     (async () => {
-      const [records, currentSettings] = await Promise.all([getNapRecords(), getSettings()]);
+      const currentSettings = await getSettings();
+      if (cancelled) return;
       setSettings(currentSettings);
+
+      if (params.id) {
+        const detail = await getAnalysisDetail(Number(params.id));
+        if (cancelled) return;
+        if (!detail) {
+          setErrorMessage('분석 기록을 불러오지 못했다.');
+          setPhase('error');
+          return;
+        }
+        setAnalysisId(detail.id);
+        setReport(detail.report);
+        setRecordsUsed(detail.recordsUsed);
+        setExchanges(turnsToExchanges(detail.turns));
+        setTurnsRemaining(detail.turnsRemaining);
+        setPhase('report');
+        return;
+      }
+
+      const allRecords = await getNapRecords();
+      if (cancelled) return;
+      const sinceMs = params.since ? Number(params.since) : undefined;
+      const filtered = filterAnalyzableRecords(allRecords, sinceMs);
       try {
-        const analysis = await requestAnalysis(records, currentSettings);
-        setResult(analysis);
+        const analysis = await requestAnalysis(filtered, currentSettings);
+        if (cancelled) return;
+        setAnalysisId(analysis.analysisId);
+        setReport(analysis.report);
+        setRecordsUsed(analysis.recordsUsed);
         setTurnsRemaining(analysis.turnsRemaining);
         setPhase('report');
       } catch (err) {
+        if (cancelled) return;
         if (isAnalysisError(err) && err.code === 'insufficient_credit') {
           setPhase('insufficient_credit');
         } else {
@@ -59,7 +102,11 @@ export default function AnalysisScreen() {
         }
       }
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey]);
 
   const applyLatency = async (mode: 'fast' | 'slow', delta: number) => {
     if (!settings) return;
@@ -93,12 +140,12 @@ export default function AnalysisScreen() {
   };
 
   const onAsk = async () => {
-    if (!result || !question.trim() || asking || turnsRemaining <= 0) return;
+    if (analysisId === null || !question.trim() || asking || turnsRemaining <= 0) return;
     setAsking(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const askedQuestion = question.trim();
     try {
-      const followup = await requestFollowup(result.analysisId, askedQuestion);
+      const followup = await requestFollowup(analysisId, askedQuestion);
       setExchanges((prev) => [...prev, { question: askedQuestion, answer: followup.answer }]);
       setTurnsRemaining(followup.turnsRemaining);
       setQuestion('');
@@ -137,7 +184,7 @@ export default function AnalysisScreen() {
     );
   }
 
-  if (phase === 'error' || !result) {
+  if (phase === 'error' || !report) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.head}>
@@ -153,8 +200,6 @@ export default function AnalysisScreen() {
     );
   }
 
-  const report: AnalysisReport = result.report;
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -166,6 +211,7 @@ export default function AnalysisScreen() {
             </Pressable>
           </View>
 
+          <Text style={styles.recordsUsedText}>최근 {recordsUsed}개 기록 기반 분석</Text>
           <Text style={styles.summary}>{report.summary}</Text>
 
           <View style={styles.adviceList}>
@@ -318,8 +364,14 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.inkFaint,
   },
-  summary: {
+  recordsUsedText: {
     marginTop: 24,
+    fontSize: 12.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
+  },
+  summary: {
+    marginTop: 10,
     fontSize: 15,
     lineHeight: 23,
     fontFamily: fontFamily.regular,

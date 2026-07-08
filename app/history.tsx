@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { formatKoreanDateTime } from '@/format';
 import {
   canRunAnalysis,
+  filterAnalyzableRecords,
   getAiConsent,
   getNapRecords,
   MIN_RECORDS_FOR_ANALYSIS,
@@ -141,12 +142,13 @@ export default function HistoryScreen() {
     getNapRecords().then((r) => setRecords([...r].reverse()));
   }, []);
 
-  const canAnalyze = canRunAnalysis(records.length);
+  // isTest 레코드는 학습에 반영되지 않는 것과 동일하게 분석 가능 여부 판정에서도 뺀다.
+  const canAnalyze = canRunAnalysis(filterAnalyzableRecords(records).length);
 
   const onPressAiAnalysis = async () => {
     if (!canAnalyze) return;
     const consented = await getAiConsent();
-    router.push(consented === true ? '/analysis' : '/analysis-consent');
+    router.push(consented === true ? '/analysis-period' : '/analysis-consent');
   };
 
   return (
@@ -158,16 +160,26 @@ export default function HistoryScreen() {
         </Pressable>
       </View>
 
-      <Pressable
-        onPress={onPressAiAnalysis}
-        disabled={!canAnalyze}
-        style={styles.aiAnalysisRow}
-        accessibilityRole="button"
-        accessibilityLabel="AI 분석"
-        accessibilityState={{ disabled: !canAnalyze }}
-      >
-        <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>AI 분석</Text>
-      </Pressable>
+      <View style={styles.aiAnalysisSection}>
+        <Pressable
+          onPress={onPressAiAnalysis}
+          disabled={!canAnalyze}
+          style={styles.aiAnalysisRow}
+          accessibilityRole="button"
+          accessibilityLabel="AI 분석"
+          accessibilityState={{ disabled: !canAnalyze }}
+        >
+          <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>AI 분석</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/analysis-history')}
+          style={styles.aiHistoryRow}
+          accessibilityRole="button"
+          accessibilityLabel="지난 분석 보기"
+        >
+          <Text style={styles.aiHistoryText}>지난 분석 보기</Text>
+        </Pressable>
+      </View>
       {!canAnalyze && (
         <Text style={styles.aiAnalysisCaption}>
           낮잠 기록이 {MIN_RECORDS_FOR_ANALYSIS}회 쌓이면 분석할 수 있어요
@@ -237,8 +249,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  aiAnalysisRow: {
+  aiAnalysisSection: {
     marginTop: 20,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  aiAnalysisRow: {
+    flex: 1,
     minHeight: 48,
     borderRadius: radius.md,
     borderWidth: 1.5,
@@ -253,6 +270,20 @@ const styles = StyleSheet.create({
   },
   aiAnalysisTextDisabled: {
     color: colors.inkFaint,
+  },
+  aiHistoryRow: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiHistoryText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
   },
   aiAnalysisCaption: {
     marginTop: 8,
