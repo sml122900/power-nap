@@ -13,10 +13,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { SHOW_TEST_BUTTONS } from '@/config';
-import { addMinutes, formatKoreanTime } from '@/format';
+import { addMinutes, formatTime } from '@/format';
 import { scheduleAlarmNotificationAsync } from '@/notifications';
 import {
   computeCoffeeAlarmAt,
@@ -37,6 +38,7 @@ const CHIP_ANIM_MS = 150;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation('home');
   useNapWatchdog('/');
   const { toast } = useLocalSearchParams<{ toast?: string }>();
 
@@ -168,23 +170,23 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topRow}>
-            <Text style={styles.nowLabel}>지금</Text>
-            <Text style={[styles.nowTime, tabularNums]}>{formatKoreanTime(now)}</Text>
+            <Text style={styles.nowLabel}>{t('nowLabel')}</Text>
+            <Text style={[styles.nowTime, tabularNums]}>{formatTime(now)}</Text>
           </View>
 
           <View style={styles.topLinksRow}>
             <Pressable onPress={() => router.push('/history')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>지난 낮잠 기록</Text>
+              <Text style={styles.historyLinkText}>{t('historyLink')}</Text>
             </Pressable>
             <Text style={styles.topLinksSeparator}>·</Text>
             <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>설정</Text>
+              <Text style={styles.historyLinkText}>{t('settingsLink')}</Text>
             </Pressable>
           </View>
 
           <View style={styles.head}>
-            <Text style={styles.title}>졸리면{'\n'}그냥 누르세요</Text>
-            <Text style={styles.subtitle}>계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.</Text>
+            <Text style={styles.title}>{t('title')}</Text>
+            <Text style={styles.subtitle}>{t('subtitle')}</Text>
           </View>
 
           <View style={styles.buttons}>
@@ -192,9 +194,9 @@ export default function HomeScreen() {
               onPress={() => startFastSlow('fast')}
               style={({ pressed }) => [styles.napBtn, styles.primary, pressed && styles.primaryPressed]}
             >
-              <Text style={styles.primaryMode}>바로 잠들 것 같아요</Text>
+              <Text style={styles.primaryMode}>{t('fastMode')}</Text>
               <Text style={[styles.primaryDetail, tabularNums]}>
-                {fastTotal}분 뒤 · {formatKoreanTime(fastAlarmAt)} 알람
+                {t('alarmDetail', { minutes: fastTotal, time: formatTime(fastAlarmAt) })}
               </Text>
             </Pressable>
 
@@ -202,9 +204,9 @@ export default function HomeScreen() {
               onPress={() => startFastSlow('slow')}
               style={({ pressed }) => [styles.napBtn, styles.secondary, pressed && styles.secondaryPressed]}
             >
-              <Text style={styles.secondaryMode}>좀 뒤척일 것 같아요</Text>
+              <Text style={styles.secondaryMode}>{t('slowMode')}</Text>
               <Text style={[styles.secondaryDetail, tabularNums]}>
-                {slowTotal}분 뒤 · {formatKoreanTime(slowAlarmAt)} 알람
+                {t('alarmDetail', { minutes: slowTotal, time: formatTime(slowAlarmAt) })}
               </Text>
             </Pressable>
 
@@ -212,23 +214,23 @@ export default function HomeScreen() {
               onPress={toggleCoffeeOpen}
               style={({ pressed }) => [styles.napBtn, styles.coffeeBtn, (pressed || coffeeOpen) && styles.coffeeBtnActive]}
             >
-              <Text style={styles.coffeeMode}>커피냅</Text>
-              <Text style={[styles.coffeeDetail, tabularNums]}>커피 마시고 {caffeineOnset}분 뒤 기상</Text>
+              <Text style={styles.coffeeMode}>{t('coffeeMode')}</Text>
+              <Text style={[styles.coffeeDetail, tabularNums]}>{t('coffeeDetail', { minutes: caffeineOnset })}</Text>
             </Pressable>
 
             {coffeeOpen && !customOpen && (
               <Animated.View style={styles.coffeeChipGrid} {...chipAnim}>
                 <Pressable onPress={() => startCoffeeNap(0)} style={styles.coffeeChip}>
-                  <Text style={styles.coffeeChipText}>방금</Text>
+                  <Text style={styles.coffeeChipText}>{t('coffeeChipJustNow')}</Text>
                 </Pressable>
                 <Pressable onPress={() => startCoffeeNap(5)} style={styles.coffeeChip}>
-                  <Text style={styles.coffeeChipText}>5분 전</Text>
+                  <Text style={styles.coffeeChipText}>{t('coffeeChipMinutesAgo', { minutes: 5 })}</Text>
                 </Pressable>
                 <Pressable onPress={() => startCoffeeNap(10)} style={styles.coffeeChip}>
-                  <Text style={styles.coffeeChipText}>10분 전</Text>
+                  <Text style={styles.coffeeChipText}>{t('coffeeChipMinutesAgo', { minutes: 10 })}</Text>
                 </Pressable>
                 <Pressable onPress={openCustom} style={styles.coffeeChip}>
-                  <Text style={styles.coffeeChipText}>직접 입력</Text>
+                  <Text style={styles.coffeeChipText}>{t('coffeeChipCustom')}</Text>
                 </Pressable>
               </Animated.View>
             )}
@@ -252,42 +254,39 @@ export default function HomeScreen() {
                     keyboardType="number-pad"
                     maxLength={3}
                     textAlign="center"
-                    accessibilityLabel="몇 분 전에 커피를 마셨는지 입력 (0~120분)"
+                    accessibilityLabel={t('coffeeCustomInputA11y')}
                   />
-                  <Text style={styles.coffeeCustomUnit}>분 전</Text>
+                  <Text style={styles.coffeeCustomUnit}>{t('coffeeCustomUnit')}</Text>
                 </View>
 
-                {customPreview.corrected && (
-                  <Text style={styles.coffeeNotice}>카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요</Text>
-                )}
+                {customPreview.corrected && <Text style={styles.coffeeNotice}>{t('coffeeNotice')}</Text>}
                 <Text style={[styles.coffeePreviewText, tabularNums]}>
-                  {formatKoreanTime(new Date(customPreview.alarmAt))} 알람 ({customPreviewMinutes}분 뒤)
+                  {t('coffeePreview', { time: formatTime(new Date(customPreview.alarmAt)), minutes: customPreviewMinutes })}
                 </Text>
 
                 <Pressable
                   onPress={() => startCoffeeNap(commitMinutesAgoText())}
                   style={({ pressed }) => [styles.coffeeConfirmBtn, pressed && styles.coffeeConfirmBtnPressed]}
                 >
-                  <Text style={styles.coffeeConfirmText}>이 시간으로 시작</Text>
+                  <Text style={styles.coffeeConfirmText}>{t('coffeeConfirm')}</Text>
                 </Pressable>
               </Animated.View>
             )}
 
             <Text style={styles.learnNote}>
-              후기를 반영해 시간이 자동으로 조정돼요{'\n'}
-              <Text style={styles.learnNoteBold}>
-                학습된 시간 — 바로 잠듦 {fastTotal}분 · 뒤척임 {slowTotal}분
-              </Text>
+              {t('learnNote')}
+              {'\n'}
+              <Text style={styles.learnNoteBold}>{t('learnNoteBold', { fast: fastTotal, slow: slowTotal })}</Text>
             </Text>
 
             {/* 실기기 테스트용 단축 낮잠 버튼 — 노출 여부는 src/config.ts SHOW_TEST_BUTTONS로 관리 */}
             {SHOW_TEST_BUTTONS && (
               <View style={styles.devRow}>
                 <Pressable onPress={() => startFastSlow('fast', 60_000)} style={styles.devBtn}>
-                  <Text style={styles.devBtnText}>테스트: 1분 낮잠</Text>
+                  <Text style={styles.devBtnText}>{t('devTest1min')}</Text>
                 </Pressable>
                 <Pressable onPress={() => startFastSlow('fast', 10_000)} style={styles.devBtn}>
-                  <Text style={styles.devBtnText}>테스트: 10초</Text>
+                  <Text style={styles.devBtnText}>{t('devTest10sec')}</Text>
                 </Pressable>
               </View>
             )}

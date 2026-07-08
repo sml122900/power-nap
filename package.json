@@ -14,12 +14,15 @@
     "expo-haptics": "~57.0.0",
     "expo-keep-awake": "~57.0.0",
     "expo-linking": "~57.0.2",
+    "expo-localization": "~57.0.0",
     "expo-notifications": "~57.0.3",
     "expo-router": "~57.0.4",
     "expo-splash-screen": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "expo-system-ui": "~57.0.0",
+    "i18next": "^26.3.5",
     "react": "19.2.3",
+    "react-i18next": "^17.0.8",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.0",
@@ -53,19 +56,33 @@
         "moduleNameMapper": {
           "^@/(.*)$": "<rootDir>/src/$1"
         },
-        "testPathIgnorePatterns": ["/node_modules/", "<rootDir>/supabase/"]
+        "testPathIgnorePatterns": [
+          "/node_modules/",
+          "<rootDir>/supabase/"
+        ],
+        "setupFilesAfterEnv": [
+          "<rootDir>/jest.i18n.setup.js"
+        ]
       },
       {
         "displayName": "supabase",
         "testEnvironment": "node",
-        "testMatch": ["<rootDir>/supabase/**/*.test.ts"],
-        "setupFiles": ["<rootDir>/jest.env.setup.js"],
+        "testMatch": [
+          "<rootDir>/supabase/**/*.test.ts"
+        ],
+        "setupFiles": [
+          "<rootDir>/jest.env.setup.js"
+        ],
         "transform": {
           "^.+\\.tsx?$": [
             "babel-jest",
             {
-              "presets": ["@babel/preset-typescript"],
-              "plugins": ["@babel/plugin-transform-modules-commonjs"],
+              "presets": [
+                "@babel/preset-typescript"
+              ],
+              "plugins": [
+                "@babel/plugin-transform-modules-commonjs"
+              ],
               "babelrc": false,
               "configFile": false
             }

@@ -1,0 +1,221 @@
+{
+  "common": {
+    "close": "닫기",
+    "napMode": {
+      "fast": "바로 잠듦",
+      "slow": "뒤척임",
+      "coffee": "커피냅"
+    },
+    "rating": {
+      "high": "상",
+      "mid": "중",
+      "low": "하"
+    },
+    "countdown": {
+      "soon": "곧",
+      "days": "{{count}}일",
+      "hours": "{{count}}시간",
+      "minutes": "{{count}}분"
+    }
+  },
+  "home": {
+    "nowLabel": "지금",
+    "historyLink": "지난 낮잠 기록",
+    "settingsLink": "설정",
+    "title": "졸리면\n그냥 누르세요",
+    "subtitle": "계산은 앱이 할게요. 딱 맞는 시간에 깨워드려요.",
+    "fastMode": "바로 잠들 것 같아요",
+    "slowMode": "좀 뒤척일 것 같아요",
+    "alarmDetail": "{{minutes}}분 뒤 · {{time}} 알람",
+    "coffeeMode": "커피냅",
+    "coffeeDetail": "커피 마시고 {{minutes}}분 뒤 기상",
+    "coffeeChipJustNow": "방금",
+    "coffeeChipMinutesAgo": "{{minutes}}분 전",
+    "coffeeChipCustom": "직접 입력",
+    "coffeeCustomUnit": "분 전",
+    "coffeeCustomInputA11y": "몇 분 전에 커피를 마셨는지 입력 (0~120분)",
+    "coffeeNotice": "카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요",
+    "coffeePreview": "{{time}} 알람 ({{minutes}}분 뒤)",
+    "coffeeConfirm": "이 시간으로 시작",
+    "learnNote": "후기를 반영해 시간이 자동으로 조정돼요",
+    "learnNoteBold": "학습된 시간 — 바로 잠듦 {{fast}}분 · 뒤척임 {{slow}}분",
+    "devTest1min": "테스트: 1분 낮잠",
+    "devTest10sec": "테스트: 10초"
+  },
+  "sleep": {
+    "countdownLabel": "알람까지",
+    "wakeAtCoffee": "카페인 발현에 맞춰 {{time}}에 깨워드릴게요",
+    "wakeAtDefault": "{{time}}에 깨워드릴게요",
+    "permissionHint": "앱을 켠 채로 두면 알람이 울려요",
+    "cancelButton": "그만 자고 일어나기"
+  },
+  "alarm": {
+    "title": "일어날 시간이에요",
+    "subtitle": "5분 더 자면 수면 관성 때문에 더 멍해져요.\n지금 바로 일어나는 게 제일 개운합니다.",
+    "coffeeBadge": "지금부터 카페인 효과가 시작돼요",
+    "slideLabel": "밀어서 끄기",
+    "longPressHint": "슬라이드가 어렵다면 이 영역을 3초간 눌러도 꺼져요",
+    "a11ySlideLabel": "밀어서 알람 끄기",
+    "a11yDismissAction": "알람 끄기",
+    "notificationTitle": "일어날 시간이에요",
+    "notificationBody": "파워냅 알람이 울리고 있어요."
+  },
+  "feedback": {
+    "title": "낮잠 어땠어요?",
+    "subtitle": "짧게 체크만 해도 기록으로 남아요.",
+    "statusCoffee": "내 카페인 발현: {{minutes}}분",
+    "statusDefault": "내 수면 대기시간: 잠듦 {{fast}}분 · 뒤척임 {{slow}}분",
+    "question": {
+      "posture": "자세 편안함",
+      "noise": "소음 차단",
+      "light": "빛 차단",
+      "satisfaction": "수면 만족도"
+    },
+    "memoLink": "메모 남기기",
+    "memoPlaceholder": "남기고 싶은 것",
+    "submit": "기록하기",
+    "skip": "건너뛰기",
+    "manualLink": "직접 조정하기",
+    "manualDecreaseA11y": "1분 줄이기",
+    "manualIncreaseA11y": "1분 늘리기",
+    "manualInputA11y": "분 직접 입력 ({{min}}~{{max}})",
+    "manualUnit": "분",
+    "manualApply": "적용",
+    "tipCaption": "개운하게 깨는 법 — 한 것만 체크해보세요",
+    "checklist": {
+      "immediate": "바로 일어났어요 (스누즈 없이)",
+      "stretch": "기지개를 켰어요",
+      "light": "밝은 빛을 쬐었어요",
+      "water": "물 한 잔 마셨어요"
+    },
+    "toastRecorded": "기록했어요.",
+    "toastManualAdjust": "다음 {{modeName}}은 {{label}} {{minutes}}분으로 맞춰둘게요.",
+    "manualLabelCaffeine": "카페인 발현시간",
+    "manualLabelLatency": "대기시간"
+  },
+  "history": {
+    "title": "낮잠 기록",
+    "aiAnalysisLabel": "AI 분석",
+    "aiHistoryLabel": "지난 분석 보기",
+    "aiAnalysisCaptionMin": "낮잠 기록이 {{count}}회 쌓이면 분석할 수 있어요",
+    "freeAvailable": "이번 주 무료 분석 가능",
+    "freeCountdown": "다음 무료 분석까지 {{time}}",
+    "emptyText": "아직 기록된 낮잠이 없어요.",
+    "testBadge": "테스트",
+    "rowDetailA11y": "낮잠 기록 상세 보기",
+    "resultLabel": {
+      "tooDeep": "너무 깊게 잤어요",
+      "justRight": "딱 좋았어요",
+      "notEnough": "아직 부족해요",
+      "manual": "직접 조정",
+      "manual-settings": "설정에서 조정",
+      "test": "테스트"
+    },
+    "resultSuffix": " ({{sign}}{{minutes}}분)",
+    "surveySkipped": "설문 건너뜀",
+    "surveySummary": "자세{{posture}} 소음{{noise}} 빛{{light}} · 만족{{satisfaction}}",
+    "manualAdjustLabel": {
+      "settings": "설정에서 조정",
+      "feedback": "직접 조정"
+    },
+    "manualAdjustValue": "{{label}} ({{before}}→{{after}}분)",
+    "wakeChecklist": {
+      "immediate": "즉시 기상",
+      "stretch": "기지개",
+      "light": "빛",
+      "water": "물"
+    },
+    "detailRow": {
+      "date": "날짜",
+      "mode": "모드",
+      "duration": "사용 시간",
+      "durationValue": "{{minutes}}분",
+      "feedbackResult": "후기 결과",
+      "posture": "자세",
+      "noise": "소음",
+      "light": "빛 차단",
+      "satisfaction": "만족도",
+      "survey": "설문",
+      "surveySkippedValue": "건너뜀",
+      "manualAdjust": "수동 조정",
+      "memo": "메모",
+      "wakeRoutine": "기상 루틴"
+    }
+  },
+  "settings": {
+    "title": "설정",
+    "rowLabel": {
+      "fast": "수면 대기시간 — 바로 잠들 것 같아요",
+      "slow": "수면 대기시간 — 좀 뒤척일 것 같아요",
+      "coffee": "카페인 발현시간"
+    },
+    "previewCoffee": "커피 마시고 {{value}}분 뒤 기상",
+    "previewLatency": "{{label}} = {{target}} + {{value}} = 총 {{total}}분",
+    "stepDecreaseA11y": "{{step}}분 줄이기",
+    "stepIncreaseA11y": "{{step}}분 늘리기",
+    "inputA11y": "{{label}} 분 직접 입력 ({{min}}~{{max}})",
+    "unit": "분",
+    "dataSectionLabel": "데이터 및 분석",
+    "consentGranted": "AI 분석 서버 전송에 동의함",
+    "consentNotGranted": "AI 분석 서버 전송에 동의하지 않음",
+    "consentToggleRevoke": "철회",
+    "consentToggleGrant": "동의",
+    "languageSectionLabel": "언어",
+    "languageOption": {
+      "system": "기기 설정 따름",
+      "ko": "한국어",
+      "en": "English"
+    }
+  },
+  "analysisConsent": {
+    "title": "AI 분석 안내",
+    "paragraph1": "분석을 위해 낮잠 기록(수면 시각·설문·메모)이 서버로 전송됩니다. 전송된 기록은 대기시간·카페인 발현시간 조정 제안과 조언을 만드는 데만 쓰입니다.",
+    "paragraph2": "제안은 참고용이며, 실제 설정 반영은 항상 직접 눌러야만 적용됩니다.",
+    "privacyPlaceholder": "처리방침 (준비 중)",
+    "accept": "동의하고 시작",
+    "decline": "다음에"
+  },
+  "analysisPeriod": {
+    "title": "AI 분석",
+    "subtitle": "어느 기간의 기록을 분석할까요?",
+    "period": {
+      "1w": "최근 1주",
+      "2w": "최근 2주",
+      "1m": "최근 1개월",
+      "all": "전체"
+    },
+    "countText": "이 기간 기록 {{count}}개",
+    "countCaption": "이 기간엔 기록이 {{min}}개 미만이라 분석할 수 없어요. 다른 기간을 선택해보세요.",
+    "start": "분석하기"
+  },
+  "analysisHistory": {
+    "title": "지난 분석",
+    "emptyText": "아직 받은 분석이 없어요.",
+    "listLabel": "{{month}}월 {{day}}일 분석",
+    "listLabelWithTime": "{{base}} ({{time}})"
+  },
+  "analysisReport": {
+    "loadingText": "낮잠 기록을 분석하고 있어요…",
+    "title": "AI 분석",
+    "insufficientCreditMessage": "이번 주 무료 분석을 사용했어요.",
+    "insufficientCreditCountdown": "다음 무료 분석까지 {{time}}",
+    "paymentPlaceholder": "추가 분석 1,000원 (준비 중)",
+    "errorFallback": "분석 요청에 실패했다. 다시 시도해달라.",
+    "detailLoadError": "분석 기록을 불러오지 못했다.",
+    "recordsUsedText": "최근 {{count}}개 기록 기반 분석",
+    "suggestion": {
+      "latencyTitle": "수면 대기시간 조정 제안",
+      "caffeineTitle": "카페인 발현시간 조정 제안",
+      "fastLabel": "바로 잠듦 {{sign}}{{minutes}}분",
+      "slowLabel": "뒤척임 {{sign}}{{minutes}}분",
+      "caffeineLabel": "{{sign}}{{minutes}}분",
+      "apply": "설정에 반영하기",
+      "applied": "적용됨"
+    },
+    "disclaimer": "이 리포트는 일반적인 수면 위생 정보이며 의학적 진단이나 조언이 아닙니다. 증상이 지속되면 전문가와 상담해주세요.",
+    "followupTitle": "후속 질문 ({{count}}번 남음)",
+    "askPlaceholder": "궁금한 점을 물어보세요",
+    "askButton": "질문하기",
+    "askButtonSending": "전송 중"
+  }
+}

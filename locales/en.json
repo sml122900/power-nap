@@ -1,0 +1,221 @@
+{
+  "common": {
+    "close": "Close",
+    "napMode": {
+      "fast": "Fall asleep fast",
+      "slow": "Toss and turn",
+      "coffee": "Coffee nap"
+    },
+    "rating": {
+      "high": "High",
+      "mid": "Mid",
+      "low": "Low"
+    },
+    "countdown": {
+      "soon": "soon",
+      "days": "{{count}}d",
+      "hours": "{{count}}h",
+      "minutes": "{{count}}m"
+    }
+  },
+  "home": {
+    "nowLabel": "Now",
+    "historyLink": "Nap history",
+    "settingsLink": "Settings",
+    "title": "Feeling sleepy?\nJust tap.",
+    "subtitle": "We'll do the math. You'll wake up at just the right time.",
+    "fastMode": "I'll fall asleep fast",
+    "slowMode": "I might toss and turn",
+    "alarmDetail": "in {{minutes}} min · alarm at {{time}}",
+    "coffeeMode": "Coffee nap",
+    "coffeeDetail": "Wake up {{minutes}} min after coffee",
+    "coffeeChipJustNow": "Just now",
+    "coffeeChipMinutesAgo": "{{minutes}} min ago",
+    "coffeeChipCustom": "Custom",
+    "coffeeCustomUnit": "min ago",
+    "coffeeCustomInputA11y": "Enter how many minutes ago you drank coffee (0–120 min)",
+    "coffeeNotice": "Caffeine is already kicking in — we'll set the minimum wait time",
+    "coffeePreview": "Alarm at {{time}} (in {{minutes}} min)",
+    "coffeeConfirm": "Start with this time",
+    "learnNote": "Times adjust based on your feedback",
+    "learnNoteBold": "Learned times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
+    "devTest1min": "Test: 1 min nap",
+    "devTest10sec": "Test: 10 sec"
+  },
+  "sleep": {
+    "countdownLabel": "Until alarm",
+    "wakeAtCoffee": "We'll wake you at {{time}}, timed with your caffeine",
+    "wakeAtDefault": "We'll wake you at {{time}}",
+    "permissionHint": "Keep the app open for the alarm to ring",
+    "cancelButton": "Stop the nap now"
+  },
+  "alarm": {
+    "title": "Time to wake up",
+    "subtitle": "5 more minutes will only leave you groggier from sleep inertia.\nGetting up right now feels best.",
+    "coffeeBadge": "Caffeine effects are kicking in now",
+    "slideLabel": "Slide to stop",
+    "longPressHint": "If sliding is hard, press and hold this area for 3 seconds instead",
+    "a11ySlideLabel": "Slide to turn off alarm",
+    "a11yDismissAction": "Turn off alarm",
+    "notificationTitle": "Time to wake up",
+    "notificationBody": "Your PowerNap alarm is ringing."
+  },
+  "feedback": {
+    "title": "How was your nap?",
+    "subtitle": "Even a quick check gets saved as a record.",
+    "statusCoffee": "My caffeine onset: {{minutes}} min",
+    "statusDefault": "My sleep latency: fall asleep {{fast}} min · toss and turn {{slow}} min",
+    "question": {
+      "posture": "Posture comfort",
+      "noise": "Noise blocking",
+      "light": "Light blocking",
+      "satisfaction": "Sleep satisfaction"
+    },
+    "memoLink": "Add a note",
+    "memoPlaceholder": "Anything to note",
+    "submit": "Save",
+    "skip": "Skip",
+    "manualLink": "Adjust manually",
+    "manualDecreaseA11y": "Decrease by 1 minute",
+    "manualIncreaseA11y": "Increase by 1 minute",
+    "manualInputA11y": "Enter minutes directly ({{min}}–{{max}})",
+    "manualUnit": "min",
+    "manualApply": "Apply",
+    "tipCaption": "Ways to wake up refreshed — check off what you did",
+    "checklist": {
+      "immediate": "Got up right away (no snoozing)",
+      "stretch": "Stretched",
+      "light": "Got some bright light",
+      "water": "Drank a glass of water"
+    },
+    "toastRecorded": "Saved.",
+    "toastManualAdjust": "Next time, {{modeName}} {{label}} will be set to {{minutes}} min.",
+    "manualLabelCaffeine": "caffeine onset time",
+    "manualLabelLatency": "wait time"
+  },
+  "history": {
+    "title": "Nap history",
+    "aiAnalysisLabel": "AI Analysis",
+    "aiHistoryLabel": "View past analyses",
+    "aiAnalysisCaptionMin": "You can analyze once you have {{count}} nap records",
+    "freeAvailable": "Free analysis available this week",
+    "freeCountdown": "Next free analysis in {{time}}",
+    "emptyText": "No naps recorded yet.",
+    "testBadge": "Test",
+    "rowDetailA11y": "View nap record details",
+    "resultLabel": {
+      "tooDeep": "Slept too deeply",
+      "justRight": "Just right",
+      "notEnough": "Not enough",
+      "manual": "Manually adjusted",
+      "manual-settings": "Adjusted in settings",
+      "test": "Test"
+    },
+    "resultSuffix": " ({{sign}}{{minutes}} min)",
+    "surveySkipped": "Survey skipped",
+    "surveySummary": "Posture {{posture}} · Noise {{noise}} · Light {{light}} · Satisfaction {{satisfaction}}",
+    "manualAdjustLabel": {
+      "settings": "Adjusted in settings",
+      "feedback": "Manually adjusted"
+    },
+    "manualAdjustValue": "{{label}} ({{before}}→{{after}} min)",
+    "wakeChecklist": {
+      "immediate": "Got up right away",
+      "stretch": "Stretched",
+      "light": "Light",
+      "water": "Water"
+    },
+    "detailRow": {
+      "date": "Date",
+      "mode": "Mode",
+      "duration": "Duration",
+      "durationValue": "{{minutes}} min",
+      "feedbackResult": "Feedback result",
+      "posture": "Posture",
+      "noise": "Noise",
+      "light": "Light blocking",
+      "satisfaction": "Satisfaction",
+      "survey": "Survey",
+      "surveySkippedValue": "Skipped",
+      "manualAdjust": "Manual adjustment",
+      "memo": "Note",
+      "wakeRoutine": "Wake routine"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "rowLabel": {
+      "fast": "Sleep latency — I'll fall asleep fast",
+      "slow": "Sleep latency — I might toss and turn",
+      "coffee": "Caffeine onset time"
+    },
+    "previewCoffee": "Wake up {{value}} min after coffee",
+    "previewLatency": "{{label}} = {{target}} + {{value}} = {{total}} min total",
+    "stepDecreaseA11y": "Decrease by {{step}} minute(s)",
+    "stepIncreaseA11y": "Increase by {{step}} minute(s)",
+    "inputA11y": "Enter minutes directly for {{label}} ({{min}}–{{max}})",
+    "unit": "min",
+    "dataSectionLabel": "Data & Analysis",
+    "consentGranted": "Consented to sending data for AI analysis",
+    "consentNotGranted": "Not consented to sending data for AI analysis",
+    "consentToggleRevoke": "Revoke",
+    "consentToggleGrant": "Consent",
+    "languageSectionLabel": "Language",
+    "languageOption": {
+      "system": "Follow system setting",
+      "ko": "한국어",
+      "en": "English"
+    }
+  },
+  "analysisConsent": {
+    "title": "About AI Analysis",
+    "paragraph1": "To generate the analysis, your nap records (times, survey answers, notes) are sent to our server. The data sent is used only to create suggestions and advice for adjusting your wait time and caffeine onset time.",
+    "paragraph2": "Suggestions are for reference only — they're applied to your settings only when you tap to apply them yourself.",
+    "privacyPlaceholder": "Privacy Policy (coming soon)",
+    "accept": "Agree & start",
+    "decline": "Not now"
+  },
+  "analysisPeriod": {
+    "title": "AI Analysis",
+    "subtitle": "Which period should we analyze?",
+    "period": {
+      "1w": "Last week",
+      "2w": "Last 2 weeks",
+      "1m": "Last month",
+      "all": "All"
+    },
+    "countText": "{{count}} records in this period",
+    "countCaption": "This period has fewer than {{min}} records, so it can't be analyzed. Try a different period.",
+    "start": "Analyze"
+  },
+  "analysisHistory": {
+    "title": "Past analyses",
+    "emptyText": "No analyses yet.",
+    "listLabel": "Analysis — {{month}}/{{day}}",
+    "listLabelWithTime": "{{base}} ({{time}})"
+  },
+  "analysisReport": {
+    "loadingText": "Analyzing your nap records…",
+    "title": "AI Analysis",
+    "insufficientCreditMessage": "You've used this week's free analysis.",
+    "insufficientCreditCountdown": "Next free analysis in {{time}}",
+    "paymentPlaceholder": "Extra analysis ₩1,000 (coming soon)",
+    "errorFallback": "The analysis request failed. Please try again.",
+    "detailLoadError": "Couldn't load the analysis record.",
+    "recordsUsedText": "Based on the most recent {{count}} records",
+    "suggestion": {
+      "latencyTitle": "Suggested sleep latency adjustment",
+      "caffeineTitle": "Suggested caffeine onset adjustment",
+      "fastLabel": "Fall asleep fast {{sign}}{{minutes}} min",
+      "slowLabel": "Toss and turn {{sign}}{{minutes}} min",
+      "caffeineLabel": "{{sign}}{{minutes}} min",
+      "apply": "Apply to settings",
+      "applied": "Applied"
+    },
+    "disclaimer": "This report is general sleep hygiene information, not a medical diagnosis or advice. If symptoms persist, please consult a professional.",
+    "followupTitle": "Follow-up questions ({{count}} left)",
+    "askPlaceholder": "Ask a question",
+    "askButton": "Ask",
+    "askButtonSending": "Sending"
+  }
+}
