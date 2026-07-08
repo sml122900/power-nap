@@ -408,9 +408,56 @@
   expo export/jest(80개) 4종 재검증 통과, push 완료. `main`이 이제 AI 분석 기능
   (Phase A~C, 무료 리셋 카운트다운, analysis-v2 프롬프트) 전부 포함.
 
-**마지막 검증된 커밋: `main` 브랜치, `ai-analysis-app` 병합 완료 — Phase 4-3·기상
-체크리스트·B그룹·Phase C(AI 분석 전체)·무료 리셋 카운트다운·프롬프트 v2 전부
-실기기 검증 완료 상태로 main에 반영됨.**
+- **다국어(한/영) 지원**(`i18n` 브랜치, `main` 기준 분기, 사용자 명시 지시) — 한국어(기본)
+  + 영어, 확장 가능한 구조:
+  - `expo-localization` + `i18next`/`react-i18next` 도입. `src/i18n.ts`: 리소스는
+    `locales/ko.json`/`locales/en.json` 단일 파일(화면별 네임스페이스는 파일 내부 최상위
+    키로 분리)에서 정적 import, 네트워크 백엔드 없이 동기 초기화(`init()` 직후 `t()` 즉시
+    동작). 언어 결정: AsyncStorage 수동 선택('ko'/'en') > 기기 언어 > 'ko' 폴백.
+    AsyncStorage는 `getSupabase()`와 같은 이유로 함수 내부에서 지연 import(모듈 최상단
+    import 시 순수 함수 테스트가 jest.mock 없이 깨지는 걸 방지).
+  - 앱 전체 하드코딩 한국어 문자열을 화면 그룹 7개(홈/수면/알람/후기/분석/설정/히스토리)로
+    나눠 커밋 분리해 전수 추출: `app/index.tsx`, `app/sleep.tsx`, `app/alarm.tsx`+
+    `src/notifications.ts`(OS 알림 제목/본문 포함), `app/feedback.tsx`, `app/history.tsx`
+    (`detailText`/`detailRows`/`surveySummary`/`wakeChecklistSummary` 등 순수 함수는
+    컴포넌트 밖이라 `useTranslation()` 훅 대신 전역 `i18n.t()` 직접 사용), `app/settings.tsx`
+    (+ 언어 선택 UI 신규: 기기 설정 따름/한국어/English), `app/analysis*.tsx` 4개 +
+    `src/analysisDisplay.ts`. 최종 sweep(`grep [가-힣]` 전수 확인, 주석 제외)으로
+    `src/aiAnalysis.ts`/`src/aiAnalysisErrors.ts`의 네트워크/알수없음 에러 폴백 메시지도
+    누락분으로 발견해 추가 로컬라이즈.
+  - `src/format.ts`: `formatKoreanTime`/`formatKoreanDateTime` → `formatTime`/
+    `formatDateTime`로 개명, 언어별 포맷터 레지스트리로 전환(ko: "오전/오후 h:mm", en:
+    "h:mm AM/PM" 등) — 새 언어 추가 시 포맷터만 더하면 됨. 인자 생략 시 `i18n.language`
+    따름(화면이 `useTranslation()`으로 언어 변경 시 리렌더되면 인라인 호출도 같이 갱신).
+  - AI 분석 요청의 `locale`을 고정 `'ko'` 대신 실제 앱 언어(`i18n.language`)로 전송
+    (`aiAnalysis.ts`) — Edge Function의 `buildSystemPrompt(locale)`은 이전 세션에서
+    이미 준비돼 있어 앱 쪽 연결만 하면 됐음.
+  - 폰트 검증: `fonttools`로 Pretendard 4종 weight 전부 A-Z/a-z/0-9 + 특수문자(em dash/
+    middle dot/arrow/ellipsis) 글리프 커버리지 직접 확인 — 전부 포함, 폴백 폰트 불필요.
+  - 번역 검수 안전장치: 사용자가 영어 원어민 검수를 할 수 없는 상태라 `REVIEW_NEEDED.md`
+    신규 — 우선순위 1(알람/해제 방법), 2(의학 고지문), 3(동의/개인정보 문구), 4(관용구·
+    문장구조 리스크) 순으로 정리. Edge Function의 401/422/402 등 JSON 에러 메시지는
+    여전히 서버에 한국어로 하드코딩돼 있어 앱이 영어 모드여도 그대로 노출되는 한계를
+    별도 절로 명시(이번 작업 범위 밖 — Edge Function 재수정 필요).
+  - **발견(번역과 무관, 우연히 찾은 기존 버그)**: `home.learnNote`("후기를 반영해 시간이
+    자동으로 조정돼요")가 Phase 4-3에서 자동 조정 학습을 폐지한 이후에도 안 고쳐져
+    있음 — 문구가 실제 동작(수동 조정만)과 어긋난다. 이 브랜치는 번역만 하고 원문은
+    그대로 옮김, 문구 수정은 범위 밖이라 별도 확인 필요.
+  - BACKLOG.md "v1.2" 섹션의 i18n 항목을 "구현됨 (i18n)" 섹션으로 승격, 스토어 등록정보/
+    개인정보처리방침 영어판은 Phase E로 계속 이관.
+  - jest 91개 통과(기존 80개 + `src/i18n.test.ts` 신규 11개 — 언어 전환/로케일 포맷/
+    ko·en 키 완전 일치 검증)/tsc/expo-doctor/expo export 4종 통과. `supabase` 프로젝트
+    통합 테스트는 이 브랜치와 무관하게 세션 내 반복 실행으로 Supabase anon-auth rate
+    limit에 걸려 일시 실패 — `supabase/` 디렉터리는 이 브랜치에서 전혀 건드리지 않음
+    (확인됨), 무관한 일시적 인프라 이슈로 판정.
+  - 커밋 10개로 분리(infra+홈/수면/알람/후기/설정/히스토리/분석/테스트+REVIEW_NEEDED/
+    tsc 타입 수정 2건).
+  - **실기기 미검증**: 언어 선택 UI 동작, 영어 전환 시 전 화면 렌더링, 영어 폰트
+    렌더링 실물 확인(글리프 커버리지는 코드로 확인했지만 실제 화면 표시는 별도).
+    재빌드는 이번 지시에 포함 안 됨 — 다음 지시 대기.
+
+**마지막 검증된 커밋: `i18n` 브랜치, 4종 검증(jest 91개/tsc/expo-doctor/expo export)
+통과 — `main` 미병합, 실기기 검증 대기.**
 
 ## 브랜치 현황
 
@@ -423,14 +470,16 @@
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
   완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
+- `i18n`: 한/영 다국어 지원 완료(위 항목), 4종 검증 통과 — 다음은 실기기 빌드·설치·
+  검증, `main` 병합은 그 이후.
 
 ## 지금 단계
 
 **v1 계획 기능 + AI 분석(v1.1) Phase A~C 전부 `main`에 병합·실기기 검증 완료.**
 남은 건 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고)와
 AI 분석 Phase D(결제, 별도 지시 대기). 다국어(i18n) 도입은 `i18n` 브랜치(`main` 기준
-분기)에서 사용자 명시 지시로 진행 중. 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청
-없이 착수하지 않는다.
+분기)에서 4종 검증까지 완료 — 실기기 빌드·설치·검증과 `main` 병합은 별도 지시 대기.
+그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
 
