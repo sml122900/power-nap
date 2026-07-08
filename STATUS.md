@@ -358,7 +358,35 @@
     expo export 3종 통과. 커밋 3개(Edge Function/데이터 계층/화면)로 분리, push 완료.
   - **실기기 검증 대기** — 재빌드·재설치는 사용자 지시 시.
 
-**마지막 검증된 커밋: `ai-analysis-app` 브랜치, 무료 리셋 카운트다운 커밋들.**
+- **프롬프트 보강 + 출력 언어 변수화**(`ai-analysis-app` 브랜치 이어서, 사용자 명시 지시) —
+  BACKLOG.md 문헌 근거 4건 반영 + advice 가이드 확장 + 다국어 대비 출력 언어 변수화:
+  - `BACKLOG.md`에 "AI 분석 조언 근거" 섹션 신규(낮잠 최적 시간대/타이밍 개인차/환경
+    최적화/낮잠 빈도, 출처 명시 — Harvard Health 2024/RISE/PUIRP 2024/크로노타입
+    constant routine 연구/Studley) + "v1.2" 섹션 신규(앱 전체 i18n, locale 실제 전달은
+    여기로 이관).
+  - `supabase/functions/analyze/prompts/analysis-v2.ts` 신규(v1 유지, 파일명으로만
+    버전 추적하는 기존 관행 유지 — DB 컬럼 추가는 이번에도 보류, 현재 규모에선 git
+    히스토리로 충분하다고 판단): `LITERATURE_BASIS`에 신규 4건 추가(총 7개), "조언
+    가이드"(늦은 시간대 낮잠 패턴을 크로노타입 개인차 인정하며 짚기/소음·빛 점수 낮으면
+    안대·귀마개 제안/하루 3회+면 빈도 언급) + "제외할 것"(90분 낮잠 — 앱 정체성 충돌,
+    장기 건강효과 주장 — 상관관계·의학효능 리스크) 섹션 신규. `SYSTEM_PROMPT` 상수를
+    `buildSystemPrompt(outputLanguage='ko')` 함수로 전환(출력 언어 줄만 변수화, 나머지
+    지시문은 Claude 내부 지시라 한국어 고정). `toKstTimeLabel` 신규 — 기록에
+    `localTimeKst` 필드를 붙여 모델이 시간대 조언 시 직접 epoch 계산 없이 비교하게 함.
+  - `supabase/functions/analyze/index.ts`: import를 `analysis-v2.ts`로 교체,
+    `callAnalysis`가 `locale` 인자를 받아 `buildSystemPrompt(locale)` 사용,
+    `handleAnalyze`/`handleFollowup` 양쪽에서 `body?.locale ?? 'ko'` 추출.
+  - `src/aiAnalysis.ts`: `requestAnalysis`/`requestFollowup` 요청 바디에 `locale: 'ko'`
+    고정 전송(실제 로케일 반영은 BACKLOG.md v1.2 몫).
+  - Edge Function 재배포 완료, jest 80개(기존과 동일 개수 — analyze.test.ts는 스키마/
+    상태코드만 검증해 프롬프트 내용 변경으로 깨지지 않음, 실제 재배포된 v2 대상으로
+    재통과 확인)/tsc/expo-doctor/expo export 4종 통과. 커밋 3개(BACKLOG/v2 프롬프트/
+    Edge Function+앱 연동)로 분리, push 완료.
+  - **재빌드 안 함** — 사용자 지시로 무료 리셋 카운트다운 작업과 묶어 다음 빌드 지시에서
+    한 번에 처리.
+
+**마지막 검증된 커밋: `ai-analysis-app` 브랜치, 프롬프트 보강 + 출력 언어 변수화 커밋들
+(무료 리셋 카운트다운과 함께 다음 릴리즈 빌드 대기).**
 
 ## 브랜치 현황
 
