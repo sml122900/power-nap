@@ -164,6 +164,9 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   미디어 스트림이 아니라 지금 재생 중인 알람 스트림 쪽으로 돌린다(OS 기본 동작).
   "소리 안 남" 리포트를 받으면 코드부터 의심하지 말고 `dumpsys audio`로 알람
   스트림 볼륨이 눌려서 깎여있는지부터 확인할 것.
+- Postgres는 새 함수의 EXECUTE를 anon/authenticated에 기본 개방한다. REVOKE FROM public으로는
+  안 막힘 — 마이그레이션에서 함수 생성 시 anon/authenticated 명시 revoke + service_role
+  grant를 매번 확인 (Phase B에서 실공격 검증으로 확인된 사항).
 
 코드 규칙
 
