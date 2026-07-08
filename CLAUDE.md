@@ -112,6 +112,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 전부 로컬: v1.1부터 AI 분석에 한해 서버 사용(AI_ANALYSIS.md 참조), 그 외 기능은
 여전히 로컬 전용.
 
+다국어(i18n, v1.2부터): 서버(`supabase/functions/analyze`)는 언어와 완전히 무관하게
+유지한다. `analyze` Edge Function의 JSON 에러 응답에서 `error` 필드(안정적 snake_case
+코드)만 클라이언트가 신뢰하는 계약이고, `message` 필드는 서버 로그/디버그 전용 영어
+텍스트일 뿐 — 클라이언트가 사용자에게 그대로 노출하지 않는다. 실제 표시 문구는
+`src/aiAnalysisErrors.ts`가 `error` 코드를 `locales/ko.json`/`locales/en.json`으로
+매핑해 만든다(새 에러 코드 추가 시 이 매핑을 안 채우면 TS 컴파일 에러). AI 리포트
+본문 언어만 예외 — `analysis-v2.ts`의 `buildSystemPrompt(locale)`이 앱이 보낸 `locale`
+파라미터로 출력 언어를 결정한다(에러 메시지 경로와는 별개). 새 언어 추가 시 앱
+쪽(`locales/*.json` + `format.ts` 포맷터)만 확장하면 되고 Edge Function은 안 건드린다.
+
 학습 로직 (Phase 4-3, 도그푸딩 후 확정 — BACKLOG.md "구현됨"/"학습 구조 전환 근거" 참조):
 알람 = 기준시각 + 소요시간. fast/slow는 latency(0~20분, 목표수면 20분 고정 + latency),
 coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 없음** — 이 값을

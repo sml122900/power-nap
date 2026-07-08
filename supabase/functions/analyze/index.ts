@@ -2,6 +2,16 @@
 // 차감한다(record_analysis_result RPC가 credit_events insert + analyses insert를 한
 // 트랜잭션으로 묶어 처리 — migrations/0002 주석 참고). 실패 시 크레딧 미차감이 자동으로
 // 보장된다(보상 트랜잭션 불필요).
+//
+// 에러 응답 규칙(i18n 브랜치에서 확정, CLAUDE.md "핵심 원칙"에도 기록): `error` 필드가
+// 클라이언트가 신뢰하는 유일한 계약이다 — src/aiAnalysisErrors.ts가 이 값을 locales/*.json의
+// 문구로 매핑해 사용자에게 보여준다. `message`는 서버 로그/디버그 전용 영어 텍스트일 뿐,
+// 클라이언트는 절대 이 값을 사용자에게 그대로 노출하지 않는다. 이 분리 덕분에 서버는 출력
+// 언어와 완전히 무관하게 유지된다 — 새 언어를 추가해도 이 파일은 안 건드린다(analysis-v2.ts의
+// buildSystemPrompt(locale)만 AI 리포트 본문 언어를 결정, 에러 메시지와는 별개 경로).
+// 새 에러 케이스를 추가할 때: 여기서는 안정적인 snake_case `error` 코드만 정하고, 클라이언트
+// aiAnalysisErrors.ts의 SERVER_ERROR_MESSAGE_KEY에 대응 키를 추가해야 한다(TS가
+// Record<AnalysisErrorCode, string>로 강제해 누락 시 컴파일 에러).
 import Anthropic from 'npm:@anthropic-ai/sdk@^0.110.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.110.0/helpers/zod';
 import { createClient } from 'npm:@supabase/supabase-js@^2.110.1';
@@ -64,11 +74,11 @@ function jsonResponse(status: number, body: unknown): Response {
 async function authenticate(req: Request): Promise<{ userId: string } | Response> {
   const authHeader = req.headers.get('Authorization');
   const jwt = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
-  if (!jwt) return jsonResponse(401, { error: 'unauthenticated', message: '인증 토큰이 없다.' });
+  if (!jwt) return jsonResponse(401, { error: 'unauthenticated', message: 'No auth token provided.' });
 
   const { data, error } = await admin.auth.getUser(jwt);
   if (error || !data.user) {
-    return jsonResponse(401, { error: 'unauthenticated', message: '유효하지 않은 세션이다.' });
+    return jsonResponse(401, { error: 'unauthenticated', message: 'Invalid session.' });
   }
   return { userId: data.user.id };
 }
@@ -120,10 +130,10 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
   const settings = body?.settings;
   const locale = body?.locale ?? 'ko';
   if (!Array.isArray(records) || !settings?.latency || typeof settings.caffeineOnset !== 'number') {
-    return jsonResponse(422, { error: 'invalid_input', message: 'records/settings 형식이 올바르지 않다.' });
+    return jsonResponse(422, { error: 'invalid_input', message: 'Invalid records/settings format.' });
   }
   if (records.length < MIN_RECORDS) {
-    return jsonResponse(422, { error: 'not_enough_records', message: `낮잠 기록이 ${MIN_RECORDS}개 이상 필요하다.` });
+    return jsonResponse(422, { error: 'not_enough_records', message: `At least ${MIN_RECORDS} nap records required.` });
   }
 
   const cappedRecords = [...records]
@@ -142,7 +152,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
     if (creditsRow.balance <= 0) {
       return jsonResponse(402, {
         error: 'insufficient_credit',
-        message: '이번 주 무료 분석을 사용했다. 추가 분석은 1,000원이다.',
+        message: 'Weekly free analysis already used. Additional analysis costs 1,000 KRW.',
       });
     }
     chargeReason = 'analysis';
@@ -152,7 +162,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
   try {
     result = await callAnalysis(cappedRecords, settings, locale);
   } catch (err) {
-    return jsonResponse(500, { error: 'analysis_failed', message: '분석에 실패했다. 다시 시도해달라.', detail: String(err) });
+    return jsonResponse(500, { error: 'analysis_failed', message: 'Analysis failed. Please try again.', detail: String(err) });
   }
 
   const { data: analysisId, error: recordError } = await admin.rpc('record_analysis_result', {
@@ -167,7 +177,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
   if (recordError) {
     // 극히 드문 동시요청 레이스(예: 잔액 1개인 상태에서 같은 유저가 거의 동시에 2번 요청) —
     // Claude 호출 비용은 이미 썼지만 크레딧은 차감되지 않았다(레코드 자체가 롤백됨).
-    return jsonResponse(402, { error: 'insufficient_credit', message: '크레딧이 부족하다.' });
+    return jsonResponse(402, { error: 'insufficient_credit', message: 'Insufficient credit.' });
   }
 
   return jsonResponse(200, {
@@ -184,7 +194,7 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
   const question = body?.question;
   const locale = body?.locale ?? 'ko';
   if (typeof question !== 'string' || !question.trim()) {
-    return jsonResponse(422, { error: 'invalid_input', message: 'question이 필요하다.' });
+    return jsonResponse(422, { error: 'invalid_input', message: '"question" is required.' });
   }
 
   const { data: analysis, error: fetchError } = await admin
@@ -194,10 +204,10 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
     .maybeSingle();
   if (fetchError) return jsonResponse(500, { error: 'server_error', message: fetchError.message });
   if (!analysis || analysis.user_id !== userId) {
-    return jsonResponse(404, { error: 'not_found', message: '분석 기록을 찾을 수 없다.' });
+    return jsonResponse(404, { error: 'not_found', message: 'Analysis record not found.' });
   }
   if (analysis.followup_turns_used >= MAX_FOLLOWUP_TURNS) {
-    return jsonResponse(409, { error: 'turn_limit_reached', message: '후속 질문 3턴을 모두 사용했다.' });
+    return jsonResponse(409, { error: 'turn_limit_reached', message: 'All 3 follow-up turns used.' });
   }
 
   const priorTurns = (analysis.turns as { role: 'user' | 'assistant'; content: string }[]) ?? [];
@@ -217,7 +227,7 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
       messages,
     });
   } catch (err) {
-    return jsonResponse(500, { error: 'followup_failed', message: '후속 질문 처리에 실패했다.', detail: String(err) });
+    return jsonResponse(500, { error: 'followup_failed', message: 'Failed to process follow-up question.', detail: String(err) });
   }
 
   const answerText = response.content
@@ -236,7 +246,7 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
     p_tokens_out: response.usage.output_tokens,
   });
   if (appendError) {
-    return jsonResponse(409, { error: 'turn_limit_reached', message: '후속 질문 3턴을 모두 사용했다.' });
+    return jsonResponse(409, { error: 'turn_limit_reached', message: 'All 3 follow-up turns used.' });
   }
 
   return jsonResponse(200, { answer: answerText, turnsUsed, turnsRemaining: MAX_FOLLOWUP_TURNS - turnsUsed });
