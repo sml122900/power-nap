@@ -4,7 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { formatKoreanDateTime } from '@/format';
-import { getNapRecords, type NapMode, type NapRecord, type NapRecordResult, type NapSurvey, type SurveyRating } from '@/store';
+import {
+  canRunAnalysis,
+  getAiConsent,
+  getNapRecords,
+  MIN_RECORDS_FOR_ANALYSIS,
+  type NapMode,
+  type NapRecord,
+  type NapRecordResult,
+  type NapSurvey,
+  type SurveyRating,
+} from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
 function modeName(mode: NapMode): string {
@@ -111,6 +121,14 @@ export default function HistoryScreen() {
     getNapRecords().then((r) => setRecords([...r].reverse()));
   }, []);
 
+  const canAnalyze = canRunAnalysis(records.length);
+
+  const onPressAiAnalysis = async () => {
+    if (!canAnalyze) return;
+    const consented = await getAiConsent();
+    router.push(consented === true ? '/analysis' : '/analysis-consent');
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
@@ -119,6 +137,22 @@ export default function HistoryScreen() {
           <Text style={styles.closeText}>닫기</Text>
         </Pressable>
       </View>
+
+      <Pressable
+        onPress={onPressAiAnalysis}
+        disabled={!canAnalyze}
+        style={styles.aiAnalysisRow}
+        accessibilityRole="button"
+        accessibilityLabel="AI 분석"
+        accessibilityState={{ disabled: !canAnalyze }}
+      >
+        <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>AI 분석</Text>
+      </Pressable>
+      {!canAnalyze && (
+        <Text style={styles.aiAnalysisCaption}>
+          낮잠 기록이 {MIN_RECORDS_FOR_ANALYSIS}회 쌓이면 분석할 수 있어요
+        </Text>
+      )}
 
       {records.length === 0 ? (
         <Text style={styles.emptyText}>아직 기록된 낮잠이 없어요.</Text>
@@ -182,6 +216,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  aiAnalysisRow: {
+    marginTop: 20,
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiAnalysisText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.brand,
+  },
+  aiAnalysisTextDisabled: {
+    color: colors.inkFaint,
+  },
+  aiAnalysisCaption: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 12.5,
+    fontFamily: fontFamily.regular,
+    color: colors.inkFaint,
   },
   title: {
     fontSize: 22,
