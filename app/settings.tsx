@@ -9,9 +9,11 @@ import {
   applyManualAdjustment,
   CAFFEINE_ONSET_MAX,
   CAFFEINE_ONSET_MIN,
+  getAiConsent,
   getSettings,
   LATENCY_MAX,
   LATENCY_MIN,
+  setAiConsent,
   TARGET_SLEEP_MIN,
   type NapMode,
   type Settings,
@@ -44,13 +46,24 @@ export default function SettingsScreen() {
   // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
   // (feedback.tsx/index.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
   const [texts, setTexts] = useState<Record<NapMode, string>>({ fast: '', slow: '', coffee: '' });
+  const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
 
   useEffect(() => {
     getSettings().then((s) => {
       setSettings(s);
       setTexts({ fast: String(s.latency.fast), slow: String(s.latency.slow), coffee: String(s.caffeineOnset) });
     });
+    getAiConsent().then(setAiConsentState);
   }, []);
+
+  // AI_ANALYSIS.md §6 "동의 철회" — 히스토리 화면의 "AI 분석" 진입 시 동의 화면과 별개로
+  // 여기서 직접 뒤집을 수 있다("재동의 가능").
+  const onToggleAiConsent = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = aiConsent !== true;
+    await setAiConsent(next);
+    setAiConsentState(next);
+  };
 
   // 스테퍼/텍스트 확정 모두 이 경로로만 저장한다. NapRecord.manualAdjust.source를
   // 'settings'로 남겨 후기 화면의 "직접 조정하기"(source: 'feedback')와 구분한다 —
@@ -143,6 +156,18 @@ export default function SettingsScreen() {
           );
         })}
       </View>
+
+      <View style={styles.dataSection}>
+        <Text style={styles.dataSectionLabel}>데이터 및 분석</Text>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataRowText}>
+            {aiConsent === true ? 'AI 분석 서버 전송에 동의함' : 'AI 분석 서버 전송에 동의하지 않음'}
+          </Text>
+          <Pressable onPress={onToggleAiConsent} style={styles.dataToggleBtn}>
+            <Text style={styles.dataToggleBtnText}>{aiConsent === true ? '철회' : '동의'}</Text>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -233,5 +258,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.regular,
     color: colors.inkFaint,
+  },
+  dataSection: {
+    marginTop: 24,
+    gap: 8,
+  },
+  dataSectionLabel: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  dataRowText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    color: colors.ink,
+  },
+  dataToggleBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  dataToggleBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
   },
 });

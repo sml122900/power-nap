@@ -225,12 +225,185 @@
   - **Phase B 완료.** Phase C(앱 통합 — 동의 UI/분석 진입점/리포트 화면/후속질문 UI)는
     별도 지시 시 착수.
 
+- **Phase C — 앱 통합**(`ai-analysis-app` 브랜치) — AI_ANALYSIS.md §6, 사용자 명시
+  지시로 착수:
+  - `src/store.ts`: `getAiConsent`/`setAiConsent`(AsyncStorage, `null`=아직 안 물어봄/
+    `true`=동의/`false`=거부 — 거부해도 재진입 시 다시 물어봄, tri-state), `MIN_RECORDS_FOR_ANALYSIS`
+    (=5, 클라이언트 진입점 비활성과 Edge Function 422 판정이 같은 값을 쓰도록 export),
+    `canRunAnalysis(count)`, `computeSuggestionApplication(mode, current, delta)`(AI 제안
+    ± delta를 clamp해 적용값 계산 — 순수 함수). `NapRecord.manualAdjust.source`에
+    `'ai-analysis'` 추가(기존 `'feedback'`/`'settings'`와 나란히, 출처 구분 유지).
+  - `src/supabase.ts`: `ensureAnonymousSession()`이 `accessToken`도 함께 반환하도록 변경 —
+    **발견**: `supabase-js`의 `client.functions.invoke()`는 세션 JWT를 자동으로
+    Authorization 헤더에 넣어주지 않는다(`client.functions`는 매 호출마다 새
+    `FunctionsClient`를 만들고 생성 시점의 정적 헤더만 물려받음, 세션 갱신과 무관) —
+    소스 직접 확인 후 호출부에서 매번 명시적으로 헤더를 넣는 방식으로 설계.
+  - `src/aiAnalysisErrors.ts` 신규 분리(순수 함수만): `mapInvokeErrorToAnalysisError`,
+    `isAnalysisError`. `src/aiAnalysis.ts`가 아니라 별도 파일로 뺀 이유: `aiAnalysis.ts`는
+    `supabase.ts`를 끌어오는데 `supabase.ts`는 모듈 로드 시점에 `EXPO_PUBLIC_SUPABASE_*`
+    env var가 없으면 즉시 throw한다 — jest `app` 프로젝트는 `.env`를 안 읽으므로, 같은 파일에
+    있었다면 에러 매핑 테스트가 항상 깨졌을 것(발견 즉시 구조 분리로 수정).
+  - `src/aiAnalysis.ts`: `requestAnalysis`/`requestFollowup` — `supabase.functions.invoke`에
+    Authorization/apikey 헤더 명시, `FunctionsHttpError`면 `error.context.json()`으로 서버
+    에러 바디 파싱해 `AnalysisError`로 매핑.
+  - `app/analysis-consent.tsx`: 최초 1회(또는 거부 후 재진입 시) 동의 화면 — 전송 안내 +
+    처리방침 자리(URL 미정, "준비 중" 표기) + 동의/다음에.
+  - `app/analysis.tsx`: loading → report(요약/조언/± 제안 항목별 "설정에 반영하기" 버튼 +
+    고정 하단 고지문 — LLM이 advice에 넣는 고지와 별개로 앱이 항상 렌더) →
+    insufficient_credit(402, "이번 주 무료 분석을 사용했어요" + 결제 버튼은 비활성 "준비
+    중" — Phase D에서 활성화) → 후속 질문(턴 카운터, 3턴 소진 시 입력 비활성). "설정에
+    반영하기"는 `applyManualAdjustment` + `appendNapRecord(source:'ai-analysis')`로 기존
+    수동 조정 경로 재사용.
+  - `app/history.tsx`: 상단에 "AI 분석" 진입점 — `canRunAnalysis`로 5개 미만 비활성 +
+    안내 캡션. 탭 시 `getAiConsent()`로 분기(true면 `/analysis`, 그 외엔
+    `/analysis-consent`).
+  - `app/settings.tsx`: "데이터 및 분석" 섹션 추가 — 동의 상태 표시 + 토글 버튼(동의
+    철회/재동의, AI_ANALYSIS.md §6 "동의 철회" + 사용자 지시 "설정에서 재동의 가능").
+  - **실기기 미검증 항목**(사용자 확인 필요): 동의 화면 표시/버튼 동작, 히스토리 5개 미만
+    비활성 문구, 실제 분석 요청 → 리포트 렌더 → "설정에 반영하기" 탭 시 설정 화면에 실제
+    반영되는지, 후속 질문 3턴 후 입력창 비활성, 402(무료 소진) 화면, 설정 화면 동의
+    토글, 키보드 올라왔을 때 후속 질문 입력창 가려짐 여부(Android).
+  - DESIGN_HANDOFF 준수 확인: 신규 화면 3개(analysis-consent/analysis 화면, settings
+    추가분) 아이콘 0개, `theme.ts` 토큰만 사용(하드코딩 색상 없음).
+  - jest 48개 통과(기존 34개 + store 8개 + aiAnalysisErrors 6개), tsc(라우터 타입 재생성
+    필요했음 — `expo start` 한 번 띄워야 `.expo/types/router.d.ts`가 새 라우트를 인식,
+    `expo export`만으로는 안 됨)/expo-doctor/expo export 3종 통과. 커밋 2개(데이터 계층/
+    화면).
+  - **Phase C 완료(실기기 검증 대기).**
+
 - **`wake-checklist` → `main` 병합**: 기상 직후 행동 체크리스트(커밋 `0e7d469`) —
   충돌 없이 자동 병합(겹친 파일 `feedback.tsx`/`history.tsx`/`store.ts`/`store.test.ts`는
   전부 서로 다른 영역 수정이라 git이 자동으로 합침). 병합 후 main에서 tsc/expo-doctor/
   expo export/jest(40개) 4종 재검증 통과. **실기기 검증은 아직**.
 
-**마지막 검증된 커밋: `wake-checklist` 병합 커밋, `main` 브랜치.**
+- **`main`(wake-checklist 포함) → `ai-analysis-app` 병합**: `STATUS.md`/`app/history.tsx`
+  충돌(둘 다 같은 파일 수정) — 수동 정리. `app/history.tsx`는 두 기능이 서로 다른 영역이라
+  단순 병합(AI 분석 진입점 + 기상 체크리스트 상세행 공존). `app/feedback.tsx`는 예상과 달리
+  충돌 없이 자동 병합(Phase C가 feedback.tsx를 건드리지 않아서).
+- **릴리즈 빌드 1차 + 실기기 설치**: `expo prebuild --clean` → `gradlew assembleRelease`
+  성공, `aapt dump permissions`로 최종 APK 매니페스트 재확인(`USE_FULL_SCREEN_INTENT` 등
+  정상). adb 인증이 처음엔 `unauthorized`로 막혀 있었음 — 케이블 재연결 + "이 컴퓨터에서
+  항상 허용" 체크로 해결(흔한 함정, 코드 이슈 아님). `adb install -r`로 설치 완료.
+
+- **Phase C 확장 — 분석 기록 열람 + 기간 선택**(`ai-analysis-app` 브랜치 이어서, 사용자
+  명시 지시) — AI_ANALYSIS.md §2·§5·§6 갱신:
+  - `src/analysisTypes.ts`(순수 타입: `AnalysisReport`/`FollowupTurn`/`AnalysisListItem`/
+    `AnalysisDetail`/`MAX_FOLLOWUP_TURNS`)와 `src/analysisDisplay.ts`(순수 표시 로직:
+    `formatAnalysisListLabels` — 같은 날짜 여러 건이면 시각 병기, `turnsToExchanges` —
+    저장된 turns를 Q&A 쌍으로 묶음)를 신규 분리 — `aiAnalysisErrors.ts`와 같은 이유
+    (supabase.ts env var 가드를 안 타야 jest "app" 프로젝트에서 테스트됨).
+  - `src/store.ts`: `filterAnalyzableRecords(records, sinceMs?)`(isTest 항상 제외 +
+    기간 필터), `AnalysisPeriod`/`periodSinceMs`(1주/2주/1개월(달력 기준)/전체), 분석
+    목록·상세 로컬 캐시(`getCachedAnalysisList`/`Detail`, `setCached...`) +
+    `resolveAnalysisList`/`resolveAnalysisDetail`(순수 폴백 판정 — `fetched ?? cached`,
+    캐시 폴백 로직을 네트워크 I/O와 분리해 목킹 없이 테스트).
+  - **발견·수정**: 히스토리 화면의 "AI 분석" 활성화 판정(`canRunAnalysis`)이 그동안
+    `records.length`를 그대로 썼다 — isTest 낮잠도 포함해 카운트하던 버그. 지난 세션
+    확인 요청 사항이었음, `filterAnalyzableRecords`로 교체해 수정.
+  - `src/aiAnalysis.ts`: `listAnalyses()`/`getAnalysisDetail(id)` 추가 — `analyses`
+    테이블을 RLS(본인 행만)로 **직접 SELECT**(Edge Function 안 거침, 읽기 전용이라
+    RLS만으로 충분). 실패 시 로컬 캐시로 폴백. `AnalysisResult`에 `recordsUsed` 필드
+    추가.
+  - `supabase/functions/analyze/index.ts`: 수신 records를 `completedAt` 최신순 정렬 후
+    50개로 컷(`MAX_RECORDS`, 토큰 비용 방어선) — 초과분은 에러 없이 조용히 버림, 응답에
+    `recordsUsed` 포함.
+  - `app/analysis-period.tsx` 신규: 프리셋 칩(1주/2주 기본/1개월/전체) + 선택 기간의
+    유효 기록 수 실시간 표시 + 분석하기 버튼(5개 미만 비활성). 동의 화면 다음 단계로
+    삽입(`analysis-consent.tsx`의 리다이렉트 대상을 `/analysis` → `/analysis-period`로
+    변경).
+  - `app/analysis-history.tsx` 신규: 지난 분석 목록(`"7월 8일 분석"`, 같은 날 여러 건이면
+    시각 병기) — 탭하면 `/analysis?id=X`로 이동.
+  - `app/analysis.tsx` 구조 변경: `since`(새 분석, 기간 필터) / `id`(지난 분석 열람) 두
+    진입 경로를 하나의 화면이 처리. **발견·수정**: 기존엔 `useRef` 1회성 가드로 마운트
+    시 딱 한 번만 로드했는데, 히스토리 목록에서 다른 분석 id로 연달아 이동하면 화면
+    인스턴스가 재사용되면서 "적용됨" 상태나 리포트가 이전 것으로 남을 위험이 있었음 —
+    `requestKey`(id 또는 since 조합)를 `useEffect` 의존성으로 바꿔 매번 완전히 다시
+    로드·초기화하도록 재구성.
+  - `app/history.tsx`: "AI 분석" 옆에 "지난 분석 보기" 진입점 추가, isTest 카운트 버그
+    수정(위 참고).
+  - jest 73개 통과(기존 48개 + store 신규 12개 + analysisDisplay 6개 + analyze 통합
+    신규 1개), tsc(라우터 타입 재생성 필요 — 동일 패턴)/expo-doctor/expo export 3종
+    통과. Edge Function 재배포 후 통합 테스트 재확인(recordsUsed 필드, 50개 컷 실증).
+    커밋 4개(데이터 계층/화면/Edge Function/문서)로 분리.
+  - **Phase C 확장 완료(실기기 검증 대기).** 릴리즈 재빌드 → 설치 대기.
+
+- **릴리즈 빌드 2차 + 실기기 재설치**: app.json/네이티브 설정 변경 없어 `prebuild` 없이
+  `gradlew assembleRelease`만 재실행, `adb install -r`로 설치 완료. 두 번째부터는 adb
+  인증이 바로 됨(첫 연결 때만 겪는 문제였음).
+
+- **무료 리셋 카운트다운**(`ai-analysis-app` 브랜치 이어서, 사용자 명시 지시) — 402
+  화면 + 히스토리 "AI 분석" 진입점에 "다음 무료 분석까지 N일 N시간 N분" 표시:
+  - **설계 제약 발견**: `has_weekly_free` RPC는 Phase B에서 이미 anon/authenticated로부터
+    잠가둔 상태(migrations/0003)라 클라이언트가 직접 못 부른다 — Edge Function에 가벼운
+    `mode: 'status'` 분기를 추가해 유일한 조회 경로로 삼음(NapRecord 없이 RPC 하나만
+    호출, Claude 비용 없음).
+  - 리셋 시각 계산은 Postgres `week_start_kst()`를 다시 호출하지 않고 Deno 쪽에
+    동일 공식을 그대로 복제(analyze.test.ts의 `mondayKstBoundaryUtc`와 같은 공식 —
+    이미 DB 함수와 일치함이 검증돼 있어 안전하게 재사용). 이 값 자체가 Edge Function
+    서버 시각 기준이라 기기 시각 조작과 무관("서버 시각 기준" 요구사항 충족).
+  - 클라이언트 카운트다운은 "서버가 준 remaining을 fetch 시점에 고정 → 이후엔 기기의
+    경과 시간(델타)만 더해 틱" 방식(`useFreeResetStatus`, 분 단위 갱신) — 기기의 절대
+    시각이 아니라 경과 시간만 신뢰하므로 기기 시각을 바꿔도 카운트다운 자체는 정상
+    흐름(단, 표시 목적일 뿐 실제 크레딧 판정은 항상 서버가 함 — 애초에 위조해도 의미 없음).
+  - 히스토리 진입점은 **동의 전에는 상태를 조회하지 않음**(consented===true && 분석
+    가능할 때만 훅 활성화) — "동의 전엔 서버로 아무것도 안 보낸다" 원칙 유지.
+  - **회귀 버그 발견·수정**: `useFreeResetStatus`(신규 훅)가 `aiAnalysis.ts` →
+    `supabase.ts`로 이어지는 체인을 끌어오면서, `supabase.ts`가 모듈 로드 시점에 env
+    var 없으면 즉시 throw하던 것 때문에 `app/history.tsx`를 import하는
+    `app/history.test.ts`(순수 함수 `detailText` 등만 테스트하는 파일)까지 덩달아
+    깨짐. `supabase.ts`를 지연 초기화(`getSupabase()`, 최초 실제 호출 시점에만 env var
+    확인)로 바꿔 근본 수정 — `.env` 없는 환경에서도 화면 컴포넌트를 끌어오는 테스트가
+    깨지지 않게 됨(같은 부류 문제가 세션 내내 반복돼 이번엔 아예 구조로 막음).
+  - jest 80개 통과(기존 73개 + analysisDisplay 5개 + analyze 통합 2개), tsc/expo-doctor/
+    expo export 3종 통과. 커밋 3개(Edge Function/데이터 계층/화면)로 분리, push 완료.
+  - **실기기 검증 대기** — 재빌드·재설치는 사용자 지시 시.
+
+- **프롬프트 보강 + 출력 언어 변수화**(`ai-analysis-app` 브랜치 이어서, 사용자 명시 지시) —
+  BACKLOG.md 문헌 근거 4건 반영 + advice 가이드 확장 + 다국어 대비 출력 언어 변수화:
+  - `BACKLOG.md`에 "AI 분석 조언 근거" 섹션 신규(낮잠 최적 시간대/타이밍 개인차/환경
+    최적화/낮잠 빈도, 출처 명시 — Harvard Health 2024/RISE/PUIRP 2024/크로노타입
+    constant routine 연구/Studley) + "v1.2" 섹션 신규(앱 전체 i18n, locale 실제 전달은
+    여기로 이관).
+  - `supabase/functions/analyze/prompts/analysis-v2.ts` 신규(v1 유지, 파일명으로만
+    버전 추적하는 기존 관행 유지 — DB 컬럼 추가는 이번에도 보류, 현재 규모에선 git
+    히스토리로 충분하다고 판단): `LITERATURE_BASIS`에 신규 4건 추가(총 7개), "조언
+    가이드"(늦은 시간대 낮잠 패턴을 크로노타입 개인차 인정하며 짚기/소음·빛 점수 낮으면
+    안대·귀마개 제안/하루 3회+면 빈도 언급) + "제외할 것"(90분 낮잠 — 앱 정체성 충돌,
+    장기 건강효과 주장 — 상관관계·의학효능 리스크) 섹션 신규. `SYSTEM_PROMPT` 상수를
+    `buildSystemPrompt(outputLanguage='ko')` 함수로 전환(출력 언어 줄만 변수화, 나머지
+    지시문은 Claude 내부 지시라 한국어 고정). `toKstTimeLabel` 신규 — 기록에
+    `localTimeKst` 필드를 붙여 모델이 시간대 조언 시 직접 epoch 계산 없이 비교하게 함.
+  - `supabase/functions/analyze/index.ts`: import를 `analysis-v2.ts`로 교체,
+    `callAnalysis`가 `locale` 인자를 받아 `buildSystemPrompt(locale)` 사용,
+    `handleAnalyze`/`handleFollowup` 양쪽에서 `body?.locale ?? 'ko'` 추출.
+  - `src/aiAnalysis.ts`: `requestAnalysis`/`requestFollowup` 요청 바디에 `locale: 'ko'`
+    고정 전송(실제 로케일 반영은 BACKLOG.md v1.2 몫).
+  - Edge Function 재배포 완료, jest 80개(기존과 동일 개수 — analyze.test.ts는 스키마/
+    상태코드만 검증해 프롬프트 내용 변경으로 깨지지 않음, 실제 재배포된 v2 대상으로
+    재통과 확인)/tsc/expo-doctor/expo export 4종 통과. 커밋 3개(BACKLOG/v2 프롬프트/
+    Edge Function+앱 연동)로 분리, push 완료.
+  - **재빌드 안 함** — 사용자 지시로 무료 리셋 카운트다운 작업과 묶어 다음 빌드 지시에서
+    한 번에 처리.
+
+- **릴리즈 빌드 3차 + 실기기 재설치 + 통합 실기기 검증 완료**: app.json/네이티브 설정
+  변경 없어 `prebuild` 없이 `gradlew assembleRelease`만 재실행, `adb install -r`로
+  설치(무료 리셋 카운트다운 + 프롬프트 보강/출력 언어 변수화 반영분). 사용자가 직접
+  기기에서 검증 진행, 아래 항목 전부 통과 확인:
+  - Phase 4-3 설문 후기(세그먼트 탭·기본값 '중', 메모 저장, 제출/건너뛰기, 설정 화면·
+    "직접 조정하기" 수동 조정, 히스토리 v1/v2 기록 공존, 상세 아코디언 펼침)
+  - B그룹 풀스크린 인텐트(화면 꺼짐/잠금 상태 자동 점등 + 해제 화면 직행) 재확인
+  - Phase C AI 분석 전 구간(기록 5개 미만 비활성, 동의 화면, 기간 선택, 리포트 렌더,
+    "설정에 반영하기", 후속 질문 3턴 제한, 설정 화면 동의 토글, Android 키보드 가림
+    없음)
+  - 분석 기록 열람(목록·상세 재열람), 402 화면 카운트다운, 히스토리 진입점 카운트다운,
+    결제 버튼 비활성 유지
+  - analysis-v2 프롬프트 조언 내용 방향성(90분 낮잠 미언급, 장기 건강효과 단정 없음,
+    늦은 시간대 낮잠 언급 시 개인차 인정하는 톤) 확인
+  - **Phase 4-3·기상 체크리스트·B그룹·Phase C(AI 분석 전체)·무료 리셋 카운트다운·
+    프롬프트 v2 전부 실기기 검증 완료로 확정.**
+
+**마지막 검증된 커밋: `ai-analysis-app` 브랜치, 실기기 통합 검증까지 완료 —
+`main` 병합 대기.**
 
 ## 브랜치 현황
 
@@ -241,8 +414,8 @@
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
   완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
-- `ai-analysis-app`: `main`(wake-checklist 병합 전 시점) 기준 분기, Phase C 완료·push됨
-  — 아직 이 시점의 `main`과 병합 전. 다음 단계로 병합 예정.
+- `ai-analysis-app`: Phase C(AI 분석 앱 통합) 완료 + `main`(wake-checklist 포함) 병합
+  완료 — 다음은 릴리즈 빌드 → 실기기 설치·검증.
 
 ## 지금 단계
 
@@ -251,17 +424,12 @@
 학습 개편, 기상 직후 체크리스트)은 전부 병합 완료 — 남은 건 이들의 실기기 검증과 출시 전
 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
 (Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase C(앱 통합)까지
-완료됨(`ai-analysis-app` 브랜치, main 병합 예정) — Phase D(결제)는 별도 지시 대기. 그 외
-[BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이 착수하지 않는다.
+완료됨(`ai-analysis-app` 브랜치, `main` 병합 완료) — 다음은 릴리즈 빌드 → 실기기 설치·
+검증, Phase D(결제)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청
+없이 착수하지 않는다.
 
 ## 미해결 항목
 
-- [ ] **Phase 4-3 실기기 검증**(사용자 진행): 설문 제출/건너뛰기/메모 저장이 실제로
-      기록되는지, 세그먼트 탭 반응·기본값(중) 확인, 설정 화면·"직접 조정하기" 양쪽에서
-      수동 조정이 여전히 정상 동작하는지, 히스토리에서 기존(v1) 기록과 신규(v2) 기록이
-      둘 다 깨지지 않고 보이는지(기존 AsyncStorage 데이터 위에서 확인 — 마이그레이션
-      아님, 공존), 히스토리 행 탭 시 상세가 펼쳐지는지(구v1/신v2 각각), B그룹(풀스크린
-      인텐트)이 이 병합 빌드에서도 여전히 동작하는지
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
 - [ ] `phase-4-2`/`fullscreen-intent`/`phase-4-3` 브랜치 + `power-nap-phase43` worktree
       정리(삭제) — 전부 main 병합 완료로 더 이상 필요 없음, 삭제는 사용자 확인 후

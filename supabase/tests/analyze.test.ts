@@ -58,6 +58,17 @@ function napRecords(count: number) {
 
 const SETTINGS = { latency: { fast: 0, slow: 10 }, caffeineOnset: 25 };
 
+// Edge Function의 mondayKstBoundaryUtc와 동일한 공식을 독립적으로 재계산해 비교한다
+// (credit-ledger.test.ts와 같은 패턴) — 자기 참조 검증을 피해야 UTC 유출을 실제로 잡아낸다.
+function nextMondayKstBoundaryUtc(nowMs: number): number {
+  const kst = new Date(nowMs + 9 * 60 * 60 * 1000);
+  const day = kst.getUTCDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const kstMidnightFields = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - diffToMonday, 0, 0, 0, 0);
+  const thisMonday = kstMidnightFields - 9 * 60 * 60 * 1000;
+  return thisMonday + 7 * 24 * 60 * 60 * 1000;
+}
+
 describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스트', () => {
   beforeAll(() => {
     admin = createClient(URL!, SECRET_KEY!, { auth: { persistSession: false } });
@@ -92,6 +103,7 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       expect(firstBody.report.advice.length).toBeGreaterThan(0);
       expect(['high', 'low']).toContain(firstBody.report.confidence);
       expect(firstBody.turnsRemaining).toBe(3);
+      expect(firstBody.recordsUsed).toBe(6);
 
       const followup = await callAnalyze(jwt, {
         analysisId: firstBody.analysisId,
@@ -110,4 +122,53 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       await deleteTestUser(userId);
     }
   }, 60_000);
+
+  it('60개를 보내도 서버가 최신순 50개로 컷한다(토큰 비용 방어선)', async () => {
+    const { jwt, userId } = await createAnonUser();
+    try {
+      const res = await callAnalyze(jwt, { records: napRecords(60), settings: SETTINGS });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.recordsUsed).toBe(50);
+    } finally {
+      await deleteTestUser(userId);
+    }
+  }, 60_000);
+
+  it('mode:status — 신규 유저는 무료 사용 가능, nextFreeResetAtMs는 다음 주 월요일 00:00 KST', async () => {
+    const { jwt, userId } = await createAnonUser();
+    try {
+      const localNow = Date.now();
+      const res = await callAnalyze(jwt, { mode: 'status' });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      expect(body.hasWeeklyFree).toBe(true);
+      // 느슨한 절대시각 검증만 — 로컬 테스트 머신과 Edge Function 서버의 시계가 완벽히
+      // 동기화돼 있다고 가정할 수 없다(초 단위 skew는 정상). ±1분이면 충분히 "지금"이다.
+      expect(Math.abs(body.serverNowMs - localNow)).toBeLessThan(60_000);
+      // 진짜 검증 포인트: 서버가 계산한 다음 리셋 시각이 동일한 KST 공식으로 독립 재계산한
+      // 값과 정확히 일치하는지 — UTC로 새면 이 경계가 9시간 어긋나 여기서 걸린다.
+      expect(body.nextFreeResetAtMs).toBe(nextMondayKstBoundaryUtc(body.serverNowMs));
+      expect(body.nextFreeResetAtMs - body.serverNowMs).toBeGreaterThan(0);
+      expect(body.nextFreeResetAtMs - body.serverNowMs).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1000);
+    } finally {
+      await deleteTestUser(userId);
+    }
+  });
+
+  it('mode:status — 무료를 이미 쓴 유저는 hasWeeklyFree=false', async () => {
+    const { jwt, userId } = await createAnonUser();
+    try {
+      const used = await callAnalyze(jwt, { records: napRecords(6), settings: SETTINGS });
+      expect(used.status).toBe(200);
+
+      const res = await callAnalyze(jwt, { mode: 'status' });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.hasWeeklyFree).toBe(false);
+    } finally {
+      await deleteTestUser(userId);
+    }
+  }, 30_000);
 });

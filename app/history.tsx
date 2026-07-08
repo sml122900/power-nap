@@ -3,9 +3,14 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { formatFreeResetCountdown } from '@/analysisDisplay';
 import { formatKoreanDateTime } from '@/format';
 import {
+  canRunAnalysis,
+  filterAnalyzableRecords,
+  getAiConsent,
   getNapRecords,
+  MIN_RECORDS_FOR_ANALYSIS,
   type NapMode,
   type NapRecord,
   type NapRecordResult,
@@ -14,6 +19,7 @@ import {
   type WakeChecklist,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { useFreeResetStatus } from '@/useFreeResetStatus';
 
 function modeName(mode: NapMode): string {
   if (mode === 'fast') return '바로 잠듦';
@@ -133,10 +139,29 @@ export default function HistoryScreen() {
   const [records, setRecords] = useState<NapRecord[]>([]);
   // 한 번에 하나만 펼친다(아코디언) — completedAt이 유니크 키.
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [consented, setConsented] = useState<boolean | null>(null);
 
   useEffect(() => {
     getNapRecords().then((r) => setRecords([...r].reverse()));
+    getAiConsent().then(setConsented);
   }, []);
+
+  // isTest 레코드는 학습에 반영되지 않는 것과 동일하게 분석 가능 여부 판정에서도 뺀다.
+  const canAnalyze = canRunAnalysis(filterAnalyzableRecords(records).length);
+  // 동의 전에는 서버 호출 자체를 안 한다(전송 동의 원칙) — 동의 후 + 분석 가능할 때만 조회.
+  const freeReset = useFreeResetStatus(consented === true && canAnalyze);
+
+  const onPressAiAnalysis = async () => {
+    if (!canAnalyze) return;
+    router.push(consented === true ? '/analysis-period' : '/analysis-consent');
+  };
+
+  const freeStatusCaption =
+    freeReset.hasWeeklyFree === true
+      ? '이번 주 무료 분석 가능'
+      : freeReset.remainingMs !== null
+        ? `다음 무료 분석까지 ${formatFreeResetCountdown(freeReset.remainingMs)}`
+        : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -146,6 +171,35 @@ export default function HistoryScreen() {
           <Text style={styles.closeText}>닫기</Text>
         </Pressable>
       </View>
+
+      <View style={styles.aiAnalysisSection}>
+        <Pressable
+          onPress={onPressAiAnalysis}
+          disabled={!canAnalyze}
+          style={styles.aiAnalysisRow}
+          accessibilityRole="button"
+          accessibilityLabel="AI 분석"
+          accessibilityState={{ disabled: !canAnalyze }}
+        >
+          <Text style={[styles.aiAnalysisText, !canAnalyze && styles.aiAnalysisTextDisabled]}>AI 분석</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/analysis-history')}
+          style={styles.aiHistoryRow}
+          accessibilityRole="button"
+          accessibilityLabel="지난 분석 보기"
+        >
+          <Text style={styles.aiHistoryText}>지난 분석 보기</Text>
+        </Pressable>
+      </View>
+      {!canAnalyze && (
+        <Text style={styles.aiAnalysisCaption}>
+          낮잠 기록이 {MIN_RECORDS_FOR_ANALYSIS}회 쌓이면 분석할 수 있어요
+        </Text>
+      )}
+      {canAnalyze && consented === true && freeStatusCaption && (
+        <Text style={styles.aiAnalysisCaption}>{freeStatusCaption}</Text>
+      )}
 
       {records.length === 0 ? (
         <Text style={styles.emptyText}>아직 기록된 낮잠이 없어요.</Text>
@@ -209,6 +263,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  aiAnalysisSection: {
+    marginTop: 20,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  aiAnalysisRow: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiAnalysisText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.brand,
+  },
+  aiAnalysisTextDisabled: {
+    color: colors.inkFaint,
+  },
+  aiHistoryRow: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiHistoryText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  aiAnalysisCaption: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 12.5,
+    fontFamily: fontFamily.regular,
+    color: colors.inkFaint,
   },
   title: {
     fontSize: 22,

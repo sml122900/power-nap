@@ -7,6 +7,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { AnalysisDetail, AnalysisListItem } from './analysisTypes';
+
 export type NapMode = 'fast' | 'slow' | 'coffee'; // 바로 잠듦 / 뒤척임 / 커피냅
 
 // 일반 낮잠의 목표 수면 시간(분) — 학습 대상 아님, 고정 상수.
@@ -79,7 +81,7 @@ export interface NapRecord {
   // 수동 조정(설정 화면 또는 후기 화면 "직접 조정하기") 기록 — latency/caffeineOnset을
   // 바꾸는 유일한 경로라 어디서 왔는지(source) 구분해 남긴다.
   manualAdjust?: {
-    source: 'feedback' | 'settings';
+    source: 'feedback' | 'settings' | 'ai-analysis';
     beforeMinutes: number;
     afterMinutes: number;
   };
@@ -94,7 +96,45 @@ const KEYS = {
   activeNap: 'powernap:activeNap',
   pendingFeedback: 'powernap:pendingFeedback',
   napRecords: 'powernap:napRecords',
+  aiConsent: 'powernap:aiConsent',
+  analysisListCache: 'powernap:analysisListCache',
+  analysisDetailCache: 'powernap:analysisDetailCache',
 } as const;
+
+// AI_ANALYSIS.md §2 "분석 가능 조건: NapRecord 최소 5개 이상" — 클라이언트(진입점 비활성)와
+// Edge Function(422 판정) 양쪽이 같은 값을 써야 해서 여기서 export한다.
+export const MIN_RECORDS_FOR_ANALYSIS = 5;
+
+export function canRunAnalysis(recordCount: number): boolean {
+  return recordCount >= MIN_RECORDS_FOR_ANALYSIS;
+}
+
+// 분석 대상에서 뺄 레코드 판단 — isTest는 항상 제외(학습 미반영 원칙과 동일하게 분석에서도
+// 뺀다), sinceMs가 있으면 그 시각 이후 기록만. sinceMs 생략(전체 프리셋)이면 기간 제한 없음.
+export function filterAnalyzableRecords(records: NapRecord[], sinceMs?: number): NapRecord[] {
+  return records.filter((r) => !r.isTest && (sinceMs === undefined || r.completedAt >= sinceMs));
+}
+
+export type AnalysisPeriod = '1w' | '2w' | '1m' | 'all';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 분석 요청 화면의 기간 프리셋 → sinceMs(그 시각 이후만 분석 대상). 'all'은 하한 없음.
+export function periodSinceMs(period: AnalysisPeriod, nowMs: number): number | undefined {
+  switch (period) {
+    case '1w':
+      return nowMs - 7 * DAY_MS;
+    case '2w':
+      return nowMs - 14 * DAY_MS;
+    case '1m': {
+      const d = new Date(nowMs);
+      d.setMonth(d.getMonth() - 1);
+      return d.getTime();
+    }
+    case 'all':
+      return undefined;
+  }
+}
 
 // v2({fast,slow,fastCoffee,slowCoffee} 오프셋) 시절의 기본값과 동일한 총 시간이 나오도록
 // 맞춘 값 — fast: 20(=TARGET_SLEEP_MIN+0), slow: 30(=TARGET_SLEEP_MIN+10).
@@ -119,6 +159,19 @@ export function clampLatency(minutes: number): number {
 
 export function clampCaffeineOnset(minutes: number): number {
   return Math.min(CAFFEINE_ONSET_MAX, Math.max(CAFFEINE_ONSET_MIN, minutes));
+}
+
+// AI 분석 리포트의 ± 제안(delta)을 현재 설정에 적용했을 때 나올 값 — analysis.tsx
+// "설정에 반영하기" 버튼이 쓴다. 여기 두는 이유: analysis.tsx는 aiAnalysis.ts(→
+// supabase.ts, 모듈 로드 시 env var 없으면 throw)를 끌어와서 화면 컴포넌트를 통해
+// import하면 .env 없는 환경에서 테스트가 못 돈다 — store.ts는 그런 부작용이 없다.
+export function computeSuggestionApplication(
+  mode: 'fast' | 'slow' | 'coffee',
+  currentValue: number,
+  delta: number
+): { before: number; after: number } {
+  const clamp = mode === 'coffee' ? clampCaffeineOnset : clampLatency;
+  return { before: currentValue, after: clamp(currentValue + delta) };
 }
 
 // 구형 저장 형태 마이그레이션:
@@ -267,4 +320,69 @@ export async function getNapRecords(): Promise<NapRecord[]> {
   } catch {
     return [];
   }
+}
+
+// AI 분석 전송 동의(AI_ANALYSIS.md §6) — null은 "아직 물어본 적 없음"(최초 진입 시
+// 동의 화면 노출), false는 "거부함"(재진입해도 다시 물어봄), true는 "동의함"(바로 분석
+// 화면으로). 설정 화면에서 이 값을 직접 뒤집을 수 있다("재동의 가능").
+export async function getAiConsent(): Promise<boolean | null> {
+  const raw = await AsyncStorage.getItem(KEYS.aiConsent);
+  if (raw === null) return null;
+  return raw === 'true';
+}
+
+export async function setAiConsent(consented: boolean): Promise<void> {
+  await AsyncStorage.setItem(KEYS.aiConsent, String(consented));
+}
+
+// AI 분석 목록/상세 로컬 캐시 — 서버(analyses 테이블)가 진실의 원천, 캐시는 오프라인
+// 보조 열람용(AI_ANALYSIS.md §6). aiAnalysis.ts의 listAnalyses/getAnalysisDetail이
+// 네트워크 요청 성공 시 여기 채워두고, 실패 시 여기서 폴백을 읽는다.
+export async function getCachedAnalysisList(): Promise<AnalysisListItem[]> {
+  const raw = await AsyncStorage.getItem(KEYS.analysisListCache);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as AnalysisListItem[];
+  } catch {
+    return [];
+  }
+}
+
+export async function setCachedAnalysisList(items: AnalysisListItem[]): Promise<void> {
+  await AsyncStorage.setItem(KEYS.analysisListCache, JSON.stringify(items));
+}
+
+export async function getCachedAnalysisDetail(id: number): Promise<AnalysisDetail | null> {
+  const raw = await AsyncStorage.getItem(KEYS.analysisDetailCache);
+  if (!raw) return null;
+  try {
+    const map = JSON.parse(raw) as Record<string, AnalysisDetail>;
+    return map[String(id)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedAnalysisDetail(detail: AnalysisDetail): Promise<void> {
+  const raw = await AsyncStorage.getItem(KEYS.analysisDetailCache);
+  let map: Record<string, AnalysisDetail> = {};
+  if (raw) {
+    try {
+      map = JSON.parse(raw);
+    } catch {
+      map = {};
+    }
+  }
+  map[String(detail.id)] = detail;
+  await AsyncStorage.setItem(KEYS.analysisDetailCache, JSON.stringify(map));
+}
+
+// 네트워크 조회 결과가 없으면(오프라인/에러) 캐시로 폴백 — 순수 함수로 분리해 목킹 없이
+// 테스트한다. fetched가 null이면 캐시, 아니면 fetched(최신 서버 값)를 신뢰한다.
+export function resolveAnalysisList(fetched: AnalysisListItem[] | null, cached: AnalysisListItem[]): AnalysisListItem[] {
+  return fetched ?? cached;
+}
+
+export function resolveAnalysisDetail(fetched: AnalysisDetail | null, cached: AnalysisDetail | null): AnalysisDetail | null {
+  return fetched ?? cached;
 }
