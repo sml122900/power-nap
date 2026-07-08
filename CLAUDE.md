@@ -167,6 +167,8 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
 - Postgres는 새 함수의 EXECUTE를 anon/authenticated에 기본 개방한다. REVOKE FROM public으로는
   안 막힘 — 마이그레이션에서 함수 생성 시 anon/authenticated 명시 revoke + service_role
   grant를 매번 확인 (Phase B에서 실공격 검증으로 확인된 사항).
+- expo-router 신규 라우트는 expo export만으로 타입 재생성이 안 됨 — 라우트 추가 후
+  tsc 전에 expo start 1회 필요.
 
 코드 규칙
 
