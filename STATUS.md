@@ -225,26 +225,34 @@
   - **Phase B 완료.** Phase C(앱 통합 — 동의 UI/분석 진입점/리포트 화면/후속질문 UI)는
     별도 지시 시 착수.
 
-**마지막 검증된 커밋: `eb5737f` — "Merge branch 'phase-4-3' into main", `main` 브랜치.**
+- **`wake-checklist` → `main` 병합**: 기상 직후 행동 체크리스트(커밋 `0e7d469`) —
+  충돌 없이 자동 병합(겹친 파일 `feedback.tsx`/`history.tsx`/`store.ts`/`store.test.ts`는
+  전부 서로 다른 영역 수정이라 git이 자동으로 합침). 병합 후 main에서 tsc/expo-doctor/
+  expo export/jest(40개) 4종 재검증 통과. **실기기 검증은 아직**.
+
+**마지막 검증된 커밋: `wake-checklist` 병합 커밋, `main` 브랜치.**
 
 ## 브랜치 현황
 
 - `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 + B그룹(풀스크린 인텐트) +
-  Phase 4-3(학습 로직 단순화 + 설문 후기 + 히스토리 상세 보기) 전부 병합 완료.
-  A그룹/B그룹은 실기기 검증까지 끝남, **Phase 4-3만 실기기 검증 대기**.
-- `phase-4-2` / `fullscreen-intent` / `phase-4-3`: 전부 main에 병합 완료 — 더 이상
-  별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용 worktree
-  (`power-nap-phase43`)도 같은 이유로 정리 대상.
+  Phase 4-3(학습 로직 단순화 + 설문 후기 + 히스토리 상세 보기) + 기상 직후 체크리스트
+  전부 병합 완료. A그룹/B그룹은 실기기 검증까지 끝남, **Phase 4-3·기상 체크리스트는
+  실기기 검증 대기**.
+- `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
+  완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
+  worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
+- `ai-analysis-app`: `main`(wake-checklist 병합 전 시점) 기준 분기, Phase C 완료·push됨
+  — 아직 이 시점의 `main`과 병합 전. 다음 단계로 병합 예정.
 
 ## 지금 단계
 
 **기능 개발 동결(v1) 유지, AI 분석(v1.1)만 사용자 명시 지시로 예외 진행 중.**
 `main`에 계획했던 v1 기능(네이티브 알람, 학습 모델 v2, 커피냅 3모드, A/B그룹, Phase 4-3
-학습 개편)은 전부 병합 완료 — 남은 건 Phase 4-3 실기기 검증과 출시 전 체크리스트
-(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
-(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase B(Edge Function/AI
-파이프라인)까지 완료됨 — Phase C(앱 통합)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md)
-항목은 여전히 요청 없이 착수하지 않는다.
+학습 개편, 기상 직후 체크리스트)은 전부 병합 완료 — 남은 건 이들의 실기기 검증과 출시 전
+체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
+(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase C(앱 통합)까지
+완료됨(`ai-analysis-app` 브랜치, main 병합 예정) — Phase D(결제)는 별도 지시 대기. 그 외
+[BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
 
