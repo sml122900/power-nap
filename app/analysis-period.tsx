@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import {
   canRunAnalysis,
@@ -15,15 +16,16 @@ import {
 } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 
-const PERIODS: { value: AnalysisPeriod; label: string }[] = [
-  { value: '1w', label: '최근 1주' },
-  { value: '2w', label: '최근 2주' },
-  { value: '1m', label: '최근 1개월' },
-  { value: 'all', label: '전체' },
+const PERIODS: { value: AnalysisPeriod; labelKey: string }[] = [
+  { value: '1w', labelKey: 'period.1w' },
+  { value: '2w', labelKey: 'period.2w' },
+  { value: '1m', labelKey: 'period.1m' },
+  { value: 'all', labelKey: 'period.all' },
 ];
 
 export default function AnalysisPeriodScreen() {
   const router = useRouter();
+  const { t } = useTranslation('analysisPeriod');
   const [records, setRecords] = useState<NapRecord[]>([]);
   const [period, setPeriod] = useState<AnalysisPeriod>('2w');
 
@@ -44,13 +46,13 @@ export default function AnalysisPeriodScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
-        <Text style={styles.title}>AI 분석</Text>
+        <Text style={styles.title}>{t('title')}</Text>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.closeText}>닫기</Text>
+          <Text style={styles.closeText}>{t('common:close')}</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.subtitle}>어느 기간의 기록을 분석할까요?</Text>
+      <Text style={styles.subtitle}>{t('subtitle')}</Text>
 
       <View style={styles.chipRow}>
         {PERIODS.map((p) => {
@@ -64,20 +66,18 @@ export default function AnalysisPeriodScreen() {
               }}
               style={[styles.chip, selected && styles.chipSelected]}
               accessibilityRole="button"
-              accessibilityLabel={p.label}
+              accessibilityLabel={t(p.labelKey)}
               accessibilityState={{ selected }}
             >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{p.label}</Text>
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{t(p.labelKey)}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={styles.countText}>이 기간 기록 {count}개</Text>
+      <Text style={styles.countText}>{t('countText', { count })}</Text>
       {!canStart && (
-        <Text style={styles.countCaption}>
-          이 기간엔 기록이 {MIN_RECORDS_FOR_ANALYSIS}개 미만이라 분석할 수 없어요. 다른 기간을 선택해보세요.
-        </Text>
+        <Text style={styles.countCaption}>{t('countCaption', { min: MIN_RECORDS_FOR_ANALYSIS })}</Text>
       )}
 
       <Pressable
@@ -85,7 +85,7 @@ export default function AnalysisPeriodScreen() {
         disabled={!canStart}
         style={[styles.startBtn, !canStart && styles.startBtnDisabled]}
       >
-        <Text style={[styles.startBtnText, !canStart && styles.startBtnTextDisabled]}>분석하기</Text>
+        <Text style={[styles.startBtnText, !canStart && styles.startBtnTextDisabled]}>{t('start')}</Text>
       </Pressable>
     </SafeAreaView>
   );

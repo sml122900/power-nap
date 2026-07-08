@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { listAnalyses } from '@/aiAnalysis';
 import { formatAnalysisListLabels } from '@/analysisDisplay';
@@ -9,6 +10,7 @@ import { colors, fontFamily, radius } from '@/theme';
 
 export default function AnalysisHistoryScreen() {
   const router = useRouter();
+  const { t } = useTranslation('analysisHistory');
   const [labels, setLabels] = useState<ReturnType<typeof formatAnalysisListLabels>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,14 +23,14 @@ export default function AnalysisHistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
-        <Text style={styles.title}>지난 분석</Text>
+        <Text style={styles.title}>{t('title')}</Text>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.closeText}>닫기</Text>
+          <Text style={styles.closeText}>{t('common:close')}</Text>
         </Pressable>
       </View>
 
       {!loading && labels.length === 0 ? (
-        <Text style={styles.emptyText}>아직 받은 분석이 없어요.</Text>
+        <Text style={styles.emptyText}>{t('emptyText')}</Text>
       ) : (
         <FlatList
           data={labels}

@@ -2,12 +2,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import { setAiConsent } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 
 export default function AnalysisConsentScreen() {
   const router = useRouter();
+  const { t } = useTranslation('analysisConsent');
 
   const onAccept = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -24,26 +26,21 @@ export default function AnalysisConsentScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.head}>
-        <Text style={styles.title}>AI 분석 안내</Text>
+        <Text style={styles.title}>{t('title')}</Text>
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.paragraph}>
-          분석을 위해 낮잠 기록(수면 시각·설문·메모)이 서버로 전송됩니다. 전송된 기록은 대기시간·카페인
-          발현시간 조정 제안과 조언을 만드는 데만 쓰입니다.
-        </Text>
-        <Text style={styles.paragraph}>
-          제안은 참고용이며, 실제 설정 반영은 항상 직접 눌러야만 적용됩니다.
-        </Text>
-        <Text style={styles.privacyPlaceholder}>처리방침 (준비 중)</Text>
+        <Text style={styles.paragraph}>{t('paragraph1')}</Text>
+        <Text style={styles.paragraph}>{t('paragraph2')}</Text>
+        <Text style={styles.privacyPlaceholder}>{t('privacyPlaceholder')}</Text>
       </View>
 
       <View style={styles.actions}>
         <Pressable onPress={onAccept} style={({ pressed }) => [styles.acceptBtn, pressed && styles.acceptBtnPressed]}>
-          <Text style={styles.acceptBtnText}>동의하고 시작</Text>
+          <Text style={styles.acceptBtnText}>{t('accept')}</Text>
         </Pressable>
         <Pressable onPress={onDecline} style={styles.declineRow}>
-          <Text style={styles.declineText}>다음에</Text>
+          <Text style={styles.declineText}>{t('decline')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

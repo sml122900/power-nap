@@ -3,6 +3,7 @@
 // env var 요구를 안 타게).
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
+import i18n from './i18n';
 import {
   getCachedAnalysisDetail,
   getCachedAnalysisList,
@@ -68,18 +69,18 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-// locale은 지금 항상 'ko' 고정 전송 — 실제 기기/사용자 로케일 반영은 BACKLOG.md "v1.2"
-// (앱 전체 i18n) 몫이다. Edge Function 쪽 출력 언어 변수화(analysis-v2.ts)는 미리 해둠.
+// locale은 현재 앱 언어(i18n.language, 'ko'|'en')를 그대로 보낸다 — Edge Function의
+// buildSystemPrompt(locale)이 같은 코드를 그대로 받아 출력 언어를 정한다(analysis-v2.ts).
 export async function requestAnalysis(records: NapRecord[], settings: Settings): Promise<AnalysisResult> {
   return invoke<AnalysisResult>({
     records,
     settings: { latency: settings.latency, caffeineOnset: settings.caffeineOnset },
-    locale: 'ko',
+    locale: i18n.language,
   });
 }
 
 export async function requestFollowup(analysisId: number, question: string): Promise<FollowupResult> {
-  return invoke<FollowupResult>({ analysisId, question, locale: 'ko' });
+  return invoke<FollowupResult>({ analysisId, question, locale: i18n.language });
 }
 
 // 무료 분석 잔여 상태(카운트다운용) — has_weekly_free RPC는 service_role 전용으로 잠겨

@@ -1,4 +1,5 @@
-import { formatKoreanTime } from './format';
+import { formatTime } from './format';
+import i18n from './i18n';
 import type { AnalysisListItem, FollowupTurn } from './analysisTypes';
 
 export interface AnalysisListLabel {
@@ -20,9 +21,10 @@ export function formatAnalysisListLabels(items: AnalysisListItem[]): AnalysisLis
   }
   return items.map((item) => {
     const d = new Date(item.requestedAt);
-    const base = `${d.getMonth() + 1}월 ${d.getDate()}일 분석`;
+    const base = i18n.t('analysisHistory:listLabel', { month: d.getMonth() + 1, day: d.getDate() });
     const sameDayCount = counts.get(dateKey(item.requestedAt)) ?? 0;
-    const label = sameDayCount > 1 ? `${base} (${formatKoreanTime(d)})` : base;
+    const label =
+      sameDayCount > 1 ? i18n.t('analysisHistory:listLabelWithTime', { base, time: formatTime(d) }) : base;
     return { id: item.id, requestedAt: item.requestedAt, label };
   });
 }
@@ -48,15 +50,15 @@ export function turnsToExchanges(turns: FollowupTurn[]): FollowupExchange[] {
 // 최고 단위가 0이 아니면 그 아래 단위도 항상 같이 보여준다(폭이 들쭉날쭉하지 않게) —
 // 예: "1일 0시간 5분"은 보여주지만 "0시간 5분"은 그냥 "5분"으로.
 export function formatFreeResetCountdown(remainingMs: number): string {
-  if (remainingMs <= 0) return '곧';
+  if (remainingMs <= 0) return i18n.t('common:countdown.soon');
   const totalMinutes = Math.floor(remainingMs / 60_000);
   const days = Math.floor(totalMinutes / (24 * 60));
   const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
   const minutes = totalMinutes % 60;
 
   const parts: string[] = [];
-  if (days > 0) parts.push(`${days}일`);
-  if (days > 0 || hours > 0) parts.push(`${hours}시간`);
-  parts.push(`${minutes}분`);
+  if (days > 0) parts.push(i18n.t('common:countdown.days', { count: days }));
+  if (days > 0 || hours > 0) parts.push(i18n.t('common:countdown.hours', { count: hours }));
+  parts.push(i18n.t('common:countdown.minutes', { count: minutes }));
   return parts.join(' ');
 }

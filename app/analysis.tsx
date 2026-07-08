@@ -3,6 +3,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import {
   getAnalysisDetail,
@@ -29,6 +30,7 @@ type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
 
 export default function AnalysisScreen() {
   const router = useRouter();
+  const { t } = useTranslation('analysisReport');
   const params = useLocalSearchParams<{ id?: string; since?: string }>();
   const requestKey = params.id ? `history:${params.id}` : `fresh:${params.since ?? ''}`;
 
@@ -71,7 +73,7 @@ export default function AnalysisScreen() {
         const detail = await getAnalysisDetail(Number(params.id));
         if (cancelled) return;
         if (!detail) {
-          setErrorMessage('분석 기록을 불러오지 못했다.');
+          setErrorMessage(t('detailLoadError'));
           setPhase('error');
           return;
         }
@@ -101,7 +103,7 @@ export default function AnalysisScreen() {
         if (isAnalysisError(err) && err.code === 'insufficient_credit') {
           setPhase('insufficient_credit');
         } else {
-          setErrorMessage(isAnalysisError(err) ? err.message : '분석 요청에 실패했다.');
+          setErrorMessage(isAnalysisError(err) ? err.message : t('errorFallback'));
           setPhase('error');
         }
       }
@@ -164,7 +166,7 @@ export default function AnalysisScreen() {
     return (
       <SafeAreaView style={styles.centerContainer} edges={['top', 'bottom']}>
         <ActivityIndicator color={colors.brand} />
-        <Text style={styles.loadingText}>낮잠 기록을 분석하고 있어요…</Text>
+        <Text style={styles.loadingText}>{t('loadingText')}</Text>
       </SafeAreaView>
     );
   }
@@ -173,20 +175,20 @@ export default function AnalysisScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.head}>
-          <Text style={styles.title}>AI 분석</Text>
+          <Text style={styles.title}>{t('title')}</Text>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.closeText}>닫기</Text>
+            <Text style={styles.closeText}>{t('common:close')}</Text>
           </Pressable>
         </View>
         <View style={styles.centerBody}>
-          <Text style={styles.paragraph}>이번 주 무료 분석을 사용했어요.</Text>
+          <Text style={styles.paragraph}>{t('insufficientCreditMessage')}</Text>
           {freeReset.remainingMs !== null && (
             <Text style={styles.countdownText}>
-              다음 무료 분석까지 {formatFreeResetCountdown(freeReset.remainingMs)}
+              {t('insufficientCreditCountdown', { time: formatFreeResetCountdown(freeReset.remainingMs) })}
             </Text>
           )}
           <View style={styles.paymentPlaceholder}>
-            <Text style={styles.paymentPlaceholderText}>추가 분석 1,000원 (준비 중)</Text>
+            <Text style={styles.paymentPlaceholderText}>{t('paymentPlaceholder')}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -197,13 +199,13 @@ export default function AnalysisScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.head}>
-          <Text style={styles.title}>AI 분석</Text>
+          <Text style={styles.title}>{t('title')}</Text>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Text style={styles.closeText}>닫기</Text>
+            <Text style={styles.closeText}>{t('common:close')}</Text>
           </Pressable>
         </View>
         <View style={styles.centerBody}>
-          <Text style={styles.paragraph}>{errorMessage || '분석 요청에 실패했다. 다시 시도해달라.'}</Text>
+          <Text style={styles.paragraph}>{errorMessage || t('errorFallback')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -214,13 +216,13 @@ export default function AnalysisScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.head}>
-            <Text style={styles.title}>AI 분석</Text>
+            <Text style={styles.title}>{t('title')}</Text>
             <Pressable onPress={() => router.back()} hitSlop={12}>
-              <Text style={styles.closeText}>닫기</Text>
+              <Text style={styles.closeText}>{t('common:close')}</Text>
             </Pressable>
           </View>
 
-          <Text style={styles.recordsUsedText}>최근 {recordsUsed}개 기록 기반 분석</Text>
+          <Text style={styles.recordsUsedText}>{t('recordsUsedText', { count: recordsUsed })}</Text>
           <Text style={styles.summary}>{report.summary}</Text>
 
           <View style={styles.adviceList}>
@@ -233,14 +235,20 @@ export default function AnalysisScreen() {
 
           {report.latencyAdjust && (
             <View style={styles.suggestionCard}>
-              <Text style={styles.suggestionTitle}>수면 대기시간 조정 제안</Text>
+              <Text style={styles.suggestionTitle}>{t('suggestion.latencyTitle')}</Text>
               <SuggestionRow
-                label={`바로 잠듦 ${report.latencyAdjust.fast > 0 ? '+' : ''}${report.latencyAdjust.fast}분`}
+                label={t('suggestion.fastLabel', {
+                  sign: report.latencyAdjust.fast > 0 ? '+' : '',
+                  minutes: report.latencyAdjust.fast,
+                })}
                 applied={appliedFast}
                 onApply={() => applyLatency('fast', report.latencyAdjust!.fast)}
               />
               <SuggestionRow
-                label={`뒤척임 ${report.latencyAdjust.slow > 0 ? '+' : ''}${report.latencyAdjust.slow}분`}
+                label={t('suggestion.slowLabel', {
+                  sign: report.latencyAdjust.slow > 0 ? '+' : '',
+                  minutes: report.latencyAdjust.slow,
+                })}
                 applied={appliedSlow}
                 onApply={() => applyLatency('slow', report.latencyAdjust!.slow)}
               />
@@ -249,22 +257,22 @@ export default function AnalysisScreen() {
 
           {report.caffeineOnsetAdjust !== null && (
             <View style={styles.suggestionCard}>
-              <Text style={styles.suggestionTitle}>카페인 발현시간 조정 제안</Text>
+              <Text style={styles.suggestionTitle}>{t('suggestion.caffeineTitle')}</Text>
               <SuggestionRow
-                label={`${report.caffeineOnsetAdjust > 0 ? '+' : ''}${report.caffeineOnsetAdjust}분`}
+                label={t('suggestion.caffeineLabel', {
+                  sign: report.caffeineOnsetAdjust > 0 ? '+' : '',
+                  minutes: report.caffeineOnsetAdjust,
+                })}
                 applied={appliedCaffeine}
                 onApply={() => applyCaffeineOnset(report.caffeineOnsetAdjust!)}
               />
             </View>
           )}
 
-          <Text style={styles.disclaimer}>
-            이 리포트는 일반적인 수면 위생 정보이며 의학적 진단이나 조언이 아닙니다. 증상이 지속되면 전문가와
-            상담해주세요.
-          </Text>
+          <Text style={styles.disclaimer}>{t('disclaimer')}</Text>
 
           <View style={styles.followupSection}>
-            <Text style={styles.followupTitle}>후속 질문 ({turnsRemaining}번 남음)</Text>
+            <Text style={styles.followupTitle}>{t('followupTitle', { count: turnsRemaining })}</Text>
             {exchanges.map((ex, i) => (
               <View key={i} style={styles.exchange}>
                 <Text style={styles.exchangeQuestion}>{ex.question}</Text>
@@ -277,13 +285,13 @@ export default function AnalysisScreen() {
                   style={styles.askInput}
                   value={question}
                   onChangeText={setQuestion}
-                  placeholder="궁금한 점을 물어보세요"
+                  placeholder={t('askPlaceholder')}
                   placeholderTextColor={colors.inkFaint}
                   editable={!asking}
                   onSubmitEditing={onAsk}
                 />
                 <Pressable onPress={onAsk} disabled={asking || !question.trim()} style={styles.askBtn}>
-                  <Text style={styles.askBtnText}>{asking ? '전송 중' : '질문하기'}</Text>
+                  <Text style={styles.askBtnText}>{asking ? t('askButtonSending') : t('askButton')}</Text>
                 </Pressable>
               </View>
             )}
@@ -295,11 +303,14 @@ export default function AnalysisScreen() {
 }
 
 function SuggestionRow({ label, applied, onApply }: { label: string; applied: boolean; onApply: () => void }) {
+  const { t } = useTranslation('analysisReport');
   return (
     <View style={styles.suggestionRow}>
       <Text style={styles.suggestionLabel}>{label}</Text>
       <Pressable onPress={onApply} disabled={applied} style={[styles.applyBtn, applied && styles.applyBtnDone]}>
-        <Text style={[styles.applyBtnText, applied && styles.applyBtnTextDone]}>{applied ? '적용됨' : '설정에 반영하기'}</Text>
+        <Text style={[styles.applyBtnText, applied && styles.applyBtnTextDone]}>
+          {applied ? t('suggestion.applied') : t('suggestion.apply')}
+        </Text>
       </Pressable>
     </View>
   );
