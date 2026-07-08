@@ -12,6 +12,8 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { removeAlarm, scheduleAlarm, stopAlarm } from 'expo-alarm-module';
 
+import i18n from './i18n';
+
 // 낮잠은 한 번에 하나만 활성화되므로 고정 UID로 충분하다 — 예약(schedule)/취소(remove)는
 // 항상 이 UID 쌍으로 호출한다(CLAUDE.md 유령 알람 방지 규칙).
 const ANDROID_ALARM_UID = 'powernap-alarm';
@@ -49,8 +51,8 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
     await scheduleAlarm({
       uid: ANDROID_ALARM_UID,
       day: new Date(alarmAt),
-      title: '일어날 시간이에요',
-      description: '파워냅 알람이 울리고 있어요.',
+      title: i18n.t('alarm:notificationTitle'),
+      description: i18n.t('alarm:notificationBody'),
       active: true,
       repeating: false,
       showDismiss: false,
@@ -61,8 +63,8 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
 
   return Notifications.scheduleNotificationAsync({
     content: {
-      title: '일어날 시간이에요',
-      body: '파워냅 알람이 울리고 있어요.',
+      title: i18n.t('alarm:notificationTitle'),
+      body: i18n.t('alarm:notificationBody'),
       sound: 'default',
     },
     trigger: {

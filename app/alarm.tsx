@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -47,6 +48,7 @@ let alarmPlaybackActive = false;
 
 export default function AlarmScreen() {
   const router = useRouter();
+  const { t } = useTranslation('alarm');
   useNapWatchdog('/alarm');
 
   const player = useAudioPlayer(ALARM_SOUND);
@@ -221,14 +223,12 @@ export default function AlarmScreen() {
           <View style={styles.ringCore} />
         </View>
 
-        <Text style={styles.title}>일어날 시간이에요</Text>
-        <Text style={styles.subtitle}>
-          5분 더 자면 수면 관성 때문에 더 멍해져요.{'\n'}지금 바로 일어나는 게 제일 개운합니다.
-        </Text>
+        <Text style={styles.title}>{t('title')}</Text>
+        <Text style={styles.subtitle}>{t('subtitle')}</Text>
 
         {nap?.mode === 'coffee' && (
           <View style={styles.coffeeBadge}>
-            <Text style={styles.coffeeBadgeText}>지금부터 카페인 효과가 시작돼요</Text>
+            <Text style={styles.coffeeBadgeText}>{t('coffeeBadge')}</Text>
           </View>
         )}
       </View>
@@ -240,21 +240,21 @@ export default function AlarmScreen() {
             onLayout={onTrackLayout}
             accessible
             accessibilityRole="button"
-            accessibilityLabel="밀어서 알람 끄기"
-            accessibilityActions={[{ name: 'activate', label: '알람 끄기' }]}
+            accessibilityLabel={t('a11ySlideLabel')}
+            accessibilityActions={[{ name: 'activate', label: t('a11yDismissAction') }]}
             onAccessibilityAction={(event) => {
               if (event.nativeEvent.actionName === 'activate') handleDismiss();
             }}
           >
             <Animated.View style={[styles.slideTrackFill, trackFillStyle]} />
             <Text style={styles.slideLabel} pointerEvents="none">
-              밀어서 끄기
+              {t('slideLabel')}
             </Text>
             <Animated.View style={[styles.slideThumb, thumbStyle]} />
           </View>
 
           <Text style={styles.longPressHint} pointerEvents="none">
-            슬라이드가 어렵다면 이 영역을 3초간 눌러도 꺼져요
+            {t('longPressHint')}
           </Text>
         </View>
       </GestureDetector>
