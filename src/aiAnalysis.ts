@@ -1,27 +1,33 @@
 // AI 분석 API 클라이언트 — AI_ANALYSIS.md §6, supabase/functions/analyze 대응.
-// 순수 에러 매핑은 aiAnalysisErrors.ts에 분리(테스트가 supabase.ts의 env var 요구를 안 타게).
+// 순수 에러 매핑/타입은 aiAnalysisErrors.ts·analysisTypes.ts에 분리(테스트가 supabase.ts의
+// env var 요구를 안 타게).
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
+import {
+  getCachedAnalysisDetail,
+  getCachedAnalysisList,
+  resolveAnalysisDetail,
+  resolveAnalysisList,
+  setCachedAnalysisDetail,
+  setCachedAnalysisList,
+  type NapRecord,
+  type Settings,
+} from './store';
 import { ensureAnonymousSession, supabase } from './supabase';
-import type { NapRecord, Settings } from './store';
 import { mapInvokeErrorToAnalysisError, type AnalysisError } from './aiAnalysisErrors';
+import { MAX_FOLLOWUP_TURNS, type AnalysisDetail, type AnalysisListItem, type AnalysisReport } from './analysisTypes';
 
 export type { AnalysisError, AnalysisErrorCode } from './aiAnalysisErrors';
 export { isAnalysisError, mapInvokeErrorToAnalysisError } from './aiAnalysisErrors';
-
-export interface AnalysisReport {
-  latencyAdjust: { fast: number; slow: number } | null;
-  caffeineOnsetAdjust: number | null;
-  summary: string;
-  advice: string[];
-  confidence: 'high' | 'low';
-}
+export type { AnalysisDetail, AnalysisListItem, AnalysisReport, FollowupTurn } from './analysisTypes';
+export { MAX_FOLLOWUP_TURNS } from './analysisTypes';
 
 export interface AnalysisResult {
   analysisId: number;
   report: AnalysisReport;
   turnsRemaining: number;
   chargeReason: 'weekly_free' | 'analysis';
+  recordsUsed: number;
 }
 
 export interface FollowupResult {
@@ -65,4 +71,54 @@ export async function requestAnalysis(records: NapRecord[], settings: Settings):
 
 export async function requestFollowup(analysisId: number, question: string): Promise<FollowupResult> {
   return invoke<FollowupResult>({ analysisId, question });
+}
+
+// 지난 분석 목록 — analyses 테이블 RLS(본인 행만)로 직접 조회한다(Edge Function 안 거침,
+// 읽기 전용이라 RLS만으로 충분). 실패(오프라인 등) 시 로컬 캐시로 폴백.
+export async function listAnalyses(): Promise<AnalysisListItem[]> {
+  const cached = await getCachedAnalysisList();
+  try {
+    await ensureAnonymousSession();
+  } catch {
+    return resolveAnalysisList(null, cached);
+  }
+
+  const { data, error } = await supabase.from('analyses').select('id, requested_at').order('requested_at', { ascending: false });
+  if (error || !data) {
+    return resolveAnalysisList(null, cached);
+  }
+
+  const items: AnalysisListItem[] = data.map((row) => ({ id: row.id, requestedAt: row.requested_at }));
+  await setCachedAnalysisList(items);
+  return items;
+}
+
+export async function getAnalysisDetail(id: number): Promise<AnalysisDetail | null> {
+  const cached = await getCachedAnalysisDetail(id);
+  try {
+    await ensureAnonymousSession();
+  } catch {
+    return resolveAnalysisDetail(null, cached);
+  }
+
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('id, requested_at, report, turns, followup_turns_used, records_snapshot')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) {
+    return resolveAnalysisDetail(null, cached);
+  }
+
+  const detail: AnalysisDetail = {
+    id: data.id,
+    requestedAt: data.requested_at,
+    report: data.report as AnalysisReport,
+    turns: data.turns ?? [],
+    followupTurnsUsed: data.followup_turns_used,
+    turnsRemaining: Math.max(0, MAX_FOLLOWUP_TURNS - data.followup_turns_used),
+    recordsUsed: Array.isArray(data.records_snapshot) ? data.records_snapshot.length : 0,
+  };
+  await setCachedAnalysisDetail(detail);
+  return detail;
 }

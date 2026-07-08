@@ -10,13 +10,23 @@ import {
   canRunAnalysis,
   computeCoffeeAlarmAt,
   computeSuggestionApplication,
+  filterAnalyzableRecords,
   getAiConsent,
+  getCachedAnalysisDetail,
+  getCachedAnalysisList,
   getNapRecords,
   getSettings,
   MIN_RECORDS_FOR_ANALYSIS,
+  periodSinceMs,
+  resolveAnalysisDetail,
+  resolveAnalysisList,
   setAiConsent,
+  setCachedAnalysisDetail,
+  setCachedAnalysisList,
+  type NapRecord,
   type Settings,
 } from './store';
+import type { AnalysisDetail, AnalysisListItem } from './analysisTypes';
 
 const SETTINGS_KEY = 'powernap:settings';
 
@@ -259,6 +269,103 @@ describe('canRunAnalysis — 5개 미만 비활성', () => {
   it(`기록이 ${MIN_RECORDS_FOR_ANALYSIS}개 이상이면 true`, () => {
     expect(canRunAnalysis(MIN_RECORDS_FOR_ANALYSIS)).toBe(true);
     expect(canRunAnalysis(MIN_RECORDS_FOR_ANALYSIS + 3)).toBe(true);
+  });
+});
+
+describe('filterAnalyzableRecords — 분석 대상 기간/isTest 필터', () => {
+  const base = (overrides: Partial<NapRecord>): NapRecord => ({
+    completedAt: 1_700_000_000_000,
+    mode: 'fast',
+    offsetMinutes: 20,
+    ...overrides,
+  });
+
+  it('isTest 레코드는 항상 제외한다(기간 제한 없어도)', () => {
+    const records = [base({ completedAt: 100 }), base({ completedAt: 200, isTest: true })];
+    expect(filterAnalyzableRecords(records).map((r) => r.completedAt)).toEqual([100]);
+  });
+
+  it('sinceMs 미만인 기록은 제외한다', () => {
+    const records = [base({ completedAt: 100 }), base({ completedAt: 200 }), base({ completedAt: 300 })];
+    expect(filterAnalyzableRecords(records, 200).map((r) => r.completedAt)).toEqual([200, 300]);
+  });
+
+  it('sinceMs 생략(전체)이면 기간 제한 없이 isTest만 뺀다', () => {
+    const records = [base({ completedAt: 100 }), base({ completedAt: 999_999_999_999 })];
+    expect(filterAnalyzableRecords(records)).toHaveLength(2);
+  });
+});
+
+describe('periodSinceMs — 분석 기간 프리셋', () => {
+  const now = new Date('2026-07-08T00:00:00Z').getTime();
+
+  it('1주/2주는 now에서 각각 7일/14일을 뺀다', () => {
+    expect(periodSinceMs('1w', now)).toBe(now - 7 * 24 * 60 * 60 * 1000);
+    expect(periodSinceMs('2w', now)).toBe(now - 14 * 24 * 60 * 60 * 1000);
+  });
+
+  it('1개월은 달력 기준 한 달 전이다(윤년/월 길이 차이 흡수)', () => {
+    const expected = new Date(now);
+    expected.setMonth(expected.getMonth() - 1);
+    expect(periodSinceMs('1m', now)).toBe(expected.getTime());
+  });
+
+  it("'all'은 하한이 없다(undefined)", () => {
+    expect(periodSinceMs('all', now)).toBeUndefined();
+  });
+});
+
+describe('AI 분석 목록/상세 로컬 캐시', () => {
+  it('목록 캐시 round-trip', async () => {
+    const items: AnalysisListItem[] = [{ id: 1, requestedAt: '2026-07-08T00:00:00Z' }];
+    await setCachedAnalysisList(items);
+    expect(await getCachedAnalysisList()).toEqual(items);
+  });
+
+  it('캐시가 없으면 빈 배열', async () => {
+    expect(await getCachedAnalysisList()).toEqual([]);
+  });
+
+  it('상세 캐시는 id별로 저장되고, 없는 id는 null', async () => {
+    const detail: AnalysisDetail = {
+      id: 42,
+      requestedAt: '2026-07-08T00:00:00Z',
+      report: { latencyAdjust: null, caffeineOnsetAdjust: null, summary: 's', advice: ['a'], confidence: 'low' },
+      turns: [],
+      followupTurnsUsed: 0,
+      turnsRemaining: 3,
+      recordsUsed: 6,
+    };
+    await setCachedAnalysisDetail(detail);
+    expect(await getCachedAnalysisDetail(42)).toEqual(detail);
+    expect(await getCachedAnalysisDetail(99)).toBeNull();
+  });
+});
+
+describe('resolveAnalysisList/resolveAnalysisDetail — 네트워크 실패 시 캐시 폴백', () => {
+  it('fetched가 있으면 fetched를 쓴다', () => {
+    const fetched: AnalysisListItem[] = [{ id: 1, requestedAt: 'x' }];
+    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y' }];
+    expect(resolveAnalysisList(fetched, cached)).toBe(fetched);
+  });
+
+  it('fetched가 null(네트워크 실패)이면 캐시로 폴백한다', () => {
+    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y' }];
+    expect(resolveAnalysisList(null, cached)).toBe(cached);
+  });
+
+  it('상세도 동일 — fetched 없으면 캐시', () => {
+    const cachedDetail: AnalysisDetail = {
+      id: 1,
+      requestedAt: 'x',
+      report: { latencyAdjust: null, caffeineOnsetAdjust: null, summary: 's', advice: [], confidence: 'low' },
+      turns: [],
+      followupTurnsUsed: 0,
+      turnsRemaining: 3,
+      recordsUsed: 5,
+    };
+    expect(resolveAnalysisDetail(null, cachedDetail)).toBe(cachedDetail);
+    expect(resolveAnalysisDetail(null, null)).toBeNull();
   });
 });
 
