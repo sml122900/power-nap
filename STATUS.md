@@ -280,8 +280,54 @@
   충돌(둘 다 같은 파일 수정) — 수동 정리. `app/history.tsx`는 두 기능이 서로 다른 영역이라
   단순 병합(AI 분석 진입점 + 기상 체크리스트 상세행 공존). `app/feedback.tsx`는 예상과 달리
   충돌 없이 자동 병합(Phase C가 feedback.tsx를 건드리지 않아서).
+- **릴리즈 빌드 1차 + 실기기 설치**: `expo prebuild --clean` → `gradlew assembleRelease`
+  성공, `aapt dump permissions`로 최종 APK 매니페스트 재확인(`USE_FULL_SCREEN_INTENT` 등
+  정상). adb 인증이 처음엔 `unauthorized`로 막혀 있었음 — 케이블 재연결 + "이 컴퓨터에서
+  항상 허용" 체크로 해결(흔한 함정, 코드 이슈 아님). `adb install -r`로 설치 완료.
 
-**마지막 검증된 커밋: `main` → `ai-analysis-app` 병합 커밋, `ai-analysis-app` 브랜치.**
+- **Phase C 확장 — 분석 기록 열람 + 기간 선택**(`ai-analysis-app` 브랜치 이어서, 사용자
+  명시 지시) — AI_ANALYSIS.md §2·§5·§6 갱신:
+  - `src/analysisTypes.ts`(순수 타입: `AnalysisReport`/`FollowupTurn`/`AnalysisListItem`/
+    `AnalysisDetail`/`MAX_FOLLOWUP_TURNS`)와 `src/analysisDisplay.ts`(순수 표시 로직:
+    `formatAnalysisListLabels` — 같은 날짜 여러 건이면 시각 병기, `turnsToExchanges` —
+    저장된 turns를 Q&A 쌍으로 묶음)를 신규 분리 — `aiAnalysisErrors.ts`와 같은 이유
+    (supabase.ts env var 가드를 안 타야 jest "app" 프로젝트에서 테스트됨).
+  - `src/store.ts`: `filterAnalyzableRecords(records, sinceMs?)`(isTest 항상 제외 +
+    기간 필터), `AnalysisPeriod`/`periodSinceMs`(1주/2주/1개월(달력 기준)/전체), 분석
+    목록·상세 로컬 캐시(`getCachedAnalysisList`/`Detail`, `setCached...`) +
+    `resolveAnalysisList`/`resolveAnalysisDetail`(순수 폴백 판정 — `fetched ?? cached`,
+    캐시 폴백 로직을 네트워크 I/O와 분리해 목킹 없이 테스트).
+  - **발견·수정**: 히스토리 화면의 "AI 분석" 활성화 판정(`canRunAnalysis`)이 그동안
+    `records.length`를 그대로 썼다 — isTest 낮잠도 포함해 카운트하던 버그. 지난 세션
+    확인 요청 사항이었음, `filterAnalyzableRecords`로 교체해 수정.
+  - `src/aiAnalysis.ts`: `listAnalyses()`/`getAnalysisDetail(id)` 추가 — `analyses`
+    테이블을 RLS(본인 행만)로 **직접 SELECT**(Edge Function 안 거침, 읽기 전용이라
+    RLS만으로 충분). 실패 시 로컬 캐시로 폴백. `AnalysisResult`에 `recordsUsed` 필드
+    추가.
+  - `supabase/functions/analyze/index.ts`: 수신 records를 `completedAt` 최신순 정렬 후
+    50개로 컷(`MAX_RECORDS`, 토큰 비용 방어선) — 초과분은 에러 없이 조용히 버림, 응답에
+    `recordsUsed` 포함.
+  - `app/analysis-period.tsx` 신규: 프리셋 칩(1주/2주 기본/1개월/전체) + 선택 기간의
+    유효 기록 수 실시간 표시 + 분석하기 버튼(5개 미만 비활성). 동의 화면 다음 단계로
+    삽입(`analysis-consent.tsx`의 리다이렉트 대상을 `/analysis` → `/analysis-period`로
+    변경).
+  - `app/analysis-history.tsx` 신규: 지난 분석 목록(`"7월 8일 분석"`, 같은 날 여러 건이면
+    시각 병기) — 탭하면 `/analysis?id=X`로 이동.
+  - `app/analysis.tsx` 구조 변경: `since`(새 분석, 기간 필터) / `id`(지난 분석 열람) 두
+    진입 경로를 하나의 화면이 처리. **발견·수정**: 기존엔 `useRef` 1회성 가드로 마운트
+    시 딱 한 번만 로드했는데, 히스토리 목록에서 다른 분석 id로 연달아 이동하면 화면
+    인스턴스가 재사용되면서 "적용됨" 상태나 리포트가 이전 것으로 남을 위험이 있었음 —
+    `requestKey`(id 또는 since 조합)를 `useEffect` 의존성으로 바꿔 매번 완전히 다시
+    로드·초기화하도록 재구성.
+  - `app/history.tsx`: "AI 분석" 옆에 "지난 분석 보기" 진입점 추가, isTest 카운트 버그
+    수정(위 참고).
+  - jest 73개 통과(기존 48개 + store 신규 12개 + analysisDisplay 6개 + analyze 통합
+    신규 1개), tsc(라우터 타입 재생성 필요 — 동일 패턴)/expo-doctor/expo export 3종
+    통과. Edge Function 재배포 후 통합 테스트 재확인(recordsUsed 필드, 50개 컷 실증).
+    커밋 4개(데이터 계층/화면/Edge Function/문서)로 분리.
+  - **Phase C 확장 완료(실기기 검증 대기).** 릴리즈 재빌드 → 설치 대기.
+
+**마지막 검증된 커밋: `ai-analysis-app` 브랜치, Phase C 확장 커밋들.**
 
 ## 브랜치 현황
 
