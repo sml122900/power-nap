@@ -37,8 +37,8 @@
     "coffeeNotice": "카페인이 이미 돌고 있어요 — 최소 대기시간으로 맞출게요",
     "coffeePreview": "{{time}} 알람 ({{minutes}}분 뒤)",
     "coffeeConfirm": "이 시간으로 시작",
-    "learnNote": "후기를 반영해 시간이 자동으로 조정돼요",
-    "learnNoteBold": "학습된 시간 — 바로 잠듦 {{fast}}분 · 뒤척임 {{slow}}분",
+    "learnNote": "문헌 근거로 정한 기본값이에요. 다르게 느껴지면 후기나 설정에서 직접 조정할 수 있어요",
+    "learnNoteBold": "적용된 시간 — 바로 잠듦 {{fast}}분 · 뒤척임 {{slow}}분",
     "devTest1min": "테스트: 1분 낮잠",
     "devTest10sec": "테스트: 10초"
   },

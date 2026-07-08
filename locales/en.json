@@ -37,8 +37,8 @@
     "coffeeNotice": "Caffeine is already kicking in — we'll set the minimum wait time",
     "coffeePreview": "Alarm at {{time}} (in {{minutes}} min)",
     "coffeeConfirm": "Start with this time",
-    "learnNote": "Times adjust based on your feedback",
-    "learnNoteBold": "Learned times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
+    "learnNote": "These are literature-based defaults. If they feel off, you can adjust them in feedback or settings",
+    "learnNoteBold": "Current times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
     "devTest1min": "Test: 1 min nap",
     "devTest10sec": "Test: 10 sec"
   },
