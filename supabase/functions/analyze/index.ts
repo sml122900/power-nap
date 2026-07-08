@@ -43,6 +43,20 @@ const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!;
 const admin = createClient(supabaseUrl, supabaseSecretKey);
 const anthropic = new Anthropic({ apiKey: anthropicApiKey });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// has_weekly_free()가 Postgres에서 쓰는 것과 동일한 "이번 주 월요일 00:00 KST" 계산을
+// Deno 쪽에도 둔다(analyze.test.ts의 mondayKstBoundaryUtc와 같은 공식, 이미 DB 함수와
+// 일치함을 통합 테스트로 검증됨) — 이 값 자체가 Deno 서버 시각 기준이라 기기 시각 조작과
+// 무관하다.
+function mondayKstBoundaryUtc(nowMs: number): number {
+  const kst = new Date(nowMs + 9 * 60 * 60 * 1000);
+  const day = kst.getUTCDay(); // 0=Sun..6=Sat — kst가 이미 +9h shift된 시각이라 UTC getter로 읽어도 KST 벽시계 값
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const kstMidnightFields = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate() - diffToMonday, 0, 0, 0, 0);
+  return kstMidnightFields - 9 * 60 * 60 * 1000;
+}
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
@@ -80,6 +94,20 @@ async function callAnalysis(records: unknown[], settings: { latency: { fast: num
     }
   }
   throw new Error('unreachable');
+}
+
+// 무료 분석 잔여 상태 — history.tsx 진입점/402 화면의 카운트다운 표시용. NapRecord를
+// 전혀 안 받는 가벼운 조회라 Claude 호출 없음(비용 없음). has_weekly_free는 service_role
+// 전용으로 잠가둬서(CLAUDE.md 지뢰 목록) 클라이언트가 직접 RPC를 못 부른다 — 이 엔드포인트가
+// 유일한 경로.
+async function handleStatus(userId: string): Promise<Response> {
+  const { data: hasWeeklyFree, error } = await admin.rpc('has_weekly_free', { p_user_id: userId });
+  if (error) return jsonResponse(500, { error: 'server_error', message: error.message });
+
+  const serverNowMs = Date.now();
+  const nextFreeResetAtMs = mondayKstBoundaryUtc(serverNowMs) + 7 * DAY_MS;
+
+  return jsonResponse(200, { hasWeeklyFree, serverNowMs, nextFreeResetAtMs });
 }
 
 async function handleAnalyze(userId: string, req: Request): Promise<Response> {
@@ -215,6 +243,9 @@ Deno.serve(async (req: Request) => {
   if (auth instanceof Response) return auth;
 
   const body = await req.clone().json().catch(() => null);
+  if (body?.mode === 'status') {
+    return handleStatus(auth.userId);
+  }
   if (body?.analysisId) {
     return handleFollowup(auth.userId, body.analysisId, req);
   }
