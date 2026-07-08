@@ -13,7 +13,7 @@ import {
   type NapRecord,
   type Settings,
 } from './store';
-import { ensureAnonymousSession, supabase } from './supabase';
+import { ensureAnonymousSession, getSupabase } from './supabase';
 import { mapInvokeErrorToAnalysisError, type AnalysisError } from './aiAnalysisErrors';
 import { MAX_FOLLOWUP_TURNS, type AnalysisDetail, type AnalysisListItem, type AnalysisReport } from './analysisTypes';
 
@@ -36,6 +36,12 @@ export interface FollowupResult {
   turnsRemaining: number;
 }
 
+export interface AnalysisStatus {
+  hasWeeklyFree: boolean;
+  serverNowMs: number;
+  nextFreeResetAtMs: number;
+}
+
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   let session;
   try {
@@ -44,7 +50,7 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
     throw { code: 'network', message: '네트워크 연결을 확인해달라.' } satisfies AnalysisError;
   }
 
-  const { data, error } = await supabase.functions.invoke('analyze', {
+  const { data, error } = await getSupabase().functions.invoke('analyze', {
     body,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
@@ -73,6 +79,12 @@ export async function requestFollowup(analysisId: number, question: string): Pro
   return invoke<FollowupResult>({ analysisId, question });
 }
 
+// 무료 분석 잔여 상태(카운트다운용) — has_weekly_free RPC는 service_role 전용으로 잠겨
+// 있어(migrations/0003) 클라이언트가 직접 못 부른다, 이 경로가 유일한 조회 수단.
+export async function getAnalysisStatus(): Promise<AnalysisStatus> {
+  return invoke<AnalysisStatus>({ mode: 'status' });
+}
+
 // 지난 분석 목록 — analyses 테이블 RLS(본인 행만)로 직접 조회한다(Edge Function 안 거침,
 // 읽기 전용이라 RLS만으로 충분). 실패(오프라인 등) 시 로컬 캐시로 폴백.
 export async function listAnalyses(): Promise<AnalysisListItem[]> {
@@ -83,7 +95,10 @@ export async function listAnalyses(): Promise<AnalysisListItem[]> {
     return resolveAnalysisList(null, cached);
   }
 
-  const { data, error } = await supabase.from('analyses').select('id, requested_at').order('requested_at', { ascending: false });
+  const { data, error } = await getSupabase()
+    .from('analyses')
+    .select('id, requested_at')
+    .order('requested_at', { ascending: false });
   if (error || !data) {
     return resolveAnalysisList(null, cached);
   }
@@ -101,7 +116,7 @@ export async function getAnalysisDetail(id: number): Promise<AnalysisDetail | nu
     return resolveAnalysisDetail(null, cached);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('analyses')
     .select('id, requested_at, report, turns, followup_turns_used, records_snapshot')
     .eq('id', id)

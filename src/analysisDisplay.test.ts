@@ -1,4 +1,4 @@
-import { formatAnalysisListLabels, turnsToExchanges } from './analysisDisplay';
+import { formatAnalysisListLabels, formatFreeResetCountdown, turnsToExchanges } from './analysisDisplay';
 
 describe('formatAnalysisListLabels', () => {
   it('같은 날짜가 1건뿐이면 날짜만 표시한다', () => {
@@ -53,5 +53,30 @@ describe('turnsToExchanges', () => {
       { role: 'user' as const, content: 'q2-dangling' },
     ];
     expect(turnsToExchanges(turns)).toEqual([{ question: 'q1', answer: 'a1' }]);
+  });
+});
+
+describe('formatFreeResetCountdown', () => {
+  it('0 이하는 "곧"', () => {
+    expect(formatFreeResetCountdown(0)).toBe('곧');
+    expect(formatFreeResetCountdown(-1000)).toBe('곧');
+  });
+
+  it('1시간 미만은 분만 표시한다(0일 0시간 접두 없음)', () => {
+    expect(formatFreeResetCountdown(32 * 60_000)).toBe('32분');
+  });
+
+  it('1일 미만은 시간+분을 표시한다', () => {
+    expect(formatFreeResetCountdown(14 * 60 * 60_000 + 5 * 60_000)).toBe('14시간 5분');
+  });
+
+  it('1일 이상은 일+시간+분을 전부 표시한다(시간이 0이어도)', () => {
+    const oneDayFiveMin = 24 * 60 * 60_000 + 5 * 60_000;
+    expect(formatFreeResetCountdown(oneDayFiveMin)).toBe('1일 0시간 5분');
+  });
+
+  it('2일 14시간 32분', () => {
+    const ms = 2 * 24 * 60 * 60_000 + 14 * 60 * 60_000 + 32 * 60_000;
+    expect(formatFreeResetCountdown(ms)).toBe('2일 14시간 32분');
   });
 });

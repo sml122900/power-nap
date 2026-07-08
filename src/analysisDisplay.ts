@@ -43,3 +43,20 @@ export function turnsToExchanges(turns: FollowupTurn[]): FollowupExchange[] {
   }
   return exchanges;
 }
+
+// "2일 14시간 32분" — 다음 무료 분석까지 남은 시간. 초 단위 없음(분 갱신으로 충분).
+// 최고 단위가 0이 아니면 그 아래 단위도 항상 같이 보여준다(폭이 들쭉날쭉하지 않게) —
+// 예: "1일 0시간 5분"은 보여주지만 "0시간 5분"은 그냥 "5분"으로.
+export function formatFreeResetCountdown(remainingMs: number): string {
+  if (remainingMs <= 0) return '곧';
+  const totalMinutes = Math.floor(remainingMs / 60_000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}일`);
+  if (days > 0 || hours > 0) parts.push(`${hours}시간`);
+  parts.push(`${minutes}분`);
+  return parts.join(' ');
+}
