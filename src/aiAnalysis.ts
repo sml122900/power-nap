@@ -48,7 +48,7 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   try {
     session = await ensureAnonymousSession();
   } catch {
-    throw { code: 'network', message: '네트워크 연결을 확인해달라.' } satisfies AnalysisError;
+    throw { code: 'network', message: i18n.t('analysisReport:networkError') } satisfies AnalysisError;
   }
 
   const { data, error } = await getSupabase().functions.invoke('analyze', {
@@ -64,7 +64,7 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
       const parsedBody = await error.context.json().catch(() => null);
       throw mapInvokeErrorToAnalysisError(error.context.status, parsedBody);
     }
-    throw { code: 'network', message: '네트워크 연결을 확인해달라.' } satisfies AnalysisError;
+    throw { code: 'network', message: i18n.t('analysisReport:networkError') } satisfies AnalysisError;
   }
   return data as T;
 }

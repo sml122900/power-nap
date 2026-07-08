@@ -202,6 +202,8 @@
     "paymentPlaceholder": "Extra analysis ₩1,000 (coming soon)",
     "errorFallback": "The analysis request failed. Please try again.",
     "detailLoadError": "Couldn't load the analysis record.",
+    "networkError": "Please check your network connection.",
+    "unknownError": "An unknown error occurred.",
     "recordsUsedText": "Based on the most recent {{count}} records",
     "suggestion": {
       "latencyTitle": "Suggested sleep latency adjustment",

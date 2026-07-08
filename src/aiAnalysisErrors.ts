@@ -1,5 +1,8 @@
 // aiAnalysis.ts의 순수 부분만 분리 — supabase.ts(모듈 로드 시 env var 없으면 throw)를
 // 끌어오지 않아 jest "app" 프로젝트에서 .env 세팅 없이도 바로 테스트할 수 있다.
+// i18n.ts는 순수 함수 import라 안전(AsyncStorage는 지연 import라 여기서도 마찬가지로 안전).
+import i18n from './i18n';
+
 export type AnalysisErrorCode =
   | 'unauthenticated'
   | 'not_enough_records'
@@ -39,7 +42,7 @@ export function mapInvokeErrorToAnalysisError(
     404: 'not_found',
   };
   const code = (status && byStatus[status]) || 'unknown';
-  return { code, message: body?.message ?? '알 수 없는 오류가 발생했다.' };
+  return { code, message: body?.message ?? i18n.t('analysisReport:unknownError') };
 }
 
 export function isAnalysisError(value: unknown): value is AnalysisError {
