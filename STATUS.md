@@ -225,6 +225,53 @@
   - **Phase B 완료.** Phase C(앱 통합 — 동의 UI/분석 진입점/리포트 화면/후속질문 UI)는
     별도 지시 시 착수.
 
+- **Phase C — 앱 통합**(`ai-analysis-app` 브랜치, `main` 미병합) — AI_ANALYSIS.md §6,
+  사용자 명시 지시로 착수:
+  - `src/store.ts`: `getAiConsent`/`setAiConsent`(AsyncStorage, `null`=아직 안 물어봄/
+    `true`=동의/`false`=거부 — 거부해도 재진입 시 다시 물어봄, tri-state), `MIN_RECORDS_FOR_ANALYSIS`
+    (=5, 클라이언트 진입점 비활성과 Edge Function 422 판정이 같은 값을 쓰도록 export),
+    `canRunAnalysis(count)`, `computeSuggestionApplication(mode, current, delta)`(AI 제안
+    ± delta를 clamp해 적용값 계산 — 순수 함수). `NapRecord.manualAdjust.source`에
+    `'ai-analysis'` 추가(기존 `'feedback'`/`'settings'`와 나란히, 출처 구분 유지).
+  - `src/supabase.ts`: `ensureAnonymousSession()`이 `accessToken`도 함께 반환하도록 변경 —
+    **발견**: `supabase-js`의 `client.functions.invoke()`는 세션 JWT를 자동으로
+    Authorization 헤더에 넣어주지 않는다(`client.functions`는 매 호출마다 새
+    `FunctionsClient`를 만들고 생성 시점의 정적 헤더만 물려받음, 세션 갱신과 무관) —
+    소스 직접 확인 후 호출부에서 매번 명시적으로 헤더를 넣는 방식으로 설계.
+  - `src/aiAnalysisErrors.ts` 신규 분리(순수 함수만): `mapInvokeErrorToAnalysisError`,
+    `isAnalysisError`. `src/aiAnalysis.ts`가 아니라 별도 파일로 뺀 이유: `aiAnalysis.ts`는
+    `supabase.ts`를 끌어오는데 `supabase.ts`는 모듈 로드 시점에 `EXPO_PUBLIC_SUPABASE_*`
+    env var가 없으면 즉시 throw한다 — jest `app` 프로젝트는 `.env`를 안 읽으므로, 같은 파일에
+    있었다면 에러 매핑 테스트가 항상 깨졌을 것(발견 즉시 구조 분리로 수정).
+  - `src/aiAnalysis.ts`: `requestAnalysis`/`requestFollowup` — `supabase.functions.invoke`에
+    Authorization/apikey 헤더 명시, `FunctionsHttpError`면 `error.context.json()`으로 서버
+    에러 바디 파싱해 `AnalysisError`로 매핑.
+  - `app/analysis-consent.tsx`: 최초 1회(또는 거부 후 재진입 시) 동의 화면 — 전송 안내 +
+    처리방침 자리(URL 미정, "준비 중" 표기) + 동의/다음에.
+  - `app/analysis.tsx`: loading → report(요약/조언/± 제안 항목별 "설정에 반영하기" 버튼 +
+    고정 하단 고지문 — LLM이 advice에 넣는 고지와 별개로 앱이 항상 렌더) →
+    insufficient_credit(402, "이번 주 무료 분석을 사용했어요" + 결제 버튼은 비활성 "준비
+    중" — Phase D에서 활성화) → 후속 질문(턴 카운터, 3턴 소진 시 입력 비활성). "설정에
+    반영하기"는 `applyManualAdjustment` + `appendNapRecord(source:'ai-analysis')`로 기존
+    수동 조정 경로 재사용.
+  - `app/history.tsx`: 상단에 "AI 분석" 진입점 — `canRunAnalysis`로 5개 미만 비활성 +
+    안내 캡션. 탭 시 `getAiConsent()`로 분기(true면 `/analysis`, 그 외엔
+    `/analysis-consent`).
+  - `app/settings.tsx`: "데이터 및 분석" 섹션 추가 — 동의 상태 표시 + 토글 버튼(동의
+    철회/재동의, AI_ANALYSIS.md §6 "동의 철회" + 사용자 지시 "설정에서 재동의 가능").
+  - **실기기 미검증 항목**(사용자 확인 필요): 동의 화면 표시/버튼 동작, 히스토리 5개 미만
+    비활성 문구, 실제 분석 요청 → 리포트 렌더 → "설정에 반영하기" 탭 시 설정 화면에 실제
+    반영되는지, 후속 질문 3턴 후 입력창 비활성, 402(무료 소진) 화면, 설정 화면 동의
+    토글, 키보드 올라왔을 때 후속 질문 입력창 가려짐 여부(Android).
+  - DESIGN_HANDOFF 준수 확인: 신규 화면 3개(analysis-consent/analysis 화면, settings
+    추가분) 아이콘 0개, `theme.ts` 토큰만 사용(하드코딩 색상 없음).
+  - jest 48개 통과(기존 34개 + store 8개 + aiAnalysisErrors 6개), tsc(라우터 타입 재생성
+    필요했음 — `expo start` 한 번 띄워야 `.expo/types/router.d.ts`가 새 라우트를 인식,
+    `expo export`만으로는 안 됨)/expo-doctor/expo export 3종 통과. 커밋 2개(데이터 계층/
+    화면).
+  - **Phase C 완료(실기기 검증 대기).** `main`에는 아직 병합 안 함 — 병합 시점은 사용자
+    지시로.
+
 **마지막 검증된 커밋: `eb5737f` — "Merge branch 'phase-4-3' into main", `main` 브랜치.**
 
 ## 브랜치 현황
@@ -235,16 +282,22 @@
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3`: 전부 main에 병합 완료 — 더 이상
   별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용 worktree
   (`power-nap-phase43`)도 같은 이유로 정리 대상.
+- `wake-checklist`: `main` 기준 분기, 기상 직후 체크리스트 기능(커밋 `0e7d469`) push
+  완료 — **main 미병합, 실기기 검증도 아직**. 이전 세션에서 이 파일 갱신을 누락해 뒤늦게
+  기록.
+- `ai-analysis-app`: `main` 기준 분기, Phase C(AI 분석 앱 통합) 커밋 2개 push 완료 —
+  **main 미병합, 실기기 검증 대기**.
 
 ## 지금 단계
 
 **기능 개발 동결(v1) 유지, AI 분석(v1.1)만 사용자 명시 지시로 예외 진행 중.**
 `main`에 계획했던 v1 기능(네이티브 알람, 학습 모델 v2, 커피냅 3모드, A/B그룹, Phase 4-3
 학습 개편)은 전부 병합 완료 — 남은 건 Phase 4-3 실기기 검증과 출시 전 체크리스트
-(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). 그와 별개로 AI 분석
-(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase B(Edge Function/AI
-파이프라인)까지 완료됨 — Phase C(앱 통합)는 별도 지시 대기. 그 외 [BACKLOG.md](BACKLOG.md)
-항목은 여전히 요청 없이 착수하지 않는다.
+(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙 참고). `wake-checklist` 브랜치(기상
+루틴 체크리스트)도 push까지만 되고 main 미병합·실기기 미검증 상태로 대기 중. 그와 별개로
+AI 분석(Phase A~E, AI_ANALYSIS.md)은 사용자가 명시적으로 착수 지시해 Phase C(앱 통합)까지
+완료됨(`ai-analysis-app` 브랜치, main 미병합, 실기기 검증 대기) — Phase D(결제)는 별도
+지시 대기. 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
 
