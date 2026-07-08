@@ -28,6 +28,7 @@ import {
   type NapSurvey,
   type Settings,
   type SurveyRating,
+  type WakeChecklist,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 
@@ -58,6 +59,20 @@ const DEFAULT_SURVEY: NapSurvey = { posture: 'mid', noise: 'mid', light: 'mid', 
 
 const MANUAL_STEP = 1;
 
+const DEFAULT_WAKE_CHECKLIST: WakeChecklist = { immediate: false, stretch: false, light: false, water: false };
+
+const WAKE_CHECKLIST_ITEMS: { key: keyof WakeChecklist; label: string }[] = [
+  { key: 'immediate', label: '바로 일어났어요 (스누즈 없이)' },
+  { key: 'stretch', label: '기지개를 켰어요' },
+  { key: 'light', label: '밝은 빛을 쬐었어요' },
+  { key: 'water', label: '물 한 잔 마셨어요' },
+];
+
+// 전부 미체크면 undefined를 반환해 기존 레코드와 동일한 형태(필드 생략)를 유지한다.
+function toWakeChecklistRecord(checklist: WakeChecklist): WakeChecklist | undefined {
+  return Object.values(checklist).some(Boolean) ? checklist : undefined;
+}
+
 interface FeedbackContext {
   mode: NapMode;
   offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
@@ -70,6 +85,7 @@ export default function FeedbackScreen() {
   const router = useRouter();
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [answers, setAnswers] = useState<NapSurvey>(DEFAULT_SURVEY);
+  const [wakeChecklist, setWakeChecklist] = useState<WakeChecklist>(DEFAULT_WAKE_CHECKLIST);
   const [memoOpen, setMemoOpen] = useState(false);
   const [memoText, setMemoText] = useState('');
   const [manualOpen, setManualOpen] = useState(false);
@@ -119,6 +135,7 @@ export default function FeedbackScreen() {
       offsetMinutes: ctx.offsetMinutes,
       survey: answers,
       memo: memoText.trim() || undefined,
+      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
     });
     await clearPendingFeedback();
     router.replace({ pathname: '/', params: { toast: '기록했어요.' } });
@@ -134,6 +151,7 @@ export default function FeedbackScreen() {
       mode: ctx.mode,
       offsetMinutes: ctx.offsetMinutes,
       survey: null,
+      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
     });
     await clearPendingFeedback();
     router.replace('/');
@@ -187,6 +205,7 @@ export default function FeedbackScreen() {
       mode: ctx.mode,
       offsetMinutes: ctx.offsetMinutes,
       manualAdjust: { source: 'feedback', beforeMinutes: ctx.baseValue, afterMinutes: finalValue },
+      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
     });
     await clearPendingFeedback();
 
@@ -316,10 +335,28 @@ export default function FeedbackScreen() {
           )}
 
           <View style={styles.tipCard}>
-            <Text style={styles.tipText}>
-              <Text style={styles.tipTextBold}>개운하게 깨는 법</Text> — 기지개 켜기 → 밝은 빛 쬐기 → 물 한 잔. 3가지면
-              수면 관성이 빨리 풀려요.
-            </Text>
+            <Text style={styles.tipCaption}>개운하게 깨는 법 — 한 것만 체크해보세요</Text>
+            <View style={styles.checklist}>
+              {WAKE_CHECKLIST_ITEMS.map((item) => {
+                const checked = wakeChecklist[item.key];
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setWakeChecklist((c) => ({ ...c, [item.key]: !c[item.key] }));
+                    }}
+                    style={styles.checklistRow}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ checked }}
+                  >
+                    <View style={[styles.checkbox, checked && styles.checkboxChecked]} />
+                    <Text style={styles.checklistLabel}>{item.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -521,14 +558,35 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.bg,
   },
-  tipText: {
-    fontSize: 13.5,
-    lineHeight: 21.6,
-    fontFamily: fontFamily.regular,
-    color: colors.inkSoft,
+  tipCaption: {
+    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
   },
-  tipTextBold: {
-    fontFamily: fontFamily.bold,
+  checklist: {
+    marginTop: 12,
+    gap: 4,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  checklistLabel: {
+    fontSize: 14.5,
+    fontFamily: fontFamily.regular,
     color: colors.ink,
   },
 });

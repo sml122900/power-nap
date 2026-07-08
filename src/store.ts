@@ -51,6 +51,15 @@ export interface NapSurvey {
   satisfaction: SurveyRating; // 수면 만족도
 }
 
+// 기상 직후 행동 체크리스트(강제성 없음, 순수 데이터 수집) — 전부 미체크면 필드 자체를
+// 생략해 기존 레코드(필드 없음)와 동일한 하위 호환 형태를 유지한다.
+export interface WakeChecklist {
+  immediate: boolean; // 스누즈 없이 바로 일어남
+  stretch: boolean; // 기지개
+  light: boolean; // 밝은 빛
+  water: boolean; // 물 한 잔
+}
+
 // 후기 제출 시마다 append-only로 남기는 기록 — 현재는 히스토리 열람 외 UI 없음,
 // 향후 분석 기능의 원료. v1(레거시)/v2(Phase 4-3) 포맷이 공존한다 — result가 있으면
 // v1, survey/manualAdjust가 있으면 v2. 신규 레코드는 항상 v2 포맷으로 남는다.
@@ -74,6 +83,10 @@ export interface NapRecord {
     beforeMinutes: number;
     afterMinutes: number;
   };
+
+  // 기상 직후 행동 체크리스트 — 설문 제출/건너뛰기/직접조정 어느 경로든 체크된 항목이
+  // 있으면 함께 저장. 전부 미체크면 생략(undefined).
+  wakeChecklist?: WakeChecklist;
 }
 
 const KEYS = {

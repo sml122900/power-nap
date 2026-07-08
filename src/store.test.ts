@@ -277,6 +277,37 @@ describe('computeSuggestionApplication — AI 리포트 "설정에 반영하기"
   });
 });
 
+describe('wake-up routine checklist', () => {
+  it('round-trips a checklist with at least one checked item', async () => {
+    await appendNapRecord({
+      completedAt: 1_700_000_000_005,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: null,
+      wakeChecklist: { immediate: true, stretch: false, light: true, water: false },
+    });
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.wakeChecklist).toEqual({ immediate: true, stretch: false, light: true, water: false });
+  });
+
+  it('omits the field entirely when nothing is checked', async () => {
+    await appendNapRecord({
+      completedAt: 1_700_000_000_006,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: null,
+      wakeChecklist: undefined,
+    });
+
+    const records = await getNapRecords();
+    const record = records[records.length - 1];
+    expect(record.wakeChecklist).toBeUndefined();
+    expect('wakeChecklist' in record).toBe(false);
+  });
+});
+
 describe('computeCoffeeAlarmAt', () => {
   const now = 1_700_000_000_000;
 
