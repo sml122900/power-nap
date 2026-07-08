@@ -109,8 +109,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 원탭 원칙: 잠들기 전 인터랙션은 현재의 원탭에서 절대 늘리지 않는다.
 컨텍스트 수집(장소·자세 등)은 후기 시점에만.
 
-전부 로컬: 서버·계정·API 호출 없음. AsyncStorage가 유일한 저장소.
-이 원칙을 깨는 기능(AI 분석 등)은 BACKLOG v2 — 사용자 확인 없이 착수 금지.
+전부 로컬: v1.1부터 AI 분석에 한해 서버 사용(AI_ANALYSIS.md 참조), 그 외 기능은
+여전히 로컬 전용.
 
 학습 로직 (Phase 4-3, 도그푸딩 후 확정 — BACKLOG.md "구현됨"/"학습 구조 전환 근거" 참조):
 알람 = 기준시각 + 소요시간. fast/slow는 latency(0~20분, 목표수면 20분 고정 + latency),
