@@ -179,6 +179,8 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   grant를 매번 확인 (Phase B에서 실공격 검증으로 확인된 사항).
 - expo-router 신규 라우트는 expo export만으로 타입 재생성이 안 됨 — 라우트 추가 후
   tsc 전에 expo start 1회 필요.
+- 알림 권한(POST_NOTIFICATIONS)과 네이티브 알람 예약은 별개 — 권한 체크가 알람 예약
+  경로를 막지 않게. Android 13+는 알림 권한 기본 거부라 이 경로가 흔함.
 
 코드 규칙
 

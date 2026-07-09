@@ -6,7 +6,14 @@
 // 로컬 알림 백업 + alarm.tsx의 foreground expo-audio 주 레이어를 그대로 유지한다.
 //
 // 권한 요청은 앱 시작 시가 아니라 첫 낮잠 시작 시점(scheduleAlarmNotificationAsync 호출 시)에
-// 이루어진다. 거부돼도 낮잠 자체는 진행하고(notificationId: null), 화면에서 그 사실을 안내한다.
+// 이루어진다. 거부돼도 낮잠 자체는 진행한다.
+//
+// CLAUDE.md 지뢰 목록 참고 — 알림 권한(POST_NOTIFICATIONS)과 Android 네이티브 알람 예약은
+// 완전히 별개다. expo-alarm-module 소스(Helper.scheduleAlarm/Manager.start) 확인 결과
+// AlarmManager 예약과 STREAM_ALARM 재생 어디에도 알림 권한 체크가 없다 — 권한이 없어도
+// 알람 소리·진동은 100% 정상 동작한다. 권한이 없을 때 실제로 불확실한 건 "화면이 자동으로
+// 켜지는지"뿐(풀스크린 인텐트가 알림 배너 억제와 함께 묶여 억제되는지는 실기기 확인 전까지
+// 단정하지 않는다 — app/sleep.tsx의 안내 문구가 중립적인 이유).
 
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -37,11 +44,19 @@ async function requestNotificationPermissionAsync(): Promise<boolean> {
   return requested.granted;
 }
 
-// alarmAt(절대시각)에 발화하도록 예약한다. 권한이 없으면 요청하고, 그래도 거부되면
-// null을 반환한다 — 호출부는 이를 ActiveNap.notificationId에 그대로 저장한다.
-export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<string | null> {
+export interface ScheduleAlarmResult {
+  notificationId: string | null;
+  // 알림 권한(POST_NOTIFICATIONS) 승인 여부 — Android에서는 알람 자체의 성패와 무관하다
+  // (위 상단 주석 참고), 화면 자동 점등 등 권한에 실제로 의존하는 부분만 이 값으로 안내한다.
+  permissionGranted: boolean;
+}
+
+// alarmAt(절대시각)에 발화하도록 예약한다. 알림 권한은 요청은 하되, Android 네이티브
+// 알람 예약은 그 결과와 무관하게 항상 수행한다 — 거부돼도 소리·진동은 정상 동작해야
+// 하기 때문(CLAUDE.md 지뢰 목록). iOS는 로컬 알림 자체가 백업 레이어라 권한이 없으면
+// 예약할 게 없어 기존 동작(notificationId: null)을 그대로 유지한다.
+export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<ScheduleAlarmResult> {
   const granted = await requestNotificationPermissionAsync();
-  if (!granted) return null;
 
   if (Platform.OS === 'android') {
     // showDismiss/showSnooze는 켜지 않는다 — 알림 자체의 액션 버튼으로 조용히 알람을
@@ -58,10 +73,12 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
       showDismiss: false,
       showSnooze: false,
     });
-    return ANDROID_ALARM_UID;
+    return { notificationId: ANDROID_ALARM_UID, permissionGranted: granted };
   }
 
-  return Notifications.scheduleNotificationAsync({
+  if (!granted) return { notificationId: null, permissionGranted: false };
+
+  const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
       title: i18n.t('alarm:notificationTitle'),
       body: i18n.t('alarm:notificationBody'),
@@ -72,6 +89,7 @@ export async function scheduleAlarmNotificationAsync(alarmAt: number): Promise<s
       date: new Date(alarmAt),
     },
   });
+  return { notificationId, permissionGranted: true };
 }
 
 export async function cancelAlarmNotificationAsync(notificationId: string | null): Promise<void> {

@@ -47,7 +47,7 @@
     "wakeAtCoffee": "We'll wake you at {{time}}, timed with your caffeine",
     "wakeAtDefault": "We'll wake you at {{time}}",
     "permissionHint": "Keep the app open for the alarm to ring",
-    "permissionHintAndroid": "The alarm may not ring without notification permission — please allow it in Settings",
+    "permissionHintAndroid": "The alarm will sound normally. Without notification permission, the screen may not turn on automatically",
     "cancelButton": "Stop the nap now"
   },
   "alarm": {

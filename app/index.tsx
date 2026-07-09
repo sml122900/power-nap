@@ -102,8 +102,15 @@ export default function HomeScreen() {
       const durationMs = overrideMs ?? (TARGET_SLEEP_MIN + latency[mode]) * 60_000;
       const alarmAt = startedAt + durationMs;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
-      const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
-      const nap: ActiveNap = { mode, startedAt, alarmAt, notificationId, isTest: overrideMs !== undefined };
+      const { notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt);
+      const nap: ActiveNap = {
+        mode,
+        startedAt,
+        alarmAt,
+        notificationId,
+        notificationPermissionGranted: permissionGranted,
+        isTest: overrideMs !== undefined,
+      };
       await saveActiveNap(nap);
       router.replace('/sleep');
     } finally {
@@ -120,8 +127,15 @@ export default function HomeScreen() {
       const startedAt = Date.now();
       const coffeeDrankAt = startedAt - minutesAgo * 60_000;
       const { alarmAt } = computeCoffeeAlarmAt(coffeeDrankAt, caffeineOnset, startedAt);
-      const notificationId = await scheduleAlarmNotificationAsync(alarmAt);
-      const nap: ActiveNap = { mode: 'coffee', startedAt, alarmAt, coffeeDrankAt, notificationId };
+      const { notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt);
+      const nap: ActiveNap = {
+        mode: 'coffee',
+        startedAt,
+        alarmAt,
+        coffeeDrankAt,
+        notificationId,
+        notificationPermissionGranted: permissionGranted,
+      };
       await saveActiveNap(nap);
       router.replace('/sleep');
     } finally {

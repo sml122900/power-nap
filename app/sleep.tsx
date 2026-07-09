@@ -112,12 +112,14 @@ export default function SleepScreen() {
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
 
-        {nap.notificationId === null && (
+        {!nap.notificationPermissionGranted && (
           // 알림 권한 거부 시 실제로 벌어지는 일이 플랫폼마다 다르다(src/notifications.ts
-          // scheduleAlarmNotificationAsync 참고): 권한 없으면 함수가 즉시 null을 반환해
-          // Android는 네이티브 알람(STREAM_ALARM)조차 예약되지 않는다(진짜 안 울림) —
-          // "앱을 켜두면 울려요"는 iOS 전용 사실(foreground JS 타이머가 주 레이어)이라
-          // 그대로 두고, Android는 경고 문구로 분리했다(REVIEW_NEEDED.md 검수 중 발견).
+          // 상단 주석 참고): Android는 네이티브 알람(STREAM_ALARM) 소리·진동이 권한과
+          // 무관하게 100% 정상 동작한다(expo-alarm-module 소스로 확인됨) — 불확실한 건
+          // 화면 자동 점등(풀스크린 인텐트)뿐이라 Android 문구는 "소리는 울린다"를 단정하고
+          // 화면 쪽은 중립적으로 남긴다. 실기기 검증 후 확정 예정(REVIEW_NEEDED.md 아님,
+          // CLAUDE.md 지뢰 목록 참고) — 그 전까지 단정적 표현 금지.
+          // iOS는 foreground JS 타이머가 주 레이어라 "앱을 켜두면 울려요"가 그대로 사실.
           <Text style={styles.permissionHint}>
             {t(Platform.OS === 'android' ? 'permissionHintAndroid' : 'permissionHint')}
           </Text>

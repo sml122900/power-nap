@@ -26,6 +26,11 @@ export interface ActiveNap {
   alarmAt: number; // epoch ms — 절대시각. 카운트다운은 항상 이 값 기준
   coffeeDrankAt?: number; // epoch ms — mode === 'coffee'일 때만. 커피를 실제로 마신 시각
   notificationId: string | null;
+  // 알림 권한(POST_NOTIFICATIONS) 승인 여부 — Android에서 알람 자체의 성패와는 무관하다
+  // (notificationId와 별개 필드로 둔 이유. src/notifications.ts 상단 주석 참고). 수면
+  // 화면이 이 값으로 안내 문구 분기를 결정한다(notificationId===null로 판단하던 방식은
+  // Android에서 항상 notificationId가 채워지게 되며 더 이상 유효하지 않음).
+  notificationPermissionGranted: boolean;
   isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
 }
 
