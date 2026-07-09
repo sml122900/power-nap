@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -112,7 +112,16 @@ export default function SleepScreen() {
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
 
-        {nap.notificationId === null && <Text style={styles.permissionHint}>{t('permissionHint')}</Text>}
+        {nap.notificationId === null && (
+          // 알림 권한 거부 시 실제로 벌어지는 일이 플랫폼마다 다르다(src/notifications.ts
+          // scheduleAlarmNotificationAsync 참고): 권한 없으면 함수가 즉시 null을 반환해
+          // Android는 네이티브 알람(STREAM_ALARM)조차 예약되지 않는다(진짜 안 울림) —
+          // "앱을 켜두면 울려요"는 iOS 전용 사실(foreground JS 타이머가 주 레이어)이라
+          // 그대로 두고, Android는 경고 문구로 분리했다(REVIEW_NEEDED.md 검수 중 발견).
+          <Text style={styles.permissionHint}>
+            {t(Platform.OS === 'android' ? 'permissionHintAndroid' : 'permissionHint')}
+          </Text>
+        )}
       </View>
 
       <Pressable onPress={onCancel} style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostBtnPressed]}>

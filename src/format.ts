@@ -39,12 +39,32 @@ export function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);
 }
 
+function formatShortDateKo(date: Date): string {
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+function formatShortDateEn(date: Date): string {
+  return `${MONTH_NAMES_EN[date.getMonth()]} ${date.getDate()}`;
+}
+
+const SHORT_DATE_FORMATTERS: Record<string, (date: Date) => string> = {
+  ko: formatShortDateKo,
+  en: formatShortDateEn,
+};
+
+// "7월 8일" / "Jul 8" — 월 이름을 언어별로 완전히 다르게 표현해 MM/DD vs DD/MM 같은
+// 숫자만의 표기 모호성을 원천 차단한다(REVIEW_NEEDED.md 검수 중 발견 — analysisHistory
+// 목록 라벨이 "7/8" 숫자 표기라 언어권에 따라 날짜가 뒤바뀌어 읽힐 수 있었음).
+export function formatShortDate(date: Date, language: string = i18n.language): string {
+  return (SHORT_DATE_FORMATTERS[language] ?? formatShortDateEn)(date);
+}
+
 function formatDateTimeKo(date: Date): string {
-  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${formatTimeKo(date)}`;
+  return `${formatShortDateKo(date)} ${formatTimeKo(date)}`;
 }
 
 function formatDateTimeEn(date: Date): string {
-  return `${MONTH_NAMES_EN[date.getMonth()]} ${date.getDate()}, ${formatTimeEn(date)}`;
+  return `${formatShortDateEn(date)}, ${formatTimeEn(date)}`;
 }
 
 const DATE_TIME_FORMATTERS: Record<string, (date: Date) => string> = {

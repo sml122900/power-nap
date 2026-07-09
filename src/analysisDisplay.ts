@@ -1,4 +1,4 @@
-import { formatTime } from './format';
+import { formatShortDate, formatTime } from './format';
 import i18n from './i18n';
 import type { AnalysisListItem, FollowupTurn } from './analysisTypes';
 
@@ -9,6 +9,8 @@ export interface AnalysisListLabel {
 }
 
 // "7월 8일 분석" — 같은 날짜에 여러 건이면 시각을 병기해 구분한다("7월 8일 분석 (오후 2:30)").
+// 날짜 부분은 formatShortDate(언어별 월 이름 표기)를 그대로 끼워 넣는다 — 숫자만으로 된
+// "7/8" 같은 표기는 언어권에 따라 MM/DD·DD/MM이 헷갈릴 수 있어 en에서는 "Jul 8"로 나온다.
 export function formatAnalysisListLabels(items: AnalysisListItem[]): AnalysisListLabel[] {
   const dateKey = (iso: string) => {
     const d = new Date(iso);
@@ -21,7 +23,7 @@ export function formatAnalysisListLabels(items: AnalysisListItem[]): AnalysisLis
   }
   return items.map((item) => {
     const d = new Date(item.requestedAt);
-    const base = i18n.t('analysisHistory:listLabel', { month: d.getMonth() + 1, day: d.getDate() });
+    const base = i18n.t('analysisHistory:listLabel', { date: formatShortDate(d) });
     const sameDayCount = counts.get(dateKey(item.requestedAt)) ?? 0;
     const label =
       sameDayCount > 1 ? i18n.t('analysisHistory:listLabelWithTime', { base, time: formatTime(d) }) : base;

@@ -1,4 +1,5 @@
 import { formatAnalysisListLabels, formatFreeResetCountdown, turnsToExchanges } from './analysisDisplay';
+import i18n from './i18n';
 
 describe('formatAnalysisListLabels', () => {
   it('같은 날짜가 1건뿐이면 날짜만 표시한다', () => {
@@ -25,6 +26,13 @@ describe('formatAnalysisListLabels', () => {
     const labels = formatAnalysisListLabels(items);
     expect(labels[0].label).toBe('7월 8일 분석');
     expect(labels[1].label).toBe('7월 9일 분석');
+  });
+
+  it('영어 로케일에서는 월 이름 표기를 쓴다(MM/DD·DD/MM 모호성 방지)', async () => {
+    await i18n.changeLanguage('en');
+    const labels = formatAnalysisListLabels([{ id: 1, requestedAt: new Date(2026, 6, 8, 5, 0).toISOString() }]);
+    expect(labels[0].label).toBe('Analysis — Jul 8');
+    await i18n.changeLanguage('ko');
   });
 });
 

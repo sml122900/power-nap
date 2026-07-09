@@ -47,13 +47,14 @@
     "wakeAtCoffee": "We'll wake you at {{time}}, timed with your caffeine",
     "wakeAtDefault": "We'll wake you at {{time}}",
     "permissionHint": "Keep the app open for the alarm to ring",
+    "permissionHintAndroid": "The alarm may not ring without notification permission — please allow it in Settings",
     "cancelButton": "Stop the nap now"
   },
   "alarm": {
     "title": "Time to wake up",
     "subtitle": "5 more minutes will only leave you groggier from sleep inertia.\nGetting up right now feels best.",
     "coffeeBadge": "Caffeine effects are kicking in now",
-    "slideLabel": "Slide to stop",
+    "slideLabel": "Slide to dismiss",
     "longPressHint": "If sliding is hard, press and hold this area for 3 seconds instead",
     "a11ySlideLabel": "Slide to turn off alarm",
     "a11yDismissAction": "Turn off alarm",
@@ -89,7 +90,7 @@
       "water": "Drank a glass of water"
     },
     "toastRecorded": "Saved.",
-    "toastManualAdjust": "Next time, {{modeName}} {{label}} will be set to {{minutes}} min.",
+    "toastManualAdjust": "'{{modeName}}' {{label}} set to {{minutes}} min for next time.",
     "manualLabelCaffeine": "caffeine onset time",
     "manualLabelLatency": "wait time"
   },
@@ -191,7 +192,7 @@
   "analysisHistory": {
     "title": "Past analyses",
     "emptyText": "No analyses yet.",
-    "listLabel": "Analysis — {{month}}/{{day}}",
+    "listLabel": "Analysis — {{date}}",
     "listLabelWithTime": "{{base}} ({{time}})"
   },
   "analysisReport": {

@@ -47,6 +47,7 @@
     "wakeAtCoffee": "카페인 발현에 맞춰 {{time}}에 깨워드릴게요",
     "wakeAtDefault": "{{time}}에 깨워드릴게요",
     "permissionHint": "앱을 켠 채로 두면 알람이 울려요",
+    "permissionHintAndroid": "알림 권한이 없으면 알람이 울리지 않을 수 있어요 — 설정에서 허용해주세요",
     "cancelButton": "그만 자고 일어나기"
   },
   "alarm": {
@@ -191,7 +192,7 @@
   "analysisHistory": {
     "title": "지난 분석",
     "emptyText": "아직 받은 분석이 없어요.",
-    "listLabel": "{{month}}월 {{day}}일 분석",
+    "listLabel": "{{date}} 분석",
     "listLabelWithTime": "{{base}} ({{time}})"
   },
   "analysisReport": {
