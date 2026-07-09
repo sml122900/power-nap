@@ -43,7 +43,12 @@ export default function AnalysisHistoryScreen() {
               accessibilityRole="button"
               accessibilityLabel={item.label}
             >
-              <Text style={styles.rowText}>{item.label}</Text>
+              <View style={styles.rowHead}>
+                <Text style={styles.rowText}>{item.label}</Text>
+                <View style={styles.languageBadge}>
+                  <Text style={styles.languageBadgeText}>{t(`settings:languageOption.${item.locale}`)}</Text>
+                </View>
+              </View>
             </Pressable>
           )}
         />
@@ -94,9 +99,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  rowHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
   rowText: {
     fontSize: 14.5,
     fontFamily: fontFamily.bold,
     color: colors.ink,
+  },
+  languageBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
+  },
+  languageBadgeText: {
+    fontSize: 11,
+    fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
   },
 });

@@ -222,6 +222,7 @@
       "applied": "Applied"
     },
     "disclaimer": "This report is general sleep hygiene information, not a medical diagnosis or advice. If symptoms persist, please consult a professional.",
+    "reportLanguageNotice": "This report was written in {{language}}.",
     "followupTitle": "Follow-up questions ({{count}} left)",
     "askPlaceholder": "Ask a question",
     "askButton": "Ask",

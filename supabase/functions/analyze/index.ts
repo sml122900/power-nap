@@ -173,6 +173,7 @@ async function handleAnalyze(userId: string, req: Request): Promise<Response> {
     p_model: MODEL,
     p_tokens_in: result.tokensIn,
     p_tokens_out: result.tokensOut,
+    p_locale: locale,
   });
   if (recordError) {
     // 극히 드문 동시요청 레이스(예: 잔액 1개인 상태에서 같은 유저가 거의 동시에 2번 요청) —

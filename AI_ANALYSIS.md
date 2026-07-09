@@ -53,7 +53,9 @@
 - credit_events: { user_id, delta, reason('purchase'|'weekly_free'|'analysis'|'refund'),
   external_id(RevenueCat tx id, 중복 적립 방지 unique), created_at }
 - analyses: { id, user_id, requested_at, records_snapshot(jsonb),
-  report(jsonb), followup_turns_used(0~3), model, tokens_in/out(비용 추적) }
+  report(jsonb), turns(jsonb), followup_turns_used(0~3), model, tokens_in/out(비용 추적),
+  locale(text, 기본 'ko') — 리포트가 실제로 작성된 언어. 요청 시점의 앱 언어를 그대로
+  저장(migrations/0004)
 - 주 1회 무료 판정: 이번 주(월요일 기준) reason='weekly_free' 이벤트 존재 여부
 
 ## 5. AI 파이프라인
@@ -74,6 +76,18 @@
 - 후속 질문: 리포트 + 이전 턴을 컨텍스트로 재호출, 3턴 도달 시 입력창 비활성
 - 모델: claude-sonnet-5(환경변수로 교체 가능) — 작성 시점 최신 Sonnet, structured outputs
   지원 모델. max_tokens 상한 명시로 비용 캡
+- 출력 언어: 앱이 보낸 `locale`('ko'|'en')을 `buildSystemPrompt(locale)`이 그대로 받아
+  요약/조언 텍스트만 그 언어로 쓴다(analysis-v2.ts, 프롬프트 지시문 자체는 항상 한국어
+  고정 — 문헌 근거·규칙은 언어와 무관). 서버는 이 파라미터 외에는 언어를 전혀 모른다
+  (에러 응답도 마찬가지로 언어 불변 — CLAUDE.md "다국어(i18n)" 원칙 참고).
+- **지난 리포트 재번역은 하지 않는다.** 이미 저장된 `analyses.report`는 요청 당시
+  언어로 영구히 고정된다 — 사용자가 나중에 앱 언어를 바꿔도 과거 리포트를 다른
+  언어로 다시 생성하지 않는다. 근거: 재번역도 결국 Claude API를 다시 호출하는 것과
+  같은 비용 구조(생성 비용과 동일한 토큰 요금)인데, "이미 낸 크레딧으로 받은 리포트를
+  나중에 공짜로 재작성"해주는 셈이 되어 크레딧 원장 모델과 충돌한다. 대신 목록/상세
+  화면에 리포트가 어느 언어로 작성됐는지만 표시(`app/analysis-history.tsx` 언어 배지,
+  `app/analysis.tsx`는 현재 앱 언어와 다를 때만 안내 문구). BACKLOG.md에 "필요 시
+  크레딧 차감 옵션으로 재번역 제공" 여지를 남겨둠.
 
 ## 6. 앱 쪽 변경
 

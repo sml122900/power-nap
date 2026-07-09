@@ -30,7 +30,7 @@ type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
 
 export default function AnalysisScreen() {
   const router = useRouter();
-  const { t } = useTranslation('analysisReport');
+  const { t, i18n } = useTranslation('analysisReport');
   const params = useLocalSearchParams<{ id?: string; since?: string }>();
   const requestKey = params.id ? `history:${params.id}` : `fresh:${params.since ?? ''}`;
 
@@ -39,6 +39,10 @@ export default function AnalysisScreen() {
   const [analysisId, setAnalysisId] = useState<number | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
   const [recordsUsed, setRecordsUsed] = useState(0);
+  // 지난 분석 열람(params.id)이면 실제 저장된 locale, 새 분석(params.since)이면 방금 요청에
+  // 쓴 현재 앱 언어 그대로다(Edge Function 응답 바디엔 locale이 없음 — 어차피 항상 같음).
+  // 재번역은 하지 않는다(AI_ANALYSIS.md §5 근거) — 이 값은 "다른 언어로 쓰였다"는 안내에만 쓴다.
+  const [reportLocale, setReportLocale] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [appliedFast, setAppliedFast] = useState(false);
   const [appliedSlow, setAppliedSlow] = useState(false);
@@ -61,6 +65,7 @@ export default function AnalysisScreen() {
     setAppliedFast(false);
     setAppliedSlow(false);
     setAppliedCaffeine(false);
+    setReportLocale(null);
     setExchanges([]);
     setQuestion('');
 
@@ -80,6 +85,7 @@ export default function AnalysisScreen() {
         setAnalysisId(detail.id);
         setReport(detail.report);
         setRecordsUsed(detail.recordsUsed);
+        setReportLocale(detail.locale);
         setExchanges(turnsToExchanges(detail.turns));
         setTurnsRemaining(detail.turnsRemaining);
         setPhase('report');
@@ -96,6 +102,7 @@ export default function AnalysisScreen() {
         setAnalysisId(analysis.analysisId);
         setReport(analysis.report);
         setRecordsUsed(analysis.recordsUsed);
+        setReportLocale(i18n.language);
         setTurnsRemaining(analysis.turnsRemaining);
         setPhase('report');
       } catch (err) {
@@ -223,6 +230,11 @@ export default function AnalysisScreen() {
           </View>
 
           <Text style={styles.recordsUsedText}>{t('recordsUsedText', { count: recordsUsed })}</Text>
+          {reportLocale && reportLocale !== i18n.language && (
+            <Text style={styles.languageNotice}>
+              {t('reportLanguageNotice', { language: t(`settings:languageOption.${reportLocale}`) })}
+            </Text>
+          )}
           <Text style={styles.summary}>{report.summary}</Text>
 
           <View style={styles.adviceList}>
@@ -394,6 +406,12 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontFamily: fontFamily.semibold,
     color: colors.inkFaint,
+  },
+  languageNotice: {
+    marginTop: 6,
+    fontSize: 12.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.amber,
   },
   summary: {
     marginTop: 10,

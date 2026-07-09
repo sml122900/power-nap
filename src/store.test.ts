@@ -317,7 +317,7 @@ describe('periodSinceMs — 분석 기간 프리셋', () => {
 
 describe('AI 분석 목록/상세 로컬 캐시', () => {
   it('목록 캐시 round-trip', async () => {
-    const items: AnalysisListItem[] = [{ id: 1, requestedAt: '2026-07-08T00:00:00Z' }];
+    const items: AnalysisListItem[] = [{ id: 1, requestedAt: '2026-07-08T00:00:00Z', locale: 'ko' }];
     await setCachedAnalysisList(items);
     expect(await getCachedAnalysisList()).toEqual(items);
   });
@@ -335,6 +335,7 @@ describe('AI 분석 목록/상세 로컬 캐시', () => {
       followupTurnsUsed: 0,
       turnsRemaining: 3,
       recordsUsed: 6,
+      locale: 'ko',
     };
     await setCachedAnalysisDetail(detail);
     expect(await getCachedAnalysisDetail(42)).toEqual(detail);
@@ -344,13 +345,13 @@ describe('AI 분석 목록/상세 로컬 캐시', () => {
 
 describe('resolveAnalysisList/resolveAnalysisDetail — 네트워크 실패 시 캐시 폴백', () => {
   it('fetched가 있으면 fetched를 쓴다', () => {
-    const fetched: AnalysisListItem[] = [{ id: 1, requestedAt: 'x' }];
-    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y' }];
+    const fetched: AnalysisListItem[] = [{ id: 1, requestedAt: 'x', locale: 'ko' }];
+    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y', locale: 'ko' }];
     expect(resolveAnalysisList(fetched, cached)).toBe(fetched);
   });
 
   it('fetched가 null(네트워크 실패)이면 캐시로 폴백한다', () => {
-    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y' }];
+    const cached: AnalysisListItem[] = [{ id: 2, requestedAt: 'y', locale: 'ko' }];
     expect(resolveAnalysisList(null, cached)).toBe(cached);
   });
 
@@ -363,6 +364,7 @@ describe('resolveAnalysisList/resolveAnalysisDetail — 네트워크 실패 시 
       followupTurnsUsed: 0,
       turnsRemaining: 3,
       recordsUsed: 5,
+      locale: 'ko',
     };
     expect(resolveAnalysisDetail(null, cachedDetail)).toBe(cachedDetail);
     expect(resolveAnalysisDetail(null, null)).toBeNull();

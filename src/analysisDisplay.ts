@@ -6,6 +6,7 @@ export interface AnalysisListLabel {
   id: number;
   requestedAt: string;
   label: string;
+  locale: string;
 }
 
 // "7월 8일 분석" — 같은 날짜에 여러 건이면 시각을 병기해 구분한다("7월 8일 분석 (오후 2:30)").
@@ -27,7 +28,7 @@ export function formatAnalysisListLabels(items: AnalysisListItem[]): AnalysisLis
     const sameDayCount = counts.get(dateKey(item.requestedAt)) ?? 0;
     const label =
       sameDayCount > 1 ? i18n.t('analysisHistory:listLabelWithTime', { base, time: formatTime(d) }) : base;
-    return { id: item.id, requestedAt: item.requestedAt, label };
+    return { id: item.id, requestedAt: item.requestedAt, label, locale: item.locale };
   });
 }
 

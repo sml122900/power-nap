@@ -101,13 +101,17 @@ export async function listAnalyses(): Promise<AnalysisListItem[]> {
 
   const { data, error } = await getSupabase()
     .from('analyses')
-    .select('id, requested_at')
+    .select('id, requested_at, locale')
     .order('requested_at', { ascending: false });
   if (error || !data) {
     return resolveAnalysisList(null, cached);
   }
 
-  const items: AnalysisListItem[] = data.map((row) => ({ id: row.id, requestedAt: row.requested_at }));
+  const items: AnalysisListItem[] = data.map((row) => ({
+    id: row.id,
+    requestedAt: row.requested_at,
+    locale: row.locale,
+  }));
   await setCachedAnalysisList(items);
   return items;
 }
@@ -122,7 +126,7 @@ export async function getAnalysisDetail(id: number): Promise<AnalysisDetail | nu
 
   const { data, error } = await getSupabase()
     .from('analyses')
-    .select('id, requested_at, report, turns, followup_turns_used, records_snapshot')
+    .select('id, requested_at, report, turns, followup_turns_used, records_snapshot, locale')
     .eq('id', id)
     .maybeSingle();
   if (error || !data) {
@@ -137,6 +141,7 @@ export async function getAnalysisDetail(id: number): Promise<AnalysisDetail | nu
     followupTurnsUsed: data.followup_turns_used,
     turnsRemaining: Math.max(0, MAX_FOLLOWUP_TURNS - data.followup_turns_used),
     recordsUsed: Array.isArray(data.records_snapshot) ? data.records_snapshot.length : 0,
+    locale: data.locale,
   };
   await setCachedAnalysisDetail(detail);
   return detail;

@@ -222,6 +222,7 @@
       "applied": "적용됨"
     },
     "disclaimer": "이 리포트는 일반적인 수면 위생 정보이며 의학적 진단이나 조언이 아닙니다. 증상이 지속되면 전문가와 상담해주세요.",
+    "reportLanguageNotice": "이 리포트는 {{language}}로 작성되었습니다.",
     "followupTitle": "후속 질문 ({{count}}번 남음)",
     "askPlaceholder": "궁금한 점을 물어보세요",
     "askButton": "질문하기",

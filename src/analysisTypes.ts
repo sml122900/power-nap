@@ -17,6 +17,8 @@ export interface FollowupTurn {
 export interface AnalysisListItem {
   id: number;
   requestedAt: string; // ISO 문자열(서버 completedAt 아님 — analyses.requested_at)
+  locale: string; // 리포트가 작성된 언어('ko'|'en') — analyses.locale, migrations/0004 참고.
+  // 재번역은 하지 않는다(API 비용, AI_ANALYSIS.md §5 근거) — 목록/상세에 언어만 표시.
 }
 
 export interface AnalysisDetail extends AnalysisListItem {
