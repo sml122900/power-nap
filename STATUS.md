@@ -634,36 +634,77 @@
     화면에서도 끊김 없이 나는지, iOS에서 미션→알람 전환 시 소리 재시작 체감 여부.
     재빌드 불필요(네이티브 의존성 추가 없음).
 
-**마지막 검증된 커밋: `mission-alarm` 브랜치(`main`의 `23a4192` 기준 분기) — 위
-"알람 해제 미션" 반영분 4종 검증 통과, 커밋·push 전.**
+- **"파워냅이란?" 정보 화면 → `mission-alarm`(→ `main`) 병합**(`about-powernap`
+  브랜치는 이 문서를 직접 갱신하지 않았음 — 병합 시점에 한 번에 정리): 홈 화면 텍스트
+  링크 + `app/about.tsx` 5개 섹션 카드 + 하단 고지문. 상세는 BACKLOG.md "구현됨
+  ('파워냅이란?' 정보 화면)"/PROJECT.md §6.5 참고. `about-powernap` 단독으로는 tsc/
+  expo-doctor/expo export/jest(88개, 신규 로직 없어 테스트 추가 없음) 4종 통과 확인됨.
+
+- **세 브랜치 병합 + 정리**(사용자 명시 지시, 순서대로 진행):
+  1. `about-powernap` → `main`(`d3b6e51`): 충돌 없이 자동 병합(`app/about.tsx` 신규 +
+     `app/index.tsx` 링크만 겹쳤는데 서로 다른 위치라 git이 자동 처리).
+  2. `main` → `mission-alarm`(`6042ffa`): `BACKLOG.md`/`PROJECT.md`에서만 충돌
+     (둘 다 §6 헤딩 문구·"구현됨" 목록 근처를 건드림) — 두 브랜치의 새 절을 모두
+     보존하는 방향으로 수동 정리(§6 헤딩은 "핵심 4개 화면 + 미션 화면 1개 + 정보
+     화면 1개"로 통합). `app/index.tsx`/`locales/*.json`/`REVIEW_NEEDED.md`는
+     자동 병합(서로 다른 영역).
+  3. `mission-alarm` → `main`(`c4d20eb`): 충돌 없음(이미 2단계에서 main을 흡수해둔
+     상태라 순방향 병합).
+  - **라우팅 회귀 재확인**(사용자 지시대로 병합 직후 필수 확인): 병합 2단계 직후
+    `useNapWatchdog.test.ts`(resolveNapRoute 6케이스)를 포함한 jest 전체가
+    107개(기존 88 + missionQuotes 8 + useNapWatchdog 6 + store 5) 그대로 통과 —
+    about 화면 병합이 라우팅 로직에 개입하지 않아 카운트가 정확히 합산됨. `main`에서도
+    동일 107개로 재확인.
+  - `main`에서 4종(tsc/expo-doctor/expo export/jest 107개) 재검증 통과, push 완료.
+  - **실기기 검증 전부 대기**(사용자 진행) — 이번에 병합된 세 기능(서버 데이터 삭제는
+    이전 세션에 이미 push됐던 것 포함) 중 실기기로 확인된 건 하나도 없음:
+    1. 알림 권한 거부 상태의 `useNapWatchdog` `/alarm` 직행(콜드 스타트/백그라운드 복귀)
+    2. "권한 허용하기" 버튼의 정밀 딥링크 + 복귀 시 안내 자동 숨김
+    3. 설정 > 데이터 및 분석 > "서버 데이터 삭제" 2단계 확인 + 크레딧 경고 + 삭제 후
+       로컬 상태 초기화
+    4. 알람 해제 미션 전체 흐름(미션 ON → 명언 화면 → 슬라이드/롱프레스 → 체크리스트/
+       설문, 오타 재시도, 3회 실패 후 문구 교체, Android/iOS 소리 연속성)
+    5. "파워냅이란?" 화면 진입/스크롤/뒤로가기, 3링크 한 줄 배치(특히 영어 로케일에서
+       줄바꿈 없이 보이는지)
+  - **다음 지시로 릴리즈 재빌드(clean) → 폰 설치 예정** — 미션 자체는 JS 전용이지만
+    이전 세션에 `expo-intent-launcher`(네이티브 의존성) 추가가 이미 누적돼 있어
+    `expo prebuild` 포함 클린 빌드로 진행.
+
+**마지막 검증된 커밋: `main` 브랜치, `c4d20eb`("Merge branch 'mission-alarm' into
+main") — 4종 검증(tsc/expo-doctor/expo export/jest 107개) 통과, push 완료. 실기기
+검증은 전부 대기.**
 
 ## 브랜치 현황
 
 - `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 + B그룹(풀스크린 인텐트) +
   Phase 4-3(학습 로직 단순화 + 설문 후기 + 히스토리 상세 보기) + 기상 직후 체크리스트 +
-  AI 분석(Phase A~C, 무료 리셋 카운트다운, analysis-v2 프롬프트) + 다국어(한/영) 전부
-  병합 완료. 다국어만 **실기기 검증 대기**, 그 외는 전부 실기기 검증 완료.
+  AI 분석(Phase A~C, 무료 리셋 카운트다운, analysis-v2 프롬프트) + 다국어(한/영) +
+  알림 권한 안내 개선 + 서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면
+  전부 병합 완료. **다국어 이후 신규 기능(권한 안내/서버 데이터 삭제/미션/정보 화면)
+  전부 실기기 검증 대기**, 그 이전 기능은 실기기 검증 완료.
 - `ai-analysis-app` / `i18n`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음(정리
   대상, 삭제는 사용자 지시 시).
-- `mission-alarm`: 알람 해제 미션(명언 타이핑) 작업 중, `main`(`23a4192`) 기준 분기,
-  **main 미병합** — 4종 검증 통과, 커밋·push 전, 실기기 검증 대기.
+- `mission-alarm` / `about-powernap`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음
+  (정리 대상, 삭제는 사용자 지시 시).
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
   완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
 
 ## 지금 단계
 
-**v1 계획 기능 + AI 분석(v1.1) Phase A~C + 다국어(한/영) 전부 `main`에 병합, 4종
-검증 통과.** 남은 건 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md
-코드 규칙 참고), AI 분석 Phase D(결제, 별도 지시 대기), 다국어의 실기기 검증(재빌드·
-설치는 다음 지시 대기, 검증은 사용자 진행). 그 외 [BACKLOG.md](BACKLOG.md) 항목은
+**v1 계획 기능 + AI 분석(v1.1) Phase A~C + 다국어(한/영) + 알림 권한 안내 개선 +
+서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면 전부 `main`에 병합, 4종
+검증 통과.** 남은 건 위 다섯 개 신규 기능의 실기기 검증(재빌드·설치는 다음 지시
+대기) + 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙
+참고) + AI 분석 Phase D(결제, 별도 지시 대기). 그 외 [BACKLOG.md](BACKLOG.md) 항목은
 여전히 요청 없이 착수하지 않는다.
 
 ## 미해결 항목
 
 - [ ] tsconfig 안정화 여부 (`experiments.typedRoutes` 적용 후 `expo start` 반복 실행으로 include 배열 되돌아가지 않는지 재확인)
-- [ ] `phase-4-2`/`fullscreen-intent`/`phase-4-3` 브랜치 + `power-nap-phase43` worktree
-      정리(삭제) — 전부 main 병합 완료로 더 이상 필요 없음, 삭제는 사용자 확인 후
+- [ ] `phase-4-2`/`fullscreen-intent`/`phase-4-3`/`mission-alarm`/`about-powernap`
+      브랜치 + `power-nap-phase43` worktree 정리(삭제) — 전부 main 병합 완료로 더
+      이상 필요 없음, 삭제는 사용자 확인 후
 - [ ] 출시 전 체크리스트: `src/config.ts`의 `SHOW_TEST_BUTTONS`를 `false`로(CLAUDE.md
       코드 규칙 참고), 권한 거부 전수 검증(`POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`,
       `USE_FULL_SCREEN_INTENT` 각각 — `POST_NOTIFICATIONS`는 이번 세션에 완료, 나머지
@@ -678,6 +719,11 @@
       작성(Phase E) — AI_ANALYSIS.md §7 참고
 - [ ] "서버 데이터 삭제" 실기기 확인(2단계 확인 다이얼로그, 크레딧 경고 문구, 삭제
       후 로컬 동의/캐시 초기화) — 사용자 진행
+- [ ] "알람 해제 미션" 실기기 확인(미션 ON → 명언 화면 → 슬라이드/롱프레스 → 체크리스트/
+      설문 전체 흐름, 오타 재시도, 3회 실패 후 문구 교체, Android/iOS 소리 연속성) —
+      사용자 진행
+- [ ] "파워냅이란?" 화면 실기기 확인(진입/스크롤/뒤로가기, 3링크 한 줄 배치가 영어
+      로케일에서도 줄바꿈 없이 보이는지) — 사용자 진행
 
 ---
 
