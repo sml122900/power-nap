@@ -50,6 +50,17 @@
 | `analysisReport.disclaimer` | This report is general sleep hygiene information, not a medical diagnosis or advice. If symptoms persist, please consult a professional. | 검수 완료 — 수정 불필요. "의학적 조언이 아니다"는 단정 강도가 원문과 동등하게 유지됨 |
 | `alarm.subtitle` | 5 more minutes will only leave you groggier from sleep inertia.\nGetting up right now feels best. | 검수 완료 — 수정 불필요. "sleep inertia"가 과장된 의학적 단정으로 읽히지 않음(일반 수면위생 용어 수준) |
 
+### 신규 추가 (미검수) — "파워냅이란?" 정보 화면(`about-powernap` 브랜치)
+
+`app/about.tsx` 5개 섹션 본문 — 문헌 근거를 요약한 건강 정보 문구라 이 카테고리로
+분류. 장기 건강효과·진단/치료 표현은 이미 배제하고 썼지만(작성 규칙 참고), 영어
+문장이 원문보다 단정적으로 읽히지 않는지 원어민 검수 필요. 5개 섹션(`about.section1`~
+`section5`) + `about.disclaimer` 전부 대상 — 분량이 많아 표 대신 파일 직접 확인 권장
+(`locales/en.json`의 `about` 네임스페이스). 특히 `section1`의 "which can leave you
+feeling worse instead of better"와 `section5`의 "that may be a sign you're not
+sleeping enough at night"가 원문("개운함이 떨어질 수 있어요"/"밤잠 자체가 부족하다는
+신호일 수 있어요")보다 단정 강도가 세게 읽히는지 우선 확인 — **아직 미검수**.
+
 ## 3순위 — 동의/개인정보 관련 문구 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |
