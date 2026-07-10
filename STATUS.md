@@ -675,11 +675,15 @@
     커밋 대상 아님). adb `unauthorized`/미연결이 중간에 다시 발생 — 케이블 재연결 후
     해결(기존에도 겪은 흔한 함정).
   - STATUS.md에 이 병합·재검증·재빌드 기록을 커밋 `b6d1a29`로 push 완료.
+  - **릴리즈 빌드 7차 + 재설치**(사용자 지시로 재확인): 코드 변경 없이(`4c50a22`에서
+    working tree clean) `gradlew assembleRelease`만 재실행(prebuild 불필요 — 6차에서
+    이미 clean 빌드했고 그 사이 네이티브/설정 변경 없음, 1분 38초·대부분 UP-TO-DATE) →
+    `adb install -r`로 재설치 완료.
 
-**마지막 검증된 커밋: `main` 브랜치, `c4d20eb`("Merge branch 'mission-alarm' into
-main", 문서 갱신 `b6d1a29`까지 반영) — 4종 검증(tsc/expo-doctor/expo export/jest
-107개) 통과, push 완료. 릴리즈 빌드 6차·실기기 설치 완료. 기능 실사용 검증(위
-1~5번 항목)은 전부 대기.**
+**마지막 검증된 커밋: `main` 브랜치, `4c50a22`("docs: record clean release build 6 +
+install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/jest
+107개) 통과. 릴리즈 빌드 7차·실기기 설치 완료. 기능 실사용 검증(위 1~5번 항목)은
+전부 대기.**
 
 ## 브랜치 현황
 
