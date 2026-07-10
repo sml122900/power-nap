@@ -15,7 +15,9 @@
 // 켜지는지"뿐(풀스크린 인텐트가 알림 배너 억제와 함께 묶여 억제되는지는 실기기 확인 전까지
 // 단정하지 않는다 — app/sleep.tsx의 안내 문구가 중립적인 이유).
 
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
+import Constants from 'expo-constants';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Notifications from 'expo-notifications';
 import { removeAlarm, scheduleAlarm, stopAlarm } from 'expo-alarm-module';
 
@@ -110,4 +112,33 @@ export async function cancelAlarmNotificationAsync(notificationId: string | null
 export async function stopNativeAlarmSoundAsync(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await stopAlarm();
+}
+
+// 수면 화면 "권한 허용하기" 버튼에서 호출. 지금 시점의 실제 권한 상태를 다시 조회한다
+// (ActiveNap.notificationPermissionGranted는 낮잠 시작 시점에 고정된 값이라 설정에서
+// 갔다 온 뒤의 변화를 반영 못 함).
+export async function getNotificationPermissionGrantedAsync(): Promise<boolean> {
+  const status = await Notifications.getPermissionsAsync();
+  return status.granted;
+}
+
+// 앱의 알림 설정 화면으로 딥링크한다. Android는 ACTION_APP_NOTIFICATION_SETTINGS로
+// "알림 허용" 토글이 바로 보이는 화면까지 직행하고, iOS는 그런 세부 화면 인텐트가 없어
+// 앱 설정 화면(Linking.openSettings())으로 보낸다. Android에서 패키지명을 못 얻거나
+// 인텐트 자체가 실패하면(제조사 커스텀 설정 앱 등) 같은 폴백으로 내려간다.
+export async function openNotificationSettingsAsync(): Promise<void> {
+  if (Platform.OS === 'android') {
+    const packageName = Constants.expoConfig?.android?.package;
+    if (packageName) {
+      try {
+        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APP_NOTIFICATION_SETTINGS, {
+          extra: { 'android.provider.extra.APP_PACKAGE': packageName },
+        });
+        return;
+      } catch {
+        // 아래 폴백으로 진행.
+      }
+    }
+  }
+  await Linking.openSettings();
 }

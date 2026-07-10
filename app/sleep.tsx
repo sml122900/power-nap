@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -14,7 +14,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { formatTime } from '@/format';
-import { cancelAlarmNotificationAsync } from '@/notifications';
+import {
+  cancelAlarmNotificationAsync,
+  getNotificationPermissionGrantedAsync,
+  openNotificationSettingsAsync,
+} from '@/notifications';
 import { clearActiveNap, getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
@@ -27,14 +31,32 @@ export default function SleepScreen() {
 
   const [nap, setNap] = useState<ActiveNap | null>(null);
   const [, setTick] = useState(0);
+  // ActiveNap.notificationPermissionGranted는 낮잠 시작 시점에 고정된 값이라, 사용자가
+  // 안내를 보고 설정에서 권한을 켜고 돌아와도 갱신되지 않는다 — 이 화면에 머무는 동안의
+  // 실시간 권한 상태는 별도 상태로 들고 AppState 복귀 시 다시 조회한다.
+  const [permissionGranted, setPermissionGranted] = useState(true);
 
   // ActiveNap이 없을 때 '/'로 보내는 판단은 useNapWatchdog의 check()가 전담한다
   // (redirectedRef로 가드됨) — 여기서는 화면 렌더용 데이터만 불러온다. 두 곳에서
   // 각자 router.replace를 호출하면 Item 2에서 없앤 레이스가 되살아난다.
   useEffect(() => {
     getActiveNap().then((loaded) => {
-      if (loaded) setNap(loaded);
+      if (loaded) {
+        setNap(loaded);
+        setPermissionGranted(loaded.notificationPermissionGranted);
+      }
     });
+  }, []);
+
+  // 설정 화면에 다녀온 뒤(AppState가 'active'로 복귀할 때) 권한을 다시 조회해, 그새
+  // 허용됐으면 안내를 자동으로 감춘다.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        getNotificationPermissionGrantedAsync().then(setPermissionGranted);
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   // 카운트다운은 감산이 아니라 매 tick마다 alarmAt(절대시각) - Date.now()를 다시 계산한다.
@@ -112,25 +134,33 @@ export default function SleepScreen() {
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
 
-        {!nap.notificationPermissionGranted && (
+        {!permissionGranted && (
           // 알림 권한 거부 시 실제로 벌어지는 일이 플랫폼마다 다르다(src/notifications.ts
           // 상단 주석 참고): Android는 네이티브 알람(STREAM_ALARM) 소리·진동이 권한과
-          // 무관하게 100% 정상 동작한다(expo-alarm-module 소스로 확인됨) — 불확실한 건
-          // 화면 자동 점등(풀스크린 인텐트)뿐이라 Android 문구는 "소리는 울린다"를 단정하고
-          // 화면 쪽은 중립적으로 남긴다. 실기기 검증 후 확정 예정(REVIEW_NEEDED.md 아님,
-          // CLAUDE.md 지뢰 목록 참고) — 그 전까지 단정적 표현 금지.
+          // 무관하게 100% 정상 동작한다(실기기 검증 완료, PROJECT.md §4 표 참고) — 권한이
+          // 실제로 좌우하는 건 화면 자동 점등(풀스크린 인텐트)뿐이라 Android 문구는
+          // "소리는 울린다"를 단정하고 화면 쪽만 안내한다.
           // iOS는 foreground JS 타이머가 주 레이어라 "앱을 켜두면 울려요"가 그대로 사실.
           <>
             <Text style={styles.permissionHint}>
               {t(Platform.OS === 'android' ? 'permissionHintAndroid' : 'permissionHint')}
             </Text>
             {Platform.OS === 'android' && (
-              <Pressable
-                onPress={() => Linking.openSettings()}
-                style={({ pressed }) => [styles.permissionBtn, pressed && styles.permissionBtnPressed]}
-              >
-                <Text style={styles.permissionBtnText}>{t('permissionButton')}</Text>
-              </Pressable>
+              <>
+                {/* 켜야 할 토글 이름을 미리 알려준다 — 설정 화면에 도착한 뒤 뭘 눌러야
+                    할지 헤매지 않게. 화면 위에 토글을 직접 가리키는 오버레이/하이라이트는
+                    구현하지 않는다: Android에서 다른 앱 위에 그리려면 SYSTEM_ALERT_WINDOW
+                    권한이 필요한데, 알림 권한 하나 받으려고 더 민감한 권한을 새로 요청하는
+                    건 본말전도고, 스토어 심사에서도 오버레이 권한은 별도 소명이 필요해
+                    불리하다. 텍스트 안내로 충분하다고 판단. */}
+                <Text style={styles.permissionGuide}>{t('permissionGuide')}</Text>
+                <Pressable
+                  onPress={() => openNotificationSettingsAsync()}
+                  style={({ pressed }) => [styles.permissionBtn, pressed && styles.permissionBtnPressed]}
+                >
+                  <Text style={styles.permissionBtnText}>{t('permissionButton')}</Text>
+                </Pressable>
+              </>
             )}
           </>
         )}
@@ -188,6 +218,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.semibold,
     color: colors.amber,
+    textAlign: 'center',
+  },
+  permissionGuide: {
+    marginTop: 6,
+    fontSize: 12,
+    fontFamily: fontFamily.semibold,
+    color: colors.nightSoft,
     textAlign: 'center',
   },
   permissionBtn: {
