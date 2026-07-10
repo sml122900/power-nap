@@ -196,6 +196,10 @@ export default function HomeScreen() {
             <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
               <Text style={styles.historyLinkText}>{t('settingsLink')}</Text>
             </Pressable>
+            <Text style={styles.topLinksSeparator}>·</Text>
+            <Pressable onPress={() => router.push('/about')} hitSlop={12}>
+              <Text style={styles.historyLinkText}>{t('aboutLink')}</Text>
+            </Pressable>
           </View>
 
           <View style={styles.head}>
@@ -348,6 +352,7 @@ const styles = StyleSheet.create({
   },
   topLinksRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignSelf: 'flex-start',
     alignItems: 'center',
     marginTop: 12,
