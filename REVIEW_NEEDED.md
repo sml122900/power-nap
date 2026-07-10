@@ -17,6 +17,17 @@
 | `alarm.a11yDismissAction` | Turn off alarm | 검수 완료 — 수정 불필요 |
 | `alarm.notificationTitle` / `alarm.notificationBody` | Time to wake up / Your PowerNap alarm is ringing. | 검수 완료 — 수정 불필요. OS 알림 그대로 노출되는 문구, 짧고 명확함 |
 
+### 신규 추가 (미검수) — 권한 거부 시나리오 실기기 검증 후 문구 확정
+
+`sleep.permissionHintAndroid`를 실기기 검증 결과(소리·진동은 권한 무관 발화, 화면
+자동점등만 권한 필요)에 맞게 재작성하고 `sleep.permissionButton`(설정 딥링크 버튼)을
+신규 추가했다. 기계 번역이라 원어민 검수 전.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `sleep.permissionHintAndroid` | The alarm sound and vibration will play. However, without notification permission the screen won't turn on automatically — please open the app yourself to turn off the alarm when it rings. | 두 문장이 길게 이어짐 — 안전 관련 문구라 가장 먼저 검수 필요, 어색하면 문장 분리 검토 — **아직 미검수** |
+| `sleep.permissionButton` | Allow permission | 버튼 문구가 실제로는 앱 일반 설정으로 이동함(알림 권한 화면 직행 아님) — 오해 소지 있는지 — **아직 미검수** |
+
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |

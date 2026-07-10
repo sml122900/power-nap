@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -120,9 +120,19 @@ export default function SleepScreen() {
           // 화면 쪽은 중립적으로 남긴다. 실기기 검증 후 확정 예정(REVIEW_NEEDED.md 아님,
           // CLAUDE.md 지뢰 목록 참고) — 그 전까지 단정적 표현 금지.
           // iOS는 foreground JS 타이머가 주 레이어라 "앱을 켜두면 울려요"가 그대로 사실.
-          <Text style={styles.permissionHint}>
-            {t(Platform.OS === 'android' ? 'permissionHintAndroid' : 'permissionHint')}
-          </Text>
+          <>
+            <Text style={styles.permissionHint}>
+              {t(Platform.OS === 'android' ? 'permissionHintAndroid' : 'permissionHint')}
+            </Text>
+            {Platform.OS === 'android' && (
+              <Pressable
+                onPress={() => Linking.openSettings()}
+                style={({ pressed }) => [styles.permissionBtn, pressed && styles.permissionBtnPressed]}
+              >
+                <Text style={styles.permissionBtnText}>{t('permissionButton')}</Text>
+              </Pressable>
+            )}
+          </>
         )}
       </View>
 
@@ -179,6 +189,22 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     color: colors.amber,
     textAlign: 'center',
+  },
+  permissionBtn: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.amber,
+  },
+  permissionBtnPressed: {
+    backgroundColor: colors.onDarkBorderPress,
+  },
+  permissionBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.amber,
   },
   ghostBtn: {
     paddingVertical: 16,
