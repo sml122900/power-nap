@@ -508,6 +508,37 @@
     실증(콜드 스타트/백그라운드 복귀), 신규 "권한 허용하기" 버튼 실제 동작, 최종 확정된
     안내 문구 표시 — 전부 사용자가 폰에서 직접 진행.
 
+- **"권한 허용하기" 버튼 개선**(`main`, 사용자 명시 지시) — 위 항목의 `Linking.openSettings()`
+  방식을 대체:
+  - `expo-intent-launcher` 신규 설치(`npx expo install`) — Android에서
+    `ACTION_APP_NOTIFICATION_SETTINGS` 인텐트로 앱의 "알림" 설정 화면에 직행(extra:
+    `android.provider.extra.APP_PACKAGE`, 패키지명은 `expo-constants`의
+    `Constants.expoConfig?.android?.package`로 조회). 패키지명을 못 얻거나 인텐트
+    자체가 실패하면(제조사 커스텀 설정 앱 등) `Linking.openSettings()`로 폴백. iOS는
+    동급 세부 인텐트가 없어 처음부터 `openSettings()`. `src/notifications.ts`에
+    `openNotificationSettingsAsync()`로 캡슐화.
+  - 버튼 위에 켜야 할 토글 이름을 명시한 안내 문구(`sleep.permissionGuide`) 추가.
+    화면 위에 토글을 직접 가리키는 오버레이/하이라이트는 구현하지 않음 —
+    `SYSTEM_ALERT_WINDOW`(다른 앱 위에 그리기) 권한이 새로 필요한데, 알림 권한 하나
+    받으려고 더 민감한 권한을 요청하는 건 본말전도고 스토어 심사에도 불리(판단 근거는
+    `app/sleep.tsx` 인라인 주석에도 기록) — 텍스트 안내로 충분하다고 판단.
+  - `src/notifications.ts`에 `getNotificationPermissionGrantedAsync()` 신규 —
+    `app/sleep.tsx`가 `ActiveNap.notificationPermissionGranted`(낮잠 시작 시점 고정값)
+    대신 별도 상태로 실시간 권한을 들고, `AppState`가 `'active'`로 복귀할 때(설정
+    화면에서 돌아왔을 때) 재조회해 권한이 그새 허용됐으면 안내를 자동으로 감춘다.
+  - `expo-intent-launcher`는 새 네이티브 모듈이라 `npx expo prebuild --platform android`
+    필요(config plugin/권한 추가는 없음 — app.json 변경 없음, 커밋 후 `git status`로
+    확인). prebuild가 `android/local.properties`를 비운 채로 재생성해 `sdk.dir` 수동
+    기입 필요했음(일회성 환경 이슈, `android/`는 gitignore라 커밋 대상 아님).
+  - tsc/expo-doctor/expo export/jest(88개) 4종 통과. 커밋
+    `79ed57a`("feat: precise notification-settings deep link + live permission
+    recheck") push 완료. **릴리즈 빌드 5차(prebuild 포함) + 실기기 재설치 완료**
+    (adb `unauthorized` 재발 → 화면 잠금 해제 후 승인 팝업에서 해결, 5차부터도 같은
+    패턴 반복 확인).
+  - **실기기 검증 대기**: "권한 허용하기" 버튼이 실제로 앱 알림 설정 화면(일반 앱
+    정보 화면이 아니라)으로 직행하는지, 설정에서 권한을 켜고 돌아오면 안내가 자동으로
+    사라지는지, `permissionGuide` 문구 표시 — 전부 사용자가 폰에서 직접 진행.
+
 **마지막 검증된 커밋: `main` 브랜치, `i18n` 병합 완료 — 4종 검증 통과, 실기기
 빌드·설치·검증 대기(사용자 진행). 위 권한 거부 시나리오 반영분은 커밋 전.**
 
