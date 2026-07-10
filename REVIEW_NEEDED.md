@@ -28,6 +28,21 @@
 | `sleep.permissionHintAndroid` | The alarm sound and vibration will play. However, without notification permission the screen won't turn on automatically — please open the app yourself to turn off the alarm when it rings. | 두 문장이 길게 이어짐 — 안전 관련 문구라 가장 먼저 검수 필요, 어색하면 문장 분리 검토 — **아직 미검수** |
 | `sleep.permissionButton` | Allow permission | (갱신) 이제 `expo-intent-launcher`로 앱의 "알림" 설정 화면에 직행한다(실패 시에만 일반 설정으로 폴백) — 문구 자체는 여전히 미검수 |
 
+### 신규 추가 (미검수) — 알람 해제 미션(명언 타이핑, `mission-alarm` 브랜치)
+
+미션이 켜져 있으면 이 화면이 실제로 알람을 끄는 유일한 경로(건너뛰기 없음)라 1순위로
+분류. 명언 원문 자체(`src/missionQuotes.ts`, ko/en 각 18개, 전부 자체 작성)는 UI
+문자열이 아니라 이 파일이 아닌 코드에 있으므로 표에는 화면 문구만 올린다 — 명언
+원문의 영어 표현 자연스러움도 함께 검수 권장.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `mission.instruction` | Type the sentence below exactly | "exactly"가 과하게 엄격한 인상을 주는지(실제로는 대소문자·구두점·공백 관대) — **아직 미검수** |
+| `mission.retryHint` | Please type it exactly | 위와 같은 이유로 사용자가 "정말 토씨 하나까지"로 오해할 수 있는지 — **아직 미검수** |
+| `mission.quoteSwapped` | Switched to a different sentence | 실패로 인한 전환이라는 뉘앙스가 부정적으로 느껴지지 않는지(중립적 안내 톤 유지 확인) — **아직 미검수** |
+| `settings.missionOnDescription` | On — when the alarm rings, you must type a sentence to dismiss it | "you must"의 단정 강도가 원문 "해제할 수 있어요"보다 강압적으로 읽히는지 — **아직 미검수** |
+| `src/missionQuotes.ts`의 en 배열 전체 | (18개 문구) | 자체 작성 영어 문구라 원어민 자연스러움 검수가 특히 필요 — **아직 미검수** |
+
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |

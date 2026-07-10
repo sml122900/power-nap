@@ -23,6 +23,7 @@ import {
   LATENCY_MAX,
   LATENCY_MIN,
   setAiConsent,
+  setMissionEnabled,
   TARGET_SLEEP_MIN,
   type NapMode,
   type Settings,
@@ -77,6 +78,15 @@ export default function SettingsScreen() {
     const next = aiConsent !== true;
     await setAiConsent(next);
     setAiConsentState(next);
+  };
+
+  // 알람 해제 미션 토글 — 기본 false(기존 사용자 경험 보호), 여기서만 켤 수 있다.
+  const onToggleMission = async () => {
+    if (!settings) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = !settings.missionEnabled;
+    await setMissionEnabled(next);
+    setSettings({ ...settings, missionEnabled: next });
   };
 
   // 개인정보처리방침 "서버 데이터 삭제" — 2단계 확인(안내 → 최종 확인) 후 실행.
@@ -256,6 +266,20 @@ export default function SettingsScreen() {
               </Pressable>
             );
           })}
+        </View>
+      </View>
+
+      <View style={styles.dataSection}>
+        <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataRowText}>
+            {settings.missionEnabled ? t('missionOnDescription') : t('missionOffDescription')}
+          </Text>
+          <Pressable onPress={onToggleMission} style={styles.dataToggleBtn}>
+            <Text style={styles.dataToggleBtnText}>
+              {settings.missionEnabled ? t('missionToggleOff') : t('missionToggleOn')}
+            </Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>

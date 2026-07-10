@@ -11,18 +11,23 @@ import {
   computeCoffeeAlarmAt,
   computeSuggestionApplication,
   filterAnalyzableRecords,
+  getActiveNap,
   getAiConsent,
   getCachedAnalysisDetail,
   getCachedAnalysisList,
   getNapRecords,
   getSettings,
+  markMissionCompleted,
   MIN_RECORDS_FOR_ANALYSIS,
   periodSinceMs,
   resolveAnalysisDetail,
   resolveAnalysisList,
+  saveActiveNap,
   setAiConsent,
   setCachedAnalysisDetail,
   setCachedAnalysisList,
+  setMissionEnabled,
+  type ActiveNap,
   type NapRecord,
   type Settings,
 } from './store';
@@ -75,7 +80,12 @@ describe('getSettings migration', () => {
     );
 
     const settings = await getSettings();
-    expect(settings).toEqual({ latency: { fast: 5, slow: 15 }, caffeineOnset: 30, totalNaps: 3 });
+    expect(settings).toEqual({
+      latency: { fast: 5, slow: 15 },
+      caffeineOnset: 30,
+      totalNaps: 3,
+      missionEnabled: false, // 저장된 v3 객체에 없던 필드 — 기본값 false로 채워짐
+    });
     expect((settings as unknown as { converged?: unknown }).converged).toBeUndefined();
   });
 
@@ -94,11 +104,50 @@ describe('getSettings migration', () => {
       latency: { fast: 5, slow: 15 },
       caffeineOnset: 30,
       totalNaps: 3,
+      missionEnabled: true,
     };
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(original));
 
     const settings = await getSettings();
     expect(settings).toEqual(original);
+  });
+});
+
+describe('setMissionEnabled', () => {
+  it('defaults to false and round-trips a toggle without touching other fields', async () => {
+    expect((await getSettings()).missionEnabled).toBe(false);
+
+    await setMissionEnabled(true);
+    const settings = await getSettings();
+    expect(settings.missionEnabled).toBe(true);
+    expect(settings.latency).toEqual({ fast: 0, slow: 10 });
+    expect(settings.caffeineOnset).toBe(25);
+
+    await setMissionEnabled(false);
+    expect((await getSettings()).missionEnabled).toBe(false);
+  });
+});
+
+describe('markMissionCompleted', () => {
+  const BASE_NAP: ActiveNap = {
+    mode: 'fast',
+    startedAt: 1000,
+    alarmAt: 2000,
+    notificationId: null,
+    notificationPermissionGranted: true,
+  };
+
+  it('sets missionCompleted on the active nap without touching other fields', async () => {
+    await saveActiveNap(BASE_NAP);
+    await markMissionCompleted();
+
+    const nap = await getActiveNap();
+    expect(nap).toEqual({ ...BASE_NAP, missionCompleted: true });
+  });
+
+  it('is a no-op when there is no active nap', async () => {
+    await markMissionCompleted();
+    expect(await getActiveNap()).toBeNull();
   });
 });
 

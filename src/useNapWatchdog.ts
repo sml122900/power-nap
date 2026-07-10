@@ -1,5 +1,5 @@
 // 화면 진입/포그라운드 복귀마다 ActiveNap.alarmAt(절대시각)과 Date.now()를 비교해
-// 있어야 할 화면으로 강제 이동시킨다. 세 화면(홈/수면/알람) 각각에서 자신의 경로를
+// 있어야 할 화면으로 강제 이동시킨다. 네 화면(홈/수면/알람/미션) 각각에서 자신의 경로를
 // 넘겨 호출한다.
 //
 // 백그라운드에서는 JS 타이머(setInterval)가 멈춘다 — AppState가 'active'로 돌아오는
@@ -14,9 +14,20 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { getActiveNap } from './store';
+import { getActiveNap, getSettings, type ActiveNap } from './store';
 
-export type NapRoute = '/' | '/sleep' | '/alarm';
+export type NapRoute = '/' | '/sleep' | '/alarm' | '/mission';
+
+// 라우팅 판정만 떼어낸 순수 함수 — React/AsyncStorage 없이 jest로 직접 검증한다.
+// 미션(명언 타이핑)은 missionEnabled가 켜져 있고, 아직 이번 낮잠에서 통과하지 않았을
+// 때만 끼어든다. 테스트 낮잠(isTest)은 후기와 마찬가지로 미션도 건너뛴다(도그푸딩
+// 워크플로 방해 금지 — 기존 isTest 특례와 같은 이유).
+export function resolveNapRoute(nap: ActiveNap | null, missionEnabled: boolean, nowMs: number): NapRoute {
+  if (!nap) return '/';
+  if (nap.alarmAt > nowMs) return '/sleep';
+  if (missionEnabled && !nap.isTest && !nap.missionCompleted) return '/mission';
+  return '/alarm';
+}
 
 export function useNapWatchdog(currentRoute: NapRoute): () => void {
   const router = useRouter();
@@ -26,9 +37,9 @@ export function useNapWatchdog(currentRoute: NapRoute): () => void {
 
   const check = useCallback(async () => {
     if (redirectedRef.current) return;
-    const nap = await getActiveNap();
+    const [nap, settings] = await Promise.all([getActiveNap(), getSettings()]);
     if (redirectedRef.current) return;
-    const target: NapRoute = !nap ? '/' : nap.alarmAt > Date.now() ? '/sleep' : '/alarm';
+    const target = resolveNapRoute(nap, settings.missionEnabled, Date.now());
     if (target !== routeRef.current) {
       redirectedRef.current = true;
       router.replace(target);

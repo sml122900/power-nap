@@ -205,7 +205,21 @@
       "system": "Follow system setting",
       "ko": "한국어",
       "en": "English"
-    }
+    },
+    "missionSectionLabel": "Dismiss Mission",
+    "missionOnDescription": "On — when the alarm rings, you must type a sentence to dismiss it",
+    "missionOffDescription": "Off — dismiss right away by sliding or long-pressing",
+    "missionToggleOn": "Turn on",
+    "missionToggleOff": "Turn off"
+  },
+  "mission": {
+    "title": "One line to wake your mind",
+    "instruction": "Type the sentence below exactly",
+    "inputPlaceholder": "Type here",
+    "submitButton": "Confirm",
+    "retryHint": "Please type it exactly",
+    "quoteSwapped": "Switched to a different sentence",
+    "a11yInput": "Mission input"
   },
   "analysisConsent": {
     "title": "About AI Analysis",

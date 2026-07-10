@@ -18,6 +18,10 @@ export interface Settings {
   latency: Record<'fast' | 'slow', number>; // 분 — 목표수면 외에 추가로 필요한 대기시간(수동 조정)
   caffeineOnset: number; // 분 — 커피 마신 시각부터 카페인 발현까지(수동 조정)
   totalNaps: number;
+  // 알람 해제 미션(명언 타이핑) on/off — 기본 false(기존 사용자 경험 보호).
+  // true면 알람 발화 시 슬라이드/롱프레스 해제 화면(/alarm) 전에 /mission을 먼저 거친다
+  // (useNapWatchdog.resolveNapRoute 참고).
+  missionEnabled: boolean;
 }
 
 export interface ActiveNap {
@@ -32,6 +36,10 @@ export interface ActiveNap {
   // Android에서 항상 notificationId가 채워지게 되며 더 이상 유효하지 않음).
   notificationPermissionGranted: boolean;
   isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
+  // 알람 해제 미션(명언 타이핑)을 이번 낮잠에서 이미 통과했는지 — /mission 화면이 성공
+  // 시 true로 남기고 /alarm으로 직접 이동한다. useNapWatchdog이 재판정할 때(예: 미션
+  // 화면에서 앱을 백그라운드로 보냈다 복귀) 다시 /mission으로 돌려보내지 않기 위한 값.
+  missionCompleted?: boolean;
 }
 
 // 레거시(Phase 4-2 이전) 3버튼 후기 결과 — 신규 레코드는 더 이상 안 씀,
@@ -150,6 +158,7 @@ const DEFAULT_SETTINGS: Settings = {
   latency: DEFAULT_LATENCY,
   caffeineOnset: DEFAULT_CAFFEINE_ONSET,
   totalNaps: 0,
+  missionEnabled: false,
 };
 
 export const LATENCY_MIN = 0;
@@ -194,6 +203,7 @@ export async function getSettings(): Promise<Settings> {
     caffeineOnset?: number;
     offsets?: Partial<Record<'fast' | 'slow', number>>;
     totalNaps?: number;
+    missionEnabled?: boolean;
   };
   try {
     parsed = JSON.parse(raw);
@@ -202,7 +212,7 @@ export async function getSettings(): Promise<Settings> {
   }
 
   if (parsed.latency) {
-    // 이미 v3 형태.
+    // 이미 v3 형태(missionEnabled는 이번에 추가 — 없으면 기본 false, 기존 사용자 경험 보호).
     return {
       latency: {
         fast: parsed.latency.fast ?? DEFAULT_LATENCY.fast,
@@ -210,6 +220,7 @@ export async function getSettings(): Promise<Settings> {
       },
       caffeineOnset: parsed.caffeineOnset ?? DEFAULT_CAFFEINE_ONSET,
       totalNaps: parsed.totalNaps ?? 0,
+      missionEnabled: parsed.missionEnabled ?? false,
     };
   }
 
@@ -222,6 +233,7 @@ export async function getSettings(): Promise<Settings> {
     },
     caffeineOnset: DEFAULT_CAFFEINE_ONSET,
     totalNaps: parsed.totalNaps ?? 0,
+    missionEnabled: false,
   };
   await saveSettings(migrated);
   return migrated;
@@ -229,6 +241,13 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await AsyncStorage.setItem(KEYS.settings, JSON.stringify(settings));
+}
+
+// 설정 화면 "알람 해제 미션" 토글 전용 — Settings 전체를 읽고 이 필드만 바꿔 저장한다
+// (applyManualAdjustment와 동일한 read-modify-write 패턴).
+export async function setMissionEnabled(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  await saveSettings({ ...settings, missionEnabled: enabled });
 }
 
 // 후기 화면 "직접 조정하기" 및 설정 화면 전용: 절대값을 clamp해 그대로 반영한다.
@@ -291,6 +310,14 @@ export async function saveActiveNap(nap: ActiveNap): Promise<void> {
 
 export async function clearActiveNap(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.activeNap);
+}
+
+// 미션 화면(app/mission.tsx)이 명언 타이핑에 성공한 직후 호출 — 이후 useNapWatchdog의
+// resolveNapRoute가 같은 ActiveNap을 다시 '/mission'으로 보내지 않는다.
+export async function markMissionCompleted(): Promise<void> {
+  const nap = await getActiveNap();
+  if (!nap) return;
+  await saveActiveNap({ ...nap, missionCompleted: true });
 }
 
 export async function savePendingFeedback(feedback: PendingFeedback): Promise<void> {
