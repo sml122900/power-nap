@@ -498,7 +498,15 @@
     전혀 참조하지 않는 로직이라 이미 정상 동작(코드 확인만, 수정 불필요).
   - `locales/ko.json`/`en.json`: `sleep.permissionHintAndroid` 갱신 + `sleep.permissionButton`
     신규 키 양쪽 추가. `REVIEW_NEEDED.md` 1순위에 두 키 신규 미검수 항목으로 추가.
-  - **검증 후 push 예정, 재빌드는 다음 지시 대기**(사용자 지시).
+  - 커밋 `813bca8`("fix: permission-independent alarm + denied-state guidance") push
+    완료. **릴리즈 빌드 4차 + 실기기 재설치 완료** — app.json/네이티브 설정 변경 없어
+    `prebuild` 없이 `gradlew assembleRelease`만 재실행, `adb install -r`로 설치.
+    (adb 인증이 `unauthorized`로 막혀 있었음 — 케이블/화면 잠금 상태에서 폰 쪽 승인
+    팝업이 안 뜬 것으로 추정, 화면 잠금 해제 후 팝업에서 승인해 해결 — 기존에도 겪은
+    흔한 함정, 코드 이슈 아님.)
+  - **실기기 검증 대기**: 위 STATUS.md "미해결 항목"의 `useNapWatchdog` `/alarm` 직행
+    실증(콜드 스타트/백그라운드 복귀), 신규 "권한 허용하기" 버튼 실제 동작, 최종 확정된
+    안내 문구 표시 — 전부 사용자가 폰에서 직접 진행.
 
 **마지막 검증된 커밋: `main` 브랜치, `i18n` 병합 완료 — 4종 검증 통과, 실기기
 빌드·설치·검증 대기(사용자 진행). 위 권한 거부 시나리오 반영분은 커밋 전.**
