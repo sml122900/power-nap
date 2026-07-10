@@ -585,15 +585,57 @@
     (`supabase functions deploy delete-my-data`) 후 4개 전부 통과 확인** — 스킵/모킹
     없이 실서버 대상 검증.
   - jest(app) 88개 그대로 통과(신규 앱 코드가 기존 테스트를 안 건드림) + jest(supabase)
-    신규 4개 통과, tsc/expo-doctor/expo export 3종 통과. 커밋 예정(아직 push 전).
+    신규 4개 통과, tsc/expo-doctor/expo export 3종 통과. 커밋 `23a4192`("feat: server
+    data deletion...") push 완료(이 문서에 이전에 "push 전"이라 적어둔 건 정정 —
+    같은 커밋에 STATUS.md도 함께 들어가 커밋 시점에 반영이 안 됐던 표기 오류).
   - **실기기 검증 대기**(사용자 진행): 설정 화면 "서버 데이터 삭제" 버튼 → 2단계
     확인 다이얼로그 → 크레딧 있을 때 경고 문구 표시 → 삭제 성공 시 동의 상태/캐시
     초기화 확인. **재빌드 불필요**(JS/Edge Function만 변경, 네이티브 의존성 추가
     없음 — 기존 설치본에서 Metro/dev 클라이언트로 확인 가능, 릴리즈 APK로 보려면
     재빌드 필요).
 
-**마지막 검증된 커밋: `main` 브랜치, `c9415d0`("릴리즈 빌드 5 기록") — 4종 검증 통과.
-위 "서버 데이터 삭제" 반영분은 검증 통과, push 전.**
+- **알람 해제 미션(명언 타이핑)**(`mission-alarm` 브랜치, `main`(`23a4192`) 기준 분기,
+  사용자 명시 지시) — BACKLOG.md "알람 해제 미션"/PROJECT.md §6.3.5 신규 참고:
+  - `Settings.missionEnabled`(기본 false) 신규 — `getSettings()` v3 마이그레이션에
+    `?? false` 폴백 추가, `setMissionEnabled()` 신규(read-modify-write). `ActiveNap.
+    missionCompleted?: boolean` 신규 + `markMissionCompleted()`.
+  - `useNapWatchdog`의 라우팅 판정을 `resolveNapRoute(nap, missionEnabled, nowMs)`
+    순수 함수로 분리(`NapRoute`에 `'/mission'` 추가) — 미션 on + 아직 미완료 +
+    isTest 아님일 때만 `/alarm` 대신 `/mission`으로. 테스트 낮잠은 후기와 마찬가지로
+    미션도 건너뛴다(기존 isTest 특례와 같은 이유). expo-router 타입드 라우트 재생성
+    필요(신규 라우트라 `expo start` 1회 필요 — CLAUDE.md 지뢰 목록대로 tsc 전에 수행,
+    `.expo/types/router.d.ts`는 gitignore라 커밋 대상 아님).
+  - `app/mission.tsx` 신규: 명언 타이핑 화면. `src/missionQuotes.ts`에 한/영 각 18개
+    로컬 상수(전부 자체 작성 — 실존 인물 인용구는 원문·출처 불확실성으로 배제).
+    `normalizeMissionInput`(공백·구두점 제거+소문자화) 기반 관대한 대조, 건너뛰기
+    없음, 3회 연속 실패 시 `pickShorterQuote`로 더 짧은 문구 교체. 하드웨어 뒤로가기
+    차단(알람 화면과 동일).
+  - **알람음·진동을 미션 중에도 유지**(CLAUDE.md 알람 신뢰성 원칙): 기존
+    `app/alarm.tsx`에 있던 사운드(iOS)/햅틱 시작 로직을 `src/useAlarmPlayback.ts`로
+    추출해 `app/mission.tsx`와 공유(모듈 레벨 `alarmPlaybackActive` 가드도 함께
+    이전해야 두 화면 인스턴스 사이에서 겹침 없이 동작 — 각 파일에 따로 두면 가드가
+    무력화됨). `alarm.tsx`는 동작 변경 없이 이 훅을 호출하도록만 리팩터.
+  - 수학 문제 미션은 채택하지 않음 — 알라미 시그니처라 차별화 안 됨 + 낮잠 앱의
+    "편안하게 깨어나기" 톤과 충돌한다고 판단, 근거를 BACKLOG.md에 기록.
+  - `src/missionQuotes.test.ts`(정규화 비교, 더 짧은 문구 선택 로직) +
+    `src/useNapWatchdog.test.ts`(resolveNapRoute — 미션 on/off·완료 여부·isTest
+    조합 6케이스) 신규. `store.test.ts`에 `setMissionEnabled`/`markMissionCompleted`
+    테스트 추가, 기존 "already-v3 설정 유지" 테스트 2건은 `missionEnabled` 필드
+    반영해 갱신.
+  - `locales/ko.json`/`en.json`: `mission` 네임스페이스 신규 + `settings.mission*`
+    키(토글 섹션) 추가. `REVIEW_NEEDED.md` 1순위에 미션 관련 문구 5건(화면 문구 4개 +
+    명언 en 배열 전체) 신규 미검수로 등록 — 알람을 실제로 끄는 유일한 경로라 안전
+    카테고리로 분류.
+  - jest 107개(기존 88 + missionQuotes 8 + useNapWatchdog 6 + store 신규 3, 갱신 2)
+    /tsc/expo-doctor/expo export 4종 통과.
+  - **실기기 검증 대기**: 미션 토글 ON 상태에서 알람 발화 → 명언 화면 → 정답 입력 시
+    알람 해제 화면으로 전환 → 슬라이드/롱프레스 해제 → 기상 체크리스트/설문까지 전체
+    흐름, 오타 재시도, 3회 실패 후 문구 교체, Android 네이티브 알람 소리가 미션
+    화면에서도 끊김 없이 나는지, iOS에서 미션→알람 전환 시 소리 재시작 체감 여부.
+    재빌드 불필요(네이티브 의존성 추가 없음).
+
+**마지막 검증된 커밋: `mission-alarm` 브랜치(`main`의 `23a4192` 기준 분기) — 위
+"알람 해제 미션" 반영분 4종 검증 통과, 커밋·push 전.**
 
 ## 브랜치 현황
 
@@ -603,6 +645,8 @@
   병합 완료. 다국어만 **실기기 검증 대기**, 그 외는 전부 실기기 검증 완료.
 - `ai-analysis-app` / `i18n`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음(정리
   대상, 삭제는 사용자 지시 시).
+- `mission-alarm`: 알람 해제 미션(명언 타이핑) 작업 중, `main`(`23a4192`) 기준 분기,
+  **main 미병합** — 4종 검증 통과, 커밋·push 전, 실기기 검증 대기.
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
   완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.

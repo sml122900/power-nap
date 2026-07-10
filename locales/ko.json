@@ -180,7 +180,21 @@
       "system": "기기 설정 따름",
       "ko": "한국어",
       "en": "English"
-    }
+    },
+    "missionSectionLabel": "알람 해제 미션",
+    "missionOnDescription": "켜짐 — 알람이 울리면 명언을 따라 입력해야 해제할 수 있어요",
+    "missionOffDescription": "꺼짐 — 슬라이드하거나 길게 눌러 바로 해제해요",
+    "missionToggleOn": "켜기",
+    "missionToggleOff": "끄기"
+  },
+  "mission": {
+    "title": "정신을 깨우는 한 문장",
+    "instruction": "아래 문장을 똑같이 따라 입력하세요",
+    "inputPlaceholder": "여기에 입력하세요",
+    "submitButton": "확인",
+    "retryHint": "정확히 입력해주세요",
+    "quoteSwapped": "다른 문장으로 바꿨어요",
+    "a11yInput": "명언 입력"
   },
   "analysisConsent": {
     "title": "AI 분석 안내",

@@ -26,25 +26,17 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { configureAlarmAudioModeAsync } from '@/audio';
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from '@/notifications';
 import { appendNapRecord, clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
+import { useAlarmPlayback } from '@/useAlarmPlayback';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
 const ALARM_SOUND = require('../assets/sounds/alarm.wav');
-const HAPTICS_INTERVAL_MS = 1200;
 const SLIDE_THRESHOLD = 0.8;
 const THUMB_SIZE = 56;
 const TRACK_PADDING = 4;
 const LONG_PRESS_MS = 3000;
-
-// alarm.tsx가 중복 마운트되는 드문 경우(예: 두 곳에서 거의 동시에 /alarm으로 replace)에도
-// 햅틱 반복(양쪽 플랫폼 공통)과 expo-audio 재생(iOS 전용, 아래 참고)이 한 인스턴스에서만
-// 시작되도록 하는 모듈 레벨 가드. React state/ref는 인스턴스별로 분리되어 이 목적에 쓸 수 없다.
-// Android는 소리를 네이티브 알람(expo-alarm-module)이 전담하므로 이 가드가 막는 대상은
-// 사실상 햅틱 인터벌뿐이지만, 로직을 플랫폼별로 쪼개지 않기 위해 그대로 공유한다.
-let alarmPlaybackActive = false;
 
 export default function AlarmScreen() {
   const router = useRouter();
@@ -52,6 +44,7 @@ export default function AlarmScreen() {
   useNapWatchdog('/alarm');
 
   const player = useAudioPlayer(ALARM_SOUND);
+  useAlarmPlayback(player);
   const [nap, setNap] = useState<ActiveNap | null>(null);
   const dismissedRef = useRef(false);
   // useAudioPlayer(코드상 이 함수보다 먼저 호출됨)의 내부 정리(release)는 React가
@@ -70,46 +63,17 @@ export default function AlarmScreen() {
   }, []);
 
   useEffect(() => {
-    let hapticsInterval: ReturnType<typeof setInterval> | undefined;
     let stopped = false;
-    let ownsPlayback = false;
-
     (async () => {
       const loaded = await getActiveNap();
       if (stopped) return;
       setNap(loaded);
-
-      if (alarmPlaybackActive) return; // 이미 다른 인스턴스가 재생을 시작한 상태
-      alarmPlaybackActive = true;
-      ownsPlayback = true;
-
-      // Android는 네이티브 알람이 이미 STREAM_ALARM으로 재생 중이다 — 여기서 또
-      // expo-audio를 켜면 소리가 겹친다. iOS만 이 레이어가 주 알람 사운드를 담당한다.
-      if (Platform.OS === 'ios') {
-        await configureAlarmAudioModeAsync();
-        if (stopped) return;
-
-        player.loop = true;
-        player.volume = 1.0;
-        player.play();
-      }
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      hapticsInterval = setInterval(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }, HAPTICS_INTERVAL_MS);
     })();
-
     return () => {
       stopped = true;
       mountedRef.current = false;
-      if (hapticsInterval) clearInterval(hapticsInterval);
-      // player.pause()를 여기서 부르지 않는다: useAudioPlayer가 언마운트 시 자동으로
-      // release하므로 재생 정지는 이미 보장된다. 여기서 pause를 부르면 위 주석의
-      // 클린업 순서 문제로 "Cannot use shared object that was already released"가 던져진다.
-      if (ownsPlayback) alarmPlaybackActive = false;
     };
-  }, [player]);
+  }, []);
 
   const handleDismiss = async () => {
     if (dismissedRef.current || !mountedRef.current) return;
