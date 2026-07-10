@@ -666,13 +666,20 @@
        설문, 오타 재시도, 3회 실패 후 문구 교체, Android/iOS 소리 연속성)
     5. "파워냅이란?" 화면 진입/스크롤/뒤로가기, 3링크 한 줄 배치(특히 영어 로케일에서
        줄바꿈 없이 보이는지)
-  - **다음 지시로 릴리즈 재빌드(clean) → 폰 설치 예정** — 미션 자체는 JS 전용이지만
-    이전 세션에 `expo-intent-launcher`(네이티브 의존성) 추가가 이미 누적돼 있어
-    `expo prebuild` 포함 클린 빌드로 진행.
+  - **릴리즈 빌드 6차(클린) + 실기기 재설치 완료**: `npx expo prebuild --clean` →
+    `gradlew clean assembleRelease`(20분 40초, 656개 태스크 재실행) → `adb install -r`.
+    이전 세션에 누적된 `expo-intent-launcher`(네이티브 의존성) 포함 전체를 처음부터
+    다시 빌드해 검증(사용자 지시대로 clean 빌드로 진행 — JS 전용 변경이라도 네이티브
+    누적 변경 가능성을 배제). `android/local.properties`는 prebuild가 다시 비운 채로
+    재생성해 `sdk.dir` 수동 기입 필요했음(반복 확인된 일회성 환경 이슈, gitignore라
+    커밋 대상 아님). adb `unauthorized`/미연결이 중간에 다시 발생 — 케이블 재연결 후
+    해결(기존에도 겪은 흔한 함정).
+  - STATUS.md에 이 병합·재검증·재빌드 기록을 커밋 `b6d1a29`로 push 완료.
 
 **마지막 검증된 커밋: `main` 브랜치, `c4d20eb`("Merge branch 'mission-alarm' into
-main") — 4종 검증(tsc/expo-doctor/expo export/jest 107개) 통과, push 완료. 실기기
-검증은 전부 대기.**
+main", 문서 갱신 `b6d1a29`까지 반영) — 4종 검증(tsc/expo-doctor/expo export/jest
+107개) 통과, push 완료. 릴리즈 빌드 6차·실기기 설치 완료. 기능 실사용 검증(위
+1~5번 항목)은 전부 대기.**
 
 ## 브랜치 현황
 
