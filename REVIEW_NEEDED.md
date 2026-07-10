@@ -26,7 +26,7 @@
 | 키 | 영어 | 검수 포인트 |
 |---|---|---|
 | `sleep.permissionHintAndroid` | The alarm sound and vibration will play. However, without notification permission the screen won't turn on automatically — please open the app yourself to turn off the alarm when it rings. | 두 문장이 길게 이어짐 — 안전 관련 문구라 가장 먼저 검수 필요, 어색하면 문장 분리 검토 — **아직 미검수** |
-| `sleep.permissionButton` | Allow permission | 버튼 문구가 실제로는 앱 일반 설정으로 이동함(알림 권한 화면 직행 아님) — 오해 소지 있는지 — **아직 미검수** |
+| `sleep.permissionButton` | Allow permission | (갱신) 이제 `expo-intent-launcher`로 앱의 "알림" 설정 화면에 직행한다(실패 시에만 일반 설정으로 폴백) — 문구 자체는 여전히 미검수 |
 
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 
@@ -41,6 +41,17 @@
 |---|---|---|
 | `analysisConsent.paragraph1` | To generate the analysis, your nap records (times, survey answers, notes) are sent to our server. The data sent is used only to create suggestions and advice for adjusting your wait time and caffeine onset time. | 검수 완료 — 수정 불필요. 데이터 사용 범위 제한("used only to")이 정확히 대응됨 |
 | `analysisConsent.paragraph2` | Suggestions are for reference only — they're applied to your settings only when you tap to apply them yourself. | 검수 완료 — 수정 불필요. "only when you tap"이 자동 반영 없음을 명확히 함 |
+
+### 신규 추가 (미검수) — 서버 데이터 삭제 기능(설정 화면 2단계 확인)
+
+`app/settings.tsx`의 "서버 데이터 삭제" 확인 다이얼로그(Alert.alert 2단계) 문구.
+파괴적 동작(되돌릴 수 없는 삭제) 안내라 1순위와 비슷한 수준으로 신중한 검수가 필요.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `settings.deleteConfirmBody` | Analysis reports, usage history, and credits will be permanently deleted from the server. Nap records stored on this device will remain. | "permanently"의 단정 강도가 원문 "영구히"와 대응되는지, 로컬 기록은 남는다는 대비가 명확한지 — **아직 미검수** |
+| `settings.deleteConfirmCreditWarning` | {{count}} remaining credit(s) will be deleted too and cannot be recovered. | 환불 분쟁 방지 목적 문구라 "cannot be recovered"의 단정이 원문과 동일한 강도인지 — **아직 미검수** |
+| `settings.deleteFinalBody` | This action cannot be undone. | 짧고 표준적인 표현이라 리스크는 낮지만 최종 확인 단계라 우선순위 유지 — **아직 미검수** |
 
 ## 4순위 — 관용구·톤·문장 구조 리스크 (미해결 항목만 남김)
 

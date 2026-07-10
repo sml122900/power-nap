@@ -391,3 +391,12 @@ export function resolveAnalysisList(fetched: AnalysisListItem[] | null, cached: 
 export function resolveAnalysisDetail(fetched: AnalysisDetail | null, cached: AnalysisDetail | null): AnalysisDetail | null {
   return fetched ?? cached;
 }
+
+// 설정 화면 "서버 데이터 삭제" 성공 후 호출 — 서버(auth.users 및 cascade된 행)는
+// aiAnalysis.requestDataDeletion()이 이미 지웠으니, 로컬에 남은 AI 관련 흔적(동의 상태·
+// 분석 목록/상세 캐시)만 정리한다. NapRecord(로컬 낮잠 기록)는 서버 데이터가 아니라
+// 여기서 건드리지 않는다 — 서버 삭제 이후에도 동의를 그대로 true로 남겨두면 다음 진입
+// 시 "이미 동의했다"고 오판해 재동의 없이 새 익명 계정에 곧장 데이터를 보내게 된다.
+export async function clearAiLocalData(): Promise<void> {
+  await AsyncStorage.multiRemove([KEYS.aiConsent, KEYS.analysisListCache, KEYS.analysisDetailCache]);
+}

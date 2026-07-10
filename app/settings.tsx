@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
+import { getCreditBalance, isAnalysisError, requestDataDeletion } from '@/aiAnalysis';
 import {
   getLanguagePreference,
   setLanguagePreference,
@@ -16,6 +17,7 @@ import {
   applyManualAdjustment,
   CAFFEINE_ONSET_MAX,
   CAFFEINE_ONSET_MIN,
+  clearAiLocalData,
   getAiConsent,
   getSettings,
   LATENCY_MAX,
@@ -75,6 +77,43 @@ export default function SettingsScreen() {
     const next = aiConsent !== true;
     await setAiConsent(next);
     setAiConsentState(next);
+  };
+
+  // 개인정보처리방침 "서버 데이터 삭제" — 2단계 확인(안내 → 최종 확인) 후 실행.
+  // Alert.alert만으로 구현(이 화면에 별도 모달/바텀시트 컴포넌트가 없어, 새로 만들지
+  // 않고 OS 네이티브 확인창을 재사용 — 파괴적 동작이라 네이티브 확인창이 더 신뢰감을
+  // 준다는 점도 있음).
+  const onDeleteServerData = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const balance = await getCreditBalance();
+    const body =
+      balance && balance > 0
+        ? `${t('deleteConfirmBody')}\n\n${t('deleteConfirmCreditWarning', { count: balance })}`
+        : t('deleteConfirmBody');
+
+    Alert.alert(t('deleteConfirmTitle'), body, [
+      { text: t('common:cancel'), style: 'cancel' },
+      { text: t('deleteConfirmContinue'), onPress: confirmDeleteServerData },
+    ]);
+  };
+
+  const confirmDeleteServerData = () => {
+    Alert.alert(t('deleteFinalTitle'), t('deleteFinalBody'), [
+      { text: t('common:cancel'), style: 'cancel' },
+      { text: t('deleteFinalConfirm'), style: 'destructive', onPress: performDeleteServerData },
+    ]);
+  };
+
+  const performDeleteServerData = async () => {
+    try {
+      await requestDataDeletion();
+      await clearAiLocalData();
+      setAiConsentState(false);
+      Alert.alert(t('deleteSuccessTitle'), t('deleteSuccessBody'));
+    } catch (err) {
+      const message = isAnalysisError(err) ? err.message : t('analysisReport:unknownError');
+      Alert.alert(t('deleteErrorTitle'), message);
+    }
   };
 
   // 스테퍼/텍스트 확정 모두 이 경로로만 저장한다. NapRecord.manualAdjust.source를
@@ -192,6 +231,9 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
         </View>
+        <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
+          <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.dataSection}>
@@ -341,6 +383,19 @@ const styles = StyleSheet.create({
   },
   dataToggleBtnText: {
     fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  deleteDataBtn: {
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+  },
+  deleteDataBtnText: {
+    fontSize: 14,
     fontFamily: fontFamily.bold,
     color: colors.ink,
   },

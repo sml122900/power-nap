@@ -1,6 +1,7 @@
 {
   "common": {
     "close": "Close",
+    "cancel": "Cancel",
     "napMode": {
       "fast": "Fall asleep fast",
       "slow": "Toss and turn",
@@ -163,6 +164,17 @@
     "consentNotGranted": "Not consented to sending data for AI analysis",
     "consentToggleRevoke": "Revoke",
     "consentToggleGrant": "Consent",
+    "deleteDataButton": "Delete server data",
+    "deleteConfirmTitle": "Delete your server data?",
+    "deleteConfirmBody": "Analysis reports, usage history, and credits will be permanently deleted from the server. Nap records stored on this device will remain.",
+    "deleteConfirmCreditWarning": "{{count}} remaining credit(s) will be deleted too and cannot be recovered.",
+    "deleteConfirmContinue": "Continue",
+    "deleteFinalTitle": "Are you sure?",
+    "deleteFinalBody": "This action cannot be undone.",
+    "deleteFinalConfirm": "Delete",
+    "deleteSuccessTitle": "Deleted",
+    "deleteSuccessBody": "All data stored on the server has been deleted.",
+    "deleteErrorTitle": "Deletion failed",
     "languageSectionLabel": "Language",
     "languageOption": {
       "system": "Follow system setting",

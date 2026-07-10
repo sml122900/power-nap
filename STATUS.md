@@ -538,9 +538,62 @@
   - **실기기 검증 대기**: "권한 허용하기" 버튼이 실제로 앱 알림 설정 화면(일반 앱
     정보 화면이 아니라)으로 직행하는지, 설정에서 권한을 켜고 돌아오면 안내가 자동으로
     사라지는지, `permissionGuide` 문구 표시 — 전부 사용자가 폰에서 직접 진행.
+  - 커밋 `813bca8`/`79ed57a`/`c9415d0` push 완료 — 위 "커밋 전"이던 표기 정정.
 
-**마지막 검증된 커밋: `main` 브랜치, `i18n` 병합 완료 — 4종 검증 통과, 실기기
-빌드·설치·검증 대기(사용자 진행). 위 권한 거부 시나리오 반영분은 커밋 전.**
+- **개인정보처리방침 "서버 데이터 삭제" 기능**(`main`, 사용자 명시 지시) —
+  AI_ANALYSIS.md §6/§7 갱신:
+  - `supabase/functions/delete-my-data`: 인증된 유저의 `auth.users` 행을
+    `admin.auth.admin.deleteUser()`로 삭제 — `public.users`/`credits`/`credit_events`/
+    `analyses`가 전부 기존 `on delete cascade` FK로 한 트랜잭션에 함께 정리된다
+    (migrations/0001 스키마, `credit-ledger.test.ts`/`analyze.test.ts`의 테스트 유저
+    정리가 이미 같은 전제로 쓰고 있던 검증된 메커니즘 — 새 마이그레이션/RPC 불필요).
+    **판단(사용자 요청 사항): 익명 계정 자체도 삭제한다** — 이메일/비번 없는 익명
+    계정이라 데이터만 지우고 신원을 남겨도 재사용 가치가 없고, 세션 무효화로 다음
+    사용 시 새 익명 계정이 자동 발급되는 것도 §8의 기존 트레이드오프(기기 분실 시
+    크레딧 소실)와 같은 성격이라 부자연스럽지 않다고 판단. 재시도해도
+    `admin.auth.getUser(jwt)`가 이미 없는 유저로 자연스럽게 401을 내 별도
+    idempotency 처리가 필요 없다. `config.toml`에 `[functions.delete-my-data]`
+    등록(analyze와 동일하게 `verify_jwt = false`, 함수 안에서 수동 검증).
+  - `src/aiAnalysis.ts`: 기존 `invoke<T>(body)`를 `invoke<T>(functionName, body)`로
+    일반화(3개 기존 호출부 `'analyze'` 명시로 이관) + `requestDataDeletion()` 신규.
+    `getCreditBalance()` 신규 — `credits` 테이블을 RLS(본인 행만)로 직접 조회
+    (`listAnalyses`와 동일 패턴), 실패 시 null(fail-open, 삭제 자체를 막을 이유는
+    아님) — 설정 화면 확인 다이얼로그의 "남은 이용권 n회" 경고에 사용.
+  - `src/store.ts`: `clearAiLocalData()` 신규 — 삭제 성공 후 로컬 AI 동의 상태 +
+    분석 목록/상세 캐시만 초기화(AsyncStorage.multiRemove). 로컬 낮잠 기록(NapRecord)은
+    서버 데이터가 아니므로 안 건드림.
+  - `app/settings.tsx` "데이터 및 분석" 섹션에 "서버 데이터 삭제" 버튼 추가 — 2단계
+    확인(`Alert.alert` 안내 → 최종 확인, 이 화면에 기존 모달/바텀시트 컴포넌트가 없어
+    새로 안 만들고 OS 네이티브 확인창 재사용). 안내 단계에서 크레딧 잔액이 있으면
+    "남은 이용권 n회가 함께 삭제되며 복구할 수 없다" 경고를 덧붙임. 성공 시
+    `clearAiLocalData()` + 동의 상태 false로 리셋 + 성공 안내, 실패 시 에러 안내.
+  - `PRIVACY_POLICY.md` — 레포에 이미 커밋되지 않은 채(untracked) 존재하던 초안을
+    발견(회사명 "라이프북", RevenueCat/Google Play 결제 처리자 명시, 연락처 포함 —
+    이번 세션 이전에 사용자가 직접 작성해둔 것으로 보여 덮어쓰지 않고 그대로 커밋만
+    함). §5가 이미 이번에 구현한 삭제 기능과 정확히 일치하는 절차를 설명하고 있어
+    별도 수정 없음. 영어판은 없음(법률 문서라 UI 문자열보다 신중한 전문 번역이
+    필요하다고 판단, REVIEW_NEEDED.md 3순위보다 더 신중하게 접근해야 할 문서 —
+    Phase E에서 별도 처리).
+  - `REVIEW_NEEDED.md` 3순위에 신규 삭제 확인 문구 3건(`deleteConfirmBody`/
+    `deleteConfirmCreditWarning`/`deleteFinalBody`) 미검수로 등록. 겸사겸사
+    `sleep.permissionButton`의 검수 메모도 지난 세션에 IntentLauncher로 바뀐
+    실제 동작에 맞게 갱신(내용은 그대로 미검수).
+  - `supabase/tests/delete-my-data.test.ts` 신규(analyze.test.ts와 동일한 실배포
+    HTTPS 통합 테스트 패턴, Claude 호출 없어 비용 없음) — 4개 케이스: 인증 없이 401,
+    삭제 후 4테이블 + auth 유저 전부 빈 결과, 타 유저 데이터 격리(RLS 아니라 앱
+    로직상 자기 uid만 지우는지 확인), 삭제된 유저 JWT 재호출 시 401. **실제 배포
+    (`supabase functions deploy delete-my-data`) 후 4개 전부 통과 확인** — 스킵/모킹
+    없이 실서버 대상 검증.
+  - jest(app) 88개 그대로 통과(신규 앱 코드가 기존 테스트를 안 건드림) + jest(supabase)
+    신규 4개 통과, tsc/expo-doctor/expo export 3종 통과. 커밋 예정(아직 push 전).
+  - **실기기 검증 대기**(사용자 진행): 설정 화면 "서버 데이터 삭제" 버튼 → 2단계
+    확인 다이얼로그 → 크레딧 있을 때 경고 문구 표시 → 삭제 성공 시 동의 상태/캐시
+    초기화 확인. **재빌드 불필요**(JS/Edge Function만 변경, 네이티브 의존성 추가
+    없음 — 기존 설치본에서 Metro/dev 클라이언트로 확인 가능, 릴리즈 APK로 보려면
+    재빌드 필요).
+
+**마지막 검증된 커밋: `main` 브랜치, `c9415d0`("릴리즈 빌드 5 기록") — 4종 검증 통과.
+위 "서버 데이터 삭제" 반영분은 검증 통과, push 전.**
 
 ## 브랜치 현황
 
@@ -577,6 +630,10 @@
       알람이 울리는 중 앱 아이콘으로 앱을 열면 `/alarm`으로 직행하는지 콜드 스타트
       (앱 완전 종료 상태)/백그라운드 복귀(홈 화면 등 다른 화면에 있다가 복귀) 각각
       확인 필요.
+- [ ] `PRIVACY_POLICY.md` 법률 검토 + 시행일 확정(문서 상단 placeholder 참고), 영어판
+      작성(Phase E) — AI_ANALYSIS.md §7 참고
+- [ ] "서버 데이터 삭제" 실기기 확인(2단계 확인 다이얼로그, 크레딧 경고 문구, 삭제
+      후 로컬 동의/캐시 초기화) — 사용자 진행
 
 ---
 

@@ -377,6 +377,10 @@ allow_dynamic_registration = false
 # 플랫폼 레벨 verify_jwt가 이 조합을 어떻게 다루는지 불확실해 수동 검증으로 통일).
 verify_jwt = false
 
+[functions.delete-my-data]
+# analyze와 동일한 이유로 수동 검증.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
