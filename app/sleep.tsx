@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  AppState,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -22,6 +31,11 @@ import {
 import { clearActiveNap, getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
 import { useNapWatchdog } from '@/useNapWatchdog';
+
+const SLEEPING_DOG = require('../assets/images/sleeping-dog.png');
+// 소스 에셋(assets/images/sleeping-dog@3x.png) 픽셀 비율 720x471 — resizeMode="contain"에
+// aspectRatio를 명시해 너비 기준으로 폭만 계산하면 높이가 자동으로 따라오게 한다.
+const DOG_ASPECT_RATIO = 720 / 471;
 
 export default function SleepScreen() {
   const router = useRouter();
@@ -72,8 +86,12 @@ export default function SleepScreen() {
     return () => clearInterval(id);
   }, [nap, checkNapRoute]);
 
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // 작은 기기(<700pt 높이)에서는 카운트다운·안내 문구와 세로 공간을 다투므로 비율을
+  // 한 단계 낮춘다. 나머지는 화면 폭의 46%.
+  const dogWidth = screenWidth * (screenHeight < 700 ? 0.4 : 0.46);
+
   const breathScale = useSharedValue(1);
-  const breathOpacity = useSharedValue(0.5);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,15 +99,8 @@ export default function SleepScreen() {
       if (cancelled || reduceMotion) return;
       breathScale.value = withRepeat(
         withSequence(
-          withTiming(2.4, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.04, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
           withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1
-      );
-      breathOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.ease) })
         ),
         -1
       );
@@ -97,11 +108,10 @@ export default function SleepScreen() {
     return () => {
       cancelled = true;
     };
-  }, [breathScale, breathOpacity]);
+  }, [breathScale]);
 
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breathScale.value }],
-    opacity: breathOpacity.value,
   }));
 
   const onCancel = async () => {
@@ -129,7 +139,15 @@ export default function SleepScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.center}>
-        <Animated.View style={[styles.breathDot, breathStyle]} />
+        <Animated.Image
+          source={SLEEPING_DOG}
+          resizeMode="contain"
+          style={[
+            styles.dog,
+            { width: dogWidth, height: dogWidth / DOG_ASPECT_RATIO },
+            breathStyle,
+          ]}
+        />
         <Text style={styles.label}>{t('countdownLabel')}</Text>
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
@@ -186,12 +204,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  breathDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.brand,
-    marginBottom: 40,
+  dog: {
+    marginBottom: 32,
   },
   label: {
     fontSize: 14,
