@@ -295,7 +295,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: 24,
     paddingTop: 28,
-    paddingBottom: 32,
   },
   head: {
     flexDirection: 'row',
@@ -316,7 +315,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     marginTop: 24,
     gap: 24,
-    paddingBottom: 8,
+    paddingBottom: 40,
   },
   list: {
     gap: 12,
