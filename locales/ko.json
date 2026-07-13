@@ -217,8 +217,10 @@
     "missionToggleOn": "켜기",
     "missionToggleOff": "끄기",
     "missionQuotesLabel": "명언 목록 편집",
-    "missionQuotesHint": "한 줄에 하나씩 입력하세요",
-    "missionQuotesSave": "저장"
+    "missionQuotesTextPlaceholder": "명언",
+    "missionQuotesAuthorPlaceholder": "말한 사람",
+    "missionQuotesDelete": "삭제",
+    "missionQuotesAdd": "+ 명언 추가"
   },
   "mission": {
     "title": "정신을 깨우는 한 문장",
@@ -227,7 +229,8 @@
     "submitButton": "확인",
     "retryHint": "정확히 입력해주세요",
     "quoteSwapped": "다른 문장으로 바꿨어요",
-    "a11yInput": "명언 입력"
+    "a11yInput": "명언 입력",
+    "quoteAuthor": "— {{author}}"
   },
   "analysisConsent": {
     "title": "AI 분석 안내",

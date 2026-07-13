@@ -217,8 +217,10 @@
     "missionToggleOn": "Turn on",
     "missionToggleOff": "Turn off",
     "missionQuotesLabel": "Edit quote list",
-    "missionQuotesHint": "One quote per line",
-    "missionQuotesSave": "Save"
+    "missionQuotesTextPlaceholder": "Quote",
+    "missionQuotesAuthorPlaceholder": "Attributed to",
+    "missionQuotesDelete": "Delete",
+    "missionQuotesAdd": "+ Add quote"
   },
   "mission": {
     "title": "One line to wake your mind",
@@ -227,7 +229,8 @@
     "submitButton": "Confirm",
     "retryHint": "Please type it exactly",
     "quoteSwapped": "Switched to a different sentence",
-    "a11yInput": "Mission input"
+    "a11yInput": "Mission input",
+    "quoteAuthor": "— {{author}}"
   },
   "analysisConsent": {
     "title": "About AI Analysis",

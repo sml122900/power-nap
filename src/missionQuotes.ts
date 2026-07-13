@@ -1,8 +1,10 @@
 // 알람 해제 미션(명언 타이핑) — BACKLOG.md "알람 해제 미션" 참고. 설정에서 토글 ON일 때만
 // app/mission.tsx가 이 배열에서 문구를 뽑는다.
 //
-// 저작권: 전부 자체 작성(self-written) — 실존 인물의 인용구는 정확한 원문·공개 출처를
-// 확인할 수 없으면 오귀속 위험이 있어 애초에 배제했다(불확실하면 자체 작성 원칙).
+// 각 명언은 { text, author } — 지금은 전부 자체 작성(author: '클로드'/'Claude')이지만,
+// 나중에 "소크라테스: 너 자신을 알라"처럼 실존 인물의 유명한 명언을 원문 출처와 함께
+// 추가할 걸 감안해 author를 처음부터 분리했다(사용자 지시). text만 타이핑 정답 판정
+// 대상이고 author는 화면에 표시만 한다.
 // 낮잠·휴식·재충전·집중 테마, 비몽사몽 상태에서도 오래 안 걸리게 20자 내외로 짧게 썼다.
 // ko/en은 서로 직역이 아니라 각 언어에서 자연스러운 독립 문구다(짧고 자연스러운 게
 // 우선 — UI 문자열처럼 1:1 대응을 요구하는 i18n 키가 아니라 자유롭게 작성).
@@ -19,7 +21,12 @@
 // 더 단순하고 이 버그를 피한다.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const MISSION_QUOTES: Record<'ko' | 'en', string[]> = {
+export interface MissionQuote {
+  text: string;
+  author: string;
+}
+
+export const MISSION_QUOTES: Record<'ko' | 'en', MissionQuote[]> = {
   ko: [
     '잘 쉬었다',
     '이제 일어나자',
@@ -39,7 +46,7 @@ export const MISSION_QUOTES: Record<'ko' | 'en', string[]> = {
     '깨어난 나를 응원해',
     '오늘의 나를 다시 켜자',
     '잠깐의 쉼이 하루를 바꾼다',
-  ],
+  ].map((text) => ({ text, author: '클로드' })),
   en: [
     'Rest is over',
     'Time to rise',
@@ -59,7 +66,7 @@ export const MISSION_QUOTES: Record<'ko' | 'en', string[]> = {
     'Stay sharp, stay calm',
     'Small break, big gain',
     'New energy, new focus',
-  ],
+  ].map((text) => ({ text, author: 'Claude' })),
 };
 
 // 공백류(스페이스/탭/줄바꿈)와 구두점을 제거하고 소문자로 맞춘 뒤 비교한다 — 오타 판정이
@@ -69,8 +76,9 @@ export function normalizeMissionInput(text: string): string {
   return text.toLowerCase().replace(/[\s\p{P}]/gu, '');
 }
 
-export function isMissionInputCorrect(input: string, quote: string): boolean {
-  return normalizeMissionInput(input) === normalizeMissionInput(quote);
+// 정답 판정은 quote.text만 본다 — author(누가 말했는지)는 타이핑 대상이 아니다.
+export function isMissionInputCorrect(input: string, quote: MissionQuote): boolean {
+  return normalizeMissionInput(input) === normalizeMissionInput(quote.text);
 }
 
 // "3회 실패 시 다른(더 짧은) 명언 제시" — 실패한 문구보다 짧은 것들 중에서 무작위로
@@ -79,14 +87,18 @@ export function isMissionInputCorrect(input: string, quote: string): boolean {
 // quotes는 호출부(app/mission.tsx)가 getMissionQuotes()로 미리 로드해 넘긴다 — 사용자가
 // 설정에서 커스텀한 목록일 수도, 기본 MISSION_QUOTES일 수도 있어 이 함수는 어느 쪽인지
 // 몰라도 된다(순수 함수 유지).
-export function pickShorterQuote(quotes: string[], currentQuote: string, random: () => number = Math.random): string {
-  const shorter = quotes.filter((q) => q.length < currentQuote.length);
-  const pool = shorter.length > 0 ? shorter : quotes.filter((q) => q !== currentQuote);
+export function pickShorterQuote(
+  quotes: MissionQuote[],
+  currentQuote: MissionQuote,
+  random: () => number = Math.random
+): MissionQuote {
+  const shorter = quotes.filter((q) => q.text.length < currentQuote.text.length);
+  const pool = shorter.length > 0 ? shorter : quotes.filter((q) => q.text !== currentQuote.text);
   if (pool.length === 0) return currentQuote;
   return pool[Math.floor(random() * pool.length)];
 }
 
-export function pickRandomQuote(quotes: string[], random: () => number = Math.random): string {
+export function pickRandomQuote(quotes: MissionQuote[], random: () => number = Math.random): MissionQuote {
   return quotes[Math.floor(random() * quotes.length)];
 }
 
@@ -94,21 +106,32 @@ export function pickRandomQuote(quotes: string[], random: () => number = Math.ra
 // 기본값을 쓴다.
 const QUOTES_STORAGE_KEY = 'powernap:missionQuotesOverride';
 
-type QuoteOverrides = Partial<Record<'ko' | 'en', string[]>>;
+type QuoteOverrides = Partial<Record<'ko' | 'en', MissionQuote[]>>;
 
-export async function getMissionQuotes(locale: 'ko' | 'en'): Promise<string[]> {
+// 이번 세션 안에서 문자열 배열(author 없음) 포맷으로 한 번 저장했을 수 있어(실기기 도그푸딩
+// 중 이전 UI로 저장된 값) — 문자열이 섞여 있어도 author: ''로 정규화해 크래시 없이 읽는다.
+function normalizeStoredQuote(value: unknown): MissionQuote | null {
+  if (typeof value === 'string') return { text: value, author: '' };
+  if (value && typeof value === 'object' && typeof (value as MissionQuote).text === 'string') {
+    const q = value as MissionQuote;
+    return { text: q.text, author: typeof q.author === 'string' ? q.author : '' };
+  }
+  return null;
+}
+
+export async function getMissionQuotes(locale: 'ko' | 'en'): Promise<MissionQuote[]> {
   const raw = await AsyncStorage.getItem(QUOTES_STORAGE_KEY);
   if (!raw) return MISSION_QUOTES[locale];
   try {
     const overrides = JSON.parse(raw) as QuoteOverrides;
-    const custom = overrides[locale];
+    const custom = overrides[locale]?.map(normalizeStoredQuote).filter((q): q is MissionQuote => q !== null);
     return custom && custom.length > 0 ? custom : MISSION_QUOTES[locale];
   } catch {
     return MISSION_QUOTES[locale];
   }
 }
 
-export async function setMissionQuotes(locale: 'ko' | 'en', quotes: string[]): Promise<void> {
+export async function setMissionQuotes(locale: 'ko' | 'en', quotes: MissionQuote[]): Promise<void> {
   const raw = await AsyncStorage.getItem(QUOTES_STORAGE_KEY);
   let overrides: QuoteOverrides = {};
   if (raw) {

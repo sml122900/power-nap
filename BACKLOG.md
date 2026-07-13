@@ -166,15 +166,24 @@ PROJECT.md/STATUS.md 참조.
   테스트 낮잠(`isTest`)도 이 라우팅을 동일하게 탄다(이전 세션에 사용자 지시로 이미
   되돌림 — 테스트 버튼으로 미션 화면 자체를 확인하려는 목적). 후기 화면의 isTest
   스킵은 이 변경과 무관하게 유지.
-- 명언은 `src/missionQuotes.ts`에 로컬 상수(`MISSION_QUOTES`)로 한/영 각 18개(15~20
-  범위, 기본값) 제공. **설정 화면에서 직접 편집·추가 가능**(사용자 지시) —
-  `getMissionQuotes(locale)`/`setMissionQuotes(locale, quotes)`가 AsyncStorage에
-  언어별 커스텀 목록을 저장, 없으면 기본값으로 폴백. 설정 화면(미션 토글 ON일 때만
-  노출)은 줄바꿈으로 구분된 멀티라인 텍스트박스 하나 + "저장" 버튼(사용자가 직접
-  이 방식 선택 — 줄별 추가/삭제 UI 대신 가장 단순한 구현). 빈 줄은 저장 시 걸러내고,
-  결과가 0개면 저장을 막는다(명언이 하나도 없으면 미션 화면에서 뽑을 게 없어짐).
-  `pickRandomQuote`/`pickShorterQuote`는 이제 locale 대신 로드된 배열을 직접
-  받는다(순수 함수 유지, 커스텀/기본 여부를 몰라도 됨).
+- 명언은 이제 `{ text, author }` 객체다(`src/missionQuotes.ts`의 `MissionQuote` 타입) —
+  나중에 "소크라테스: 너 자신을 알라"처럼 실존 인물의 유명한 명언을 출처와 함께 추가할
+  걸 감안해 author를 처음부터 분리(사용자 지시). 정답 판정은 `text`만 본다(author는
+  화면 표시 전용). 기본 제공 명언(`MISSION_QUOTES`, 한/영 각 18개, 15~20 범위)은 전부
+  자체 작성이라 author를 `'클로드'`(ko)/`'Claude'`(en)로 저장(사용자 지시). 미션
+  화면은 명언 아래에 `— {{author}}` 캡션을 작게 보여준다(author가 빈 문자열이면
+  숨김).
+- **설정 화면에서 명언을 각각 추가·수정·삭제 가능**(사용자 지시, 미션 토글 ON일 때만
+  노출) — 처음엔 줄바꿈 구분 텍스트박스 하나로 구현했으나, 명언 개수가 늘고 author
+  필드가 추가되면서 한 덩어리 텍스트로는 어느 줄이 몇 번째 명언인지 관리하기
+  불편하다는 피드백으로 **행(row) 단위 UI로 교체**: 명언마다 텍스트 입력 2개(명언
+  본문/말한 사람) + "삭제" 버튼, 목록 아래 "+ 명언 추가" 버튼. 각 입력은 blur 시
+  전체 배열을 저장(`getMissionQuotes(locale)`/`setMissionQuotes(locale, quotes)`가
+  AsyncStorage에 언어별 커스텀 목록 저장, 없으면 기본값 폴백). 빈 텍스트 행은 저장
+  시 걸러내되 화면에는 그대로 남겨 계속 채울 수 있게 둔다(사용자가 다 지워 0개가
+  되어도 `getMissionQuotes`가 기본값으로 자동 폴백하므로 별도 방어 로직 불필요).
+  `pickRandomQuote`/`pickShorterQuote`는 locale 대신 로드된 `MissionQuote[]`를
+  직접 받는다(순수 함수 유지, 커스텀/기본 여부를 몰라도 됨).
 - 입력 비교(`normalizeMissionInput`)는 공백·구두점 제거 + 소문자화 후 대조하는 관대한
   방식 — 오타 하나로 무한 재시도에 갇히지 않게. 건너뛰기 버튼 없음. 3회 연속 실패 시
   더 짧은 문구로 교체(`pickShorterQuote`).

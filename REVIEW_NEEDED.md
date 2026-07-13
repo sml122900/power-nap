@@ -56,8 +56,11 @@
 | `alarm.a11ySlideLabelMission` | Slide to continue to the next step | 스크린리더용 — 의미 전달이 명확한지 — **아직 미검수** |
 | `alarm.a11yDismissActionMission` | Continue to next step | 위와 동일 — **아직 미검수** |
 | `settings.missionQuotesLabel` | Edit quote list | 짧은 라벨이라 리스크 낮음 — **아직 미검수** |
-| `settings.missionQuotesHint` | One quote per line | 입력 형식 안내 — 명확한지 — **아직 미검수** |
-| `settings.missionQuotesSave` | Save | 표준적 표현 — **아직 미검수** |
+| `settings.missionQuotesTextPlaceholder` | Quote | 짧은 placeholder — 리스크 낮음 — **아직 미검수** |
+| `settings.missionQuotesAuthorPlaceholder` | Attributed to | "말한 사람"의 번역으로 자연스러운지(나중에 실존 인물 명언·출처 추가 시 이 필드에 채워짐) — **아직 미검수** |
+| `settings.missionQuotesDelete` | Delete | 표준적 표현 — **아직 미검수** |
+| `settings.missionQuotesAdd` | + Add quote | 표준적 표현 — **아직 미검수** |
+| `mission.quoteAuthor` | — {{author}} | 인용 표기 관례(em dash)가 두 언어 모두에서 자연스러운지 — **아직 미검수** |
 
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 

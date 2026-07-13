@@ -12,7 +12,7 @@ import {
   SUPPORTED_LANGUAGES,
   type LanguagePreference,
 } from '@/i18n';
-import { getMissionQuotes, setMissionQuotes } from '@/missionQuotes';
+import { getMissionQuotes, setMissionQuotes, type MissionQuote } from '@/missionQuotes';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -59,7 +59,7 @@ export default function SettingsScreen() {
   // 미션 명언 목록 편집 — app/mission.tsx가 실제로 뽑는 언어(i18n.language)와 항상
   // 같은 목록을 보여준다. 언어 전환 시 다른 목록으로 다시 로드한다.
   const missionLocale: 'ko' | 'en' = i18n.language === 'ko' ? 'ko' : 'en';
-  const [missionQuotesText, setMissionQuotesText] = useState('');
+  const [missionQuotes, setMissionQuotesState] = useState<MissionQuote[]>([]);
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -71,19 +71,35 @@ export default function SettingsScreen() {
   }, []);
 
   useEffect(() => {
-    getMissionQuotes(missionLocale).then((quotes) => setMissionQuotesText(quotes.join('\n')));
+    getMissionQuotes(missionLocale).then(setMissionQuotesState);
   }, [missionLocale]);
 
-  // 빈 줄은 버리고 저장한다 — 전부 지워서 목록이 비면 미션 화면에서 뽑을 문구가 없어지므로
-  // (pickRandomQuote가 undefined를 반환) 최소 1개는 남아있을 때만 저장을 허용한다.
-  const onSaveMissionQuotes = async () => {
-    const quotes = missionQuotesText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (quotes.length === 0) return;
+  // 빈 텍스트(공백만)인 행은 저장 시 걸러낸다 — 화면에는 그대로 남아 계속 채울 수 있다.
+  const persistMissionQuotes = async (next: MissionQuote[]) => {
+    await setMissionQuotes(
+      missionLocale,
+      next.filter((q) => q.text.trim().length > 0)
+    );
+  };
+
+  const onChangeQuoteField = (index: number, field: 'text' | 'author', value: string) => {
+    setMissionQuotesState((prev) => prev.map((q, i) => (i === index ? { ...q, [field]: value } : q)));
+  };
+
+  const onBlurQuoteField = () => {
+    persistMissionQuotes(missionQuotes);
+  };
+
+  const onDeleteQuote = (index: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await setMissionQuotes(missionLocale, quotes);
+    const next = missionQuotes.filter((_, i) => i !== index);
+    setMissionQuotesState(next);
+    persistMissionQuotes(next);
+  };
+
+  const onAddQuote = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMissionQuotesState((prev) => [...prev, { text: '', author: '' }]);
   };
 
   const onSelectLanguage = async (pref: LanguagePreference) => {
@@ -223,17 +239,35 @@ export default function SettingsScreen() {
           {settings.missionEnabled && (
             <View style={styles.missionQuotesBlock}>
               <Text style={styles.missionQuotesLabel}>{t('missionQuotesLabel')}</Text>
-              <Text style={styles.missionQuotesHint}>{t('missionQuotesHint')}</Text>
-              <TextInput
-                style={styles.missionQuotesInput}
-                value={missionQuotesText}
-                onChangeText={setMissionQuotesText}
-                multiline
-                textAlignVertical="top"
-                accessibilityLabel={t('missionQuotesLabel')}
-              />
-              <Pressable onPress={onSaveMissionQuotes} style={styles.missionQuotesSaveBtn}>
-                <Text style={styles.missionQuotesSaveBtnText}>{t('missionQuotesSave')}</Text>
+              {missionQuotes.map((q, index) => (
+                <View key={index} style={styles.missionQuoteRow}>
+                  <View style={styles.missionQuoteFields}>
+                    <TextInput
+                      style={styles.missionQuoteTextInput}
+                      value={q.text}
+                      onChangeText={(v) => onChangeQuoteField(index, 'text', v)}
+                      onBlur={onBlurQuoteField}
+                      placeholder={t('missionQuotesTextPlaceholder')}
+                      placeholderTextColor={colors.inkFaint}
+                      accessibilityLabel={t('missionQuotesTextPlaceholder')}
+                    />
+                    <TextInput
+                      style={styles.missionQuoteAuthorInput}
+                      value={q.author}
+                      onChangeText={(v) => onChangeQuoteField(index, 'author', v)}
+                      onBlur={onBlurQuoteField}
+                      placeholder={t('missionQuotesAuthorPlaceholder')}
+                      placeholderTextColor={colors.inkFaint}
+                      accessibilityLabel={t('missionQuotesAuthorPlaceholder')}
+                    />
+                  </View>
+                  <Pressable onPress={() => onDeleteQuote(index)} style={styles.missionQuoteDeleteBtn}>
+                    <Text style={styles.missionQuoteDeleteBtnText}>{t('missionQuotesDelete')}</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <Pressable onPress={onAddQuote} style={styles.missionQuotesAddBtn}>
+                <Text style={styles.missionQuotesAddBtnText}>{t('missionQuotesAdd')}</Text>
               </Pressable>
             </View>
           )}
@@ -430,33 +464,59 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     color: colors.inkFaint,
   },
-  missionQuotesHint: {
-    fontSize: 12.5,
-    fontFamily: fontFamily.regular,
-    color: colors.inkFaint,
+  missionQuoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  missionQuotesInput: {
-    minHeight: 140,
+  missionQuoteFields: {
+    flex: 1,
+    gap: 6,
+  },
+  missionQuoteTextInput: {
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.semibold,
     color: colors.ink,
   },
-  missionQuotesSaveBtn: {
-    paddingVertical: 14,
+  missionQuoteAuthorInput: {
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12.5,
+    fontFamily: fontFamily.regular,
+    color: colors.inkSoft,
+  },
+  missionQuoteDeleteBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+  },
+  missionQuoteDeleteBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.inkSoft,
+  },
+  missionQuotesAddBtn: {
+    marginTop: 4,
+    paddingVertical: 12,
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.line,
     alignItems: 'center',
   },
-  missionQuotesSaveBtnText: {
+  missionQuotesAddBtnText: {
     fontSize: 14,
     fontFamily: fontFamily.bold,
-    color: colors.ink,
+    color: colors.brand,
   },
   dataSectionLabel: {
     fontSize: 13,

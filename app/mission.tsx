@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { finishNap } from '@/finishNap';
 import i18n from '@/i18n';
-import { getMissionQuotes, isMissionInputCorrect, pickRandomQuote, pickShorterQuote } from '@/missionQuotes';
+import { getMissionQuotes, isMissionInputCorrect, pickRandomQuote, pickShorterQuote, type MissionQuote } from '@/missionQuotes';
 import { getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useAlarmPlayback } from '@/useAlarmPlayback';
@@ -34,8 +34,8 @@ export default function MissionScreen() {
 
   const locale = i18n.language === 'ko' ? 'ko' : 'en';
   const [nap, setNap] = useState<ActiveNap | null>(null);
-  const [quotes, setQuotes] = useState<string[] | null>(null);
-  const [quote, setQuote] = useState('');
+  const [quotes, setQuotes] = useState<MissionQuote[] | null>(null);
+  const [quote, setQuote] = useState<MissionQuote | null>(null);
   const [input, setInput] = useState('');
   const [failCount, setFailCount] = useState(0);
   const [showRetryHint, setShowRetryHint] = useState(false);
@@ -63,7 +63,7 @@ export default function MissionScreen() {
   }, []);
 
   const onSubmit = async () => {
-    if (dismissedRef.current || !quotes) return;
+    if (dismissedRef.current || !quotes || !quote) return;
 
     if (isMissionInputCorrect(input, quote)) {
       dismissedRef.current = true;
@@ -80,7 +80,7 @@ export default function MissionScreen() {
 
     const nextFailCount = failCount + 1;
     if (nextFailCount >= MAX_ATTEMPTS_BEFORE_SWAP) {
-      setQuote((current) => pickShorterQuote(quotes, current));
+      setQuote(pickShorterQuote(quotes, quote));
       setFailCount(0);
       setShowSwapNotice(true);
     } else {
@@ -89,7 +89,7 @@ export default function MissionScreen() {
     }
   };
 
-  if (!quotes) {
+  if (!quotes || !quote) {
     return <SafeAreaView style={styles.container} edges={['top', 'bottom']} />;
   }
 
@@ -101,7 +101,8 @@ export default function MissionScreen() {
           <Text style={styles.instruction}>{t('instruction')}</Text>
 
           <View style={styles.quoteCard}>
-            <Text style={styles.quoteText}>{quote}</Text>
+            <Text style={styles.quoteText}>{quote.text}</Text>
+            {quote.author ? <Text style={styles.quoteAuthor}>{t('quoteAuthor', { author: quote.author })}</Text> : null}
           </View>
 
           <TextInput
@@ -171,6 +172,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: fontFamily.bold,
     color: colors.ink,
+    textAlign: 'center',
+  },
+  quoteAuthor: {
+    marginTop: 8,
+    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkSoft,
     textAlign: 'center',
   },
   input: {

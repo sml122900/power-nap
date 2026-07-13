@@ -12,6 +12,7 @@ import {
   pickRandomQuote,
   pickShorterQuote,
   setMissionQuotes,
+  type MissionQuote,
 } from './missionQuotes';
 
 beforeEach(async () => {
@@ -26,9 +27,14 @@ describe('MISSION_QUOTES', () => {
     expect(MISSION_QUOTES.en.length).toBeLessThanOrEqual(20);
   });
 
-  it('has no duplicate quotes within a language', () => {
-    expect(new Set(MISSION_QUOTES.ko).size).toBe(MISSION_QUOTES.ko.length);
-    expect(new Set(MISSION_QUOTES.en).size).toBe(MISSION_QUOTES.en.length);
+  it('has no duplicate quote text within a language', () => {
+    expect(new Set(MISSION_QUOTES.ko.map((q) => q.text)).size).toBe(MISSION_QUOTES.ko.length);
+    expect(new Set(MISSION_QUOTES.en.map((q) => q.text)).size).toBe(MISSION_QUOTES.en.length);
+  });
+
+  it('attributes the current self-written quotes to Claude', () => {
+    expect(MISSION_QUOTES.ko.every((q) => q.author === '클로드')).toBe(true);
+    expect(MISSION_QUOTES.en.every((q) => q.author === 'Claude')).toBe(true);
   });
 });
 
@@ -46,32 +52,38 @@ describe('normalizeMissionInput', () => {
 });
 
 describe('isMissionInputCorrect', () => {
+  const quote: MissionQuote = { text: 'Rise and shine', author: 'Claude' };
+
   it('accepts a match that only differs in case/spacing/punctuation', () => {
-    expect(isMissionInputCorrect('rise AND, shine', 'Rise and shine')).toBe(true);
+    expect(isMissionInputCorrect('rise AND, shine', quote)).toBe(true);
   });
 
   it('rejects a genuinely different string', () => {
-    expect(isMissionInputCorrect('rise and shin', 'Rise and shine')).toBe(false);
+    expect(isMissionInputCorrect('rise and shin', quote)).toBe(false);
   });
 
   it('rejects empty input against a non-empty quote', () => {
-    expect(isMissionInputCorrect('', 'Rise and shine')).toBe(false);
+    expect(isMissionInputCorrect('', quote)).toBe(false);
+  });
+
+  it('ignores the author when checking the answer', () => {
+    expect(isMissionInputCorrect('rise and shine', { text: 'Rise and shine', author: 'Someone else' })).toBe(true);
   });
 });
 
 describe('pickShorterQuote', () => {
   it('always returns a quote strictly shorter than the current one when shorter ones exist', () => {
-    const current = MISSION_QUOTES.en.reduce((a, b) => (b.length > a.length ? b : a)); // longest quote
+    const current = MISSION_QUOTES.en.reduce((a, b) => (b.text.length > a.text.length ? b : a)); // longest quote
     for (let i = 0; i < 20; i++) {
       const picked = pickShorterQuote(MISSION_QUOTES.en, current, () => i / 20);
-      expect(picked.length).toBeLessThan(current.length);
+      expect(picked.text.length).toBeLessThan(current.text.length);
     }
   });
 
   it('falls back to any other quote when the current one is already the shortest', () => {
-    const shortest = MISSION_QUOTES.en.reduce((a, b) => (b.length < a.length ? b : a));
+    const shortest = MISSION_QUOTES.en.reduce((a, b) => (b.text.length < a.text.length ? b : a));
     const picked = pickShorterQuote(MISSION_QUOTES.en, shortest, () => 0);
-    expect(picked).not.toBe(shortest);
+    expect(picked.text).not.toBe(shortest.text);
   });
 });
 
@@ -90,19 +102,30 @@ describe('getMissionQuotes / setMissionQuotes', () => {
   });
 
   it('returns the saved custom list for that language only', async () => {
-    await setMissionQuotes('ko', ['커스텀 명언 하나']);
-    expect(await getMissionQuotes('ko')).toEqual(['커스텀 명언 하나']);
+    await setMissionQuotes('ko', [{ text: '커스텀 명언 하나', author: '테스터' }]);
+    expect(await getMissionQuotes('ko')).toEqual([{ text: '커스텀 명언 하나', author: '테스터' }]);
     expect(await getMissionQuotes('en')).toEqual(MISSION_QUOTES.en);
   });
 
   it('overwrites a previously saved list for the same language', async () => {
-    await setMissionQuotes('en', ['first save']);
-    await setMissionQuotes('en', ['second save', 'another line']);
-    expect(await getMissionQuotes('en')).toEqual(['second save', 'another line']);
+    await setMissionQuotes('en', [{ text: 'first save', author: '' }]);
+    await setMissionQuotes('en', [
+      { text: 'second save', author: 'A' },
+      { text: 'another line', author: 'B' },
+    ]);
+    expect(await getMissionQuotes('en')).toEqual([
+      { text: 'second save', author: 'A' },
+      { text: 'another line', author: 'B' },
+    ]);
   });
 
   it('falls back to defaults if an empty list is saved', async () => {
     await setMissionQuotes('ko', []);
     expect(await getMissionQuotes('ko')).toEqual(MISSION_QUOTES.ko);
+  });
+
+  it('normalizes legacy plain-string entries (pre-author format) without crashing', async () => {
+    await AsyncStorage.setItem('powernap:missionQuotesOverride', JSON.stringify({ ko: ['옛날 형식 명언'] }));
+    expect(await getMissionQuotes('ko')).toEqual([{ text: '옛날 형식 명언', author: '' }]);
   });
 });
