@@ -37,8 +37,9 @@ describe('resolveNapRoute', () => {
     expect(resolveNapRoute(nap, true, 1000)).toBe('/alarm');
   });
 
-  it('skips the mission for test naps regardless of the mission setting', () => {
+  it('routes test naps to the mission screen too, when the mission is on', () => {
     const nap: ActiveNap = { ...BASE_NAP, isTest: true };
-    expect(resolveNapRoute(nap, true, 1000)).toBe('/alarm');
+    expect(resolveNapRoute(nap, true, 1000)).toBe('/mission');
+    expect(resolveNapRoute(nap, false, 1000)).toBe('/alarm');
   });
 });

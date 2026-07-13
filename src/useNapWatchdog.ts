@@ -20,12 +20,13 @@ export type NapRoute = '/' | '/sleep' | '/alarm' | '/mission';
 
 // 라우팅 판정만 떼어낸 순수 함수 — React/AsyncStorage 없이 jest로 직접 검증한다.
 // 미션(명언 타이핑)은 missionEnabled가 켜져 있고, 아직 이번 낮잠에서 통과하지 않았을
-// 때만 끼어든다. 테스트 낮잠(isTest)은 후기와 마찬가지로 미션도 건너뛴다(도그푸딩
-// 워크플로 방해 금지 — 기존 isTest 특례와 같은 이유).
+// 때 끼어든다. 테스트 낮잠(isTest)도 미션을 탄다(사용자 명시 지시로 변경 — 테스트
+// 버튼으로 미션 화면 자체를 확인하려는 목적, BACKLOG.md "알람 해제 미션" 참고).
+// 후기 화면은 이 변경과 무관하게 여전히 isTest를 건너뛴다(별도 로직).
 export function resolveNapRoute(nap: ActiveNap | null, missionEnabled: boolean, nowMs: number): NapRoute {
   if (!nap) return '/';
   if (nap.alarmAt > nowMs) return '/sleep';
-  if (missionEnabled && !nap.isTest && !nap.missionCompleted) return '/mission';
+  if (missionEnabled && !nap.missionCompleted) return '/mission';
   return '/alarm';
 }
 
