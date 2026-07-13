@@ -856,6 +856,28 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
     author 캡션이 표시되는지, 빈 행 처리, 실기기에 남아있던 이전 포맷 데이터가
     깨지지 않고 정상 로드되는지 — 사용자 진행.
 
+- **명언 편집 UI를 설정 화면에서 별도 화면으로 분리**(`main`, 사용자 피드백 — "설정
+  화면이 너무 길다"):
+  - `app/mission-quotes.tsx` 신규(신규 라우트 `/mission-quotes`) — 직전 커밋에서
+    설정 화면에 인라인으로 넣었던 행 단위 명언 편집 UI를 그대로 옮김. 설정 화면은
+    이제 미션 토글 ON일 때 "명언 수정" 링크 한 줄만 보여주고 탭하면
+    `router.push('/mission-quotes')`로 이동 — `getMissionQuotes`/`setMissionQuotes`
+    등 명언 관련 로직을 settings.tsx에서 전부 제거.
+  - locale 키 재배치: `settings.missionQuotesLabel`/`TextPlaceholder`/
+    `AuthorPlaceholder`/`Delete`/`Add` → 신규 `missionQuotes` 네임스페이스로 이동
+    (`title`/`textPlaceholder`/`authorPlaceholder`/`delete`/`add`), `settings`엔
+    `missionQuotesLink`("명언 수정")만 남김.
+  - 신규 라우트 추가라 CLAUDE.md 지뢰 목록대로 `expo export`가 이미 타입드 라우트를
+    재생성해둔 상태 확인 후 tsc 진행(별도 `expo start` 불필요했음 — 직전 export
+    실행이 이미 `.expo/types/router.d.ts`에 `/mission-quotes` 반영).
+  - jest 114개(변경 없음, settings.test.tsx는 미션 꺼짐 기본값이라 이 변경에
+    영향받지 않음)/tsc/expo-doctor/expo export 4종 통과. 커밋
+    `22493f3`("refactor: move quote editor out of settings into its own
+    screen") push 완료. **릴리즈 재빌드 + 재설치 완료**.
+  - **실기기 검증 대기**: 설정 화면 길이가 실제로 짧아졌는지, "명언 수정" 링크 탭 →
+    새 화면 진입 → 뒤로가기로 설정 복귀, 새 화면에서의 행 단위 편집이 이전과 동일하게
+    동작하는지 — 사용자 진행.
+
 ---
 
 **작업 완료 조건**: 앞으로 매 작업을 완료할 때마다 이 파일(STATUS.md)을 갱신한다.
