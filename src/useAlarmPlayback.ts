@@ -1,8 +1,9 @@
 // 알람음(iOS) + 진동 반복을 시작하는 로직 — app/alarm.tsx와 app/mission.tsx(미션 토글 ON일 때
-// 알람 화면보다 먼저 뜨는 화면, PROJECT.md/BACKLOG.md "알람 해제 미션" 참고) 양쪽에서 쓴다.
-// alarmPlaybackActive 모듈 레벨 가드가 두 화면에 걸쳐 공유돼야 미션 완료 후 알람 화면으로
-// 넘어갈 때 소리가 겹치지 않는다 — 각 화면에 따로 선언하면 서로 다른 모듈 스코프 변수가
-// 되어 가드가 무력화된다(원래 alarm.tsx에만 있던 로직을 그대로 옮긴 것 — 동작 변경 없음).
+// 알람 화면의 슬라이드/롱프레스 다음에 뜨는 화면, PROJECT.md/BACKLOG.md "알람 해제 미션"
+// 참고) 양쪽에서 쓴다. alarmPlaybackActive 모듈 레벨 가드가 두 화면에 걸쳐 공유돼야
+// 알람 화면에서 미션 화면으로 넘어갈 때 소리가 겹치지 않는다 — 각 화면에 따로 선언하면
+// 서로 다른 모듈 스코프 변수가 되어 가드가 무력화된다(원래 alarm.tsx에만 있던 로직을
+// 그대로 옮긴 것 — 동작 변경 없음).
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { type AudioPlayer } from 'expo-audio';

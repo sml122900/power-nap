@@ -1,7 +1,8 @@
-// 알람 해제 미션(명언 타이핑) — 설정의 "알람 해제 미션" 토글이 켜져 있을 때만
-// useNapWatchdog.resolveNapRoute가 /alarm 대신 이 화면으로 먼저 보낸다. 뒷단(슬라이드/
-// 롱프레스 해제 → 기상 체크리스트 → 설문)은 그대로 — 이 화면은 앞에 한 단계를 추가할
-// 뿐 기존 흐름을 바꾸지 않는다. BACKLOG.md "알람 해제 미션" 참고.
+// 알람 해제 미션(명언 타이핑) — 설정의 "알람 해제 미션" 토글이 켜져 있을 때, 알람
+// 화면(/alarm)의 슬라이드/롱프레스 해제 다음에 이 화면을 거친다(뒷단: 기상 체크리스트 →
+// 설문은 그대로). 알람음/진동은 슬라이드 이후에도 이 화면까지 계속 울린다 — 실제 정지·
+// 알림 취소·기록 저장은 명언 통과 시점(finishNap)에 한 번에 처리한다. BACKLOG.md
+// "알람 해제 미션" 참고.
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,9 +11,10 @@ import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
+import { finishNap } from '@/finishNap';
 import i18n from '@/i18n';
-import { isMissionInputCorrect, pickRandomQuote, pickShorterQuote } from '@/missionQuotes';
-import { markMissionCompleted } from '@/store';
+import { getMissionQuotes, isMissionInputCorrect, pickRandomQuote, pickShorterQuote } from '@/missionQuotes';
+import { getActiveNap, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useAlarmPlayback } from '@/useAlarmPlayback';
 import { useNapWatchdog } from '@/useNapWatchdog';
@@ -31,7 +33,9 @@ export default function MissionScreen() {
   useAlarmPlayback(player);
 
   const locale = i18n.language === 'ko' ? 'ko' : 'en';
-  const [quote, setQuote] = useState(() => pickRandomQuote(locale));
+  const [nap, setNap] = useState<ActiveNap | null>(null);
+  const [quotes, setQuotes] = useState<string[] | null>(null);
+  const [quote, setQuote] = useState('');
   const [input, setInput] = useState('');
   const [failCount, setFailCount] = useState(0);
   const [showRetryHint, setShowRetryHint] = useState(false);
@@ -44,14 +48,29 @@ export default function MissionScreen() {
     return () => subscription.remove();
   }, []);
 
+  useEffect(() => {
+    let stopped = false;
+    (async () => {
+      const [loadedNap, loadedQuotes] = await Promise.all([getActiveNap(), getMissionQuotes(locale)]);
+      if (stopped) return;
+      setNap(loadedNap);
+      setQuotes(loadedQuotes);
+      setQuote(pickRandomQuote(loadedQuotes));
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, []);
+
   const onSubmit = async () => {
-    if (dismissedRef.current) return;
+    if (dismissedRef.current || !quotes) return;
 
     if (isMissionInputCorrect(input, quote)) {
       dismissedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await markMissionCompleted();
-      router.replace('/alarm');
+      const active = nap ?? (await getActiveNap());
+      const destination = await finishNap(player, active);
+      router.replace(destination);
       return;
     }
 
@@ -61,7 +80,7 @@ export default function MissionScreen() {
 
     const nextFailCount = failCount + 1;
     if (nextFailCount >= MAX_ATTEMPTS_BEFORE_SWAP) {
-      setQuote((current) => pickShorterQuote(locale, current));
+      setQuote((current) => pickShorterQuote(quotes, current));
       setFailCount(0);
       setShowSwapNotice(true);
     } else {
@@ -69,6 +88,10 @@ export default function MissionScreen() {
       setShowSwapNotice(false);
     }
   };
+
+  if (!quotes) {
+    return <SafeAreaView style={styles.container} edges={['top', 'bottom']} />;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

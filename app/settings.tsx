@@ -12,6 +12,7 @@ import {
   SUPPORTED_LANGUAGES,
   type LanguagePreference,
 } from '@/i18n';
+import { getMissionQuotes, setMissionQuotes } from '@/missionQuotes';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -48,13 +49,17 @@ function valueFor(settings: Settings, mode: NapMode): number {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
   const [settings, setSettings] = useState<Settings | null>(null);
   // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
   // (feedback.tsx/index.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
   const [texts, setTexts] = useState<Record<NapMode, string>>({ fast: '', slow: '', coffee: '' });
   const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
   const [languagePref, setLanguagePref] = useState<LanguagePreference | null>(null);
+  // 미션 명언 목록 편집 — app/mission.tsx가 실제로 뽑는 언어(i18n.language)와 항상
+  // 같은 목록을 보여준다. 언어 전환 시 다른 목록으로 다시 로드한다.
+  const missionLocale: 'ko' | 'en' = i18n.language === 'ko' ? 'ko' : 'en';
+  const [missionQuotesText, setMissionQuotesText] = useState('');
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -64,6 +69,22 @@ export default function SettingsScreen() {
     getAiConsent().then(setAiConsentState);
     getLanguagePreference().then(setLanguagePref);
   }, []);
+
+  useEffect(() => {
+    getMissionQuotes(missionLocale).then((quotes) => setMissionQuotesText(quotes.join('\n')));
+  }, [missionLocale]);
+
+  // 빈 줄은 버리고 저장한다 — 전부 지워서 목록이 비면 미션 화면에서 뽑을 문구가 없어지므로
+  // (pickRandomQuote가 undefined를 반환) 최소 1개는 남아있을 때만 저장을 허용한다.
+  const onSaveMissionQuotes = async () => {
+    const quotes = missionQuotesText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (quotes.length === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await setMissionQuotes(missionLocale, quotes);
+  };
 
   const onSelectLanguage = async (pref: LanguagePreference) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -198,6 +219,24 @@ export default function SettingsScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {settings.missionEnabled && (
+            <View style={styles.missionQuotesBlock}>
+              <Text style={styles.missionQuotesLabel}>{t('missionQuotesLabel')}</Text>
+              <Text style={styles.missionQuotesHint}>{t('missionQuotesHint')}</Text>
+              <TextInput
+                style={styles.missionQuotesInput}
+                value={missionQuotesText}
+                onChangeText={setMissionQuotesText}
+                multiline
+                textAlignVertical="top"
+                accessibilityLabel={t('missionQuotesLabel')}
+              />
+              <Pressable onPress={onSaveMissionQuotes} style={styles.missionQuotesSaveBtn}>
+                <Text style={styles.missionQuotesSaveBtnText}>{t('missionQuotesSave')}</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={styles.list}>
@@ -381,6 +420,43 @@ const styles = StyleSheet.create({
   },
   dataSection: {
     gap: 8,
+  },
+  missionQuotesBlock: {
+    marginTop: 4,
+    gap: 8,
+  },
+  missionQuotesLabel: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
+  },
+  missionQuotesHint: {
+    fontSize: 12.5,
+    fontFamily: fontFamily.regular,
+    color: colors.inkFaint,
+  },
+  missionQuotesInput: {
+    minHeight: 140,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    color: colors.ink,
+  },
+  missionQuotesSaveBtn: {
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+  },
+  missionQuotesSaveBtnText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
   },
   dataSectionLabel: {
     fontSize: 13,

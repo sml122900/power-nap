@@ -86,6 +86,10 @@
     "longPressHint": "If sliding is hard, press and hold this area for 3 seconds instead",
     "a11ySlideLabel": "Slide to turn off alarm",
     "a11yDismissAction": "Turn off alarm",
+    "slideLabelMission": "Slide to continue",
+    "longPressHintMission": "If sliding is hard, press and hold this area for 3 seconds to continue instead",
+    "a11ySlideLabelMission": "Slide to continue to the next step",
+    "a11yDismissActionMission": "Continue to next step",
     "notificationTitle": "Time to wake up",
     "notificationBody": "Your PowerNap alarm is ringing."
   },
@@ -211,7 +215,10 @@
     "missionOnDescription": "On — when the alarm rings, you must type a sentence to dismiss it",
     "missionOffDescription": "Off — dismiss right away by sliding or long-pressing",
     "missionToggleOn": "Turn on",
-    "missionToggleOff": "Turn off"
+    "missionToggleOff": "Turn off",
+    "missionQuotesLabel": "Edit quote list",
+    "missionQuotesHint": "One quote per line",
+    "missionQuotesSave": "Save"
   },
   "mission": {
     "title": "One line to wake your mind",

@@ -23,23 +23,22 @@ describe('resolveNapRoute', () => {
     expect(resolveNapRoute(BASE_NAP, false, 999)).toBe('/sleep');
   });
 
-  it('goes straight to alarm once alarmAt has passed when the mission is off', () => {
+  it('goes to the alarm screen first once alarmAt has passed, regardless of the mission setting', () => {
     expect(resolveNapRoute(BASE_NAP, false, 1000)).toBe('/alarm'); // alarmAt===now boundary
     expect(resolveNapRoute(BASE_NAP, false, 2000)).toBe('/alarm');
+    expect(resolveNapRoute(BASE_NAP, true, 1000)).toBe('/alarm');
   });
 
-  it('routes to the mission screen once alarmAt has passed when the mission is on and not yet completed', () => {
-    expect(resolveNapRoute(BASE_NAP, true, 1000)).toBe('/mission');
-  });
-
-  it('skips the mission once missionCompleted is true, even with the mission on', () => {
-    const nap: ActiveNap = { ...BASE_NAP, missionCompleted: true };
-    expect(resolveNapRoute(nap, true, 1000)).toBe('/alarm');
-  });
-
-  it('routes test naps to the mission screen too, when the mission is on', () => {
-    const nap: ActiveNap = { ...BASE_NAP, isTest: true };
+  it('routes to the mission screen only after the alarm has been dismissed, when the mission is on', () => {
+    const nap: ActiveNap = { ...BASE_NAP, alarmDismissed: true };
     expect(resolveNapRoute(nap, true, 1000)).toBe('/mission');
     expect(resolveNapRoute(nap, false, 1000)).toBe('/alarm');
+  });
+
+  it('routes test naps through the same alarm-then-mission sequence', () => {
+    const nap: ActiveNap = { ...BASE_NAP, isTest: true };
+    expect(resolveNapRoute(nap, true, 1000)).toBe('/alarm');
+    const dismissed: ActiveNap = { ...nap, alarmDismissed: true };
+    expect(resolveNapRoute(dismissed, true, 1000)).toBe('/mission');
   });
 });

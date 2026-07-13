@@ -86,6 +86,10 @@
     "longPressHint": "슬라이드가 어렵다면 이 영역을 3초간 눌러도 꺼져요",
     "a11ySlideLabel": "밀어서 알람 끄기",
     "a11yDismissAction": "알람 끄기",
+    "slideLabelMission": "밀어서 다음으로",
+    "longPressHintMission": "슬라이드가 어렵다면 이 영역을 3초간 눌러도 다음으로 넘어가요",
+    "a11ySlideLabelMission": "밀어서 다음 단계로",
+    "a11yDismissActionMission": "다음 단계로",
     "notificationTitle": "일어날 시간이에요",
     "notificationBody": "파워냅 알람이 울리고 있어요."
   },
@@ -211,7 +215,10 @@
     "missionOnDescription": "켜짐 — 알람이 울리면 명언을 따라 입력해야 해제할 수 있어요",
     "missionOffDescription": "꺼짐 — 슬라이드하거나 길게 눌러 바로 해제해요",
     "missionToggleOn": "켜기",
-    "missionToggleOff": "끄기"
+    "missionToggleOff": "끄기",
+    "missionQuotesLabel": "명언 목록 편집",
+    "missionQuotesHint": "한 줄에 하나씩 입력하세요",
+    "missionQuotesSave": "저장"
   },
   "mission": {
     "title": "정신을 깨우는 한 문장",

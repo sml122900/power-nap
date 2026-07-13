@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   BackHandler,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -26,8 +25,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from '@/notifications';
-import { appendNapRecord, clearActiveNap, getActiveNap, savePendingFeedback, type ActiveNap } from '@/store';
+import { finishNap } from '@/finishNap';
+import { getActiveNap, getSettings, markAlarmDismissed, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useAlarmPlayback } from '@/useAlarmPlayback';
 import { useNapWatchdog } from '@/useNapWatchdog';
@@ -46,6 +45,10 @@ export default function AlarmScreen() {
   const player = useAudioPlayer(ALARM_SOUND);
   useAlarmPlayback(player);
   const [nap, setNap] = useState<ActiveNap | null>(null);
+  // 미션 켜짐 여부에 따라 슬라이드/롱프레스 안내 문구가 갈린다(아래 slideLabel 등) —
+  // 미션이 켜져 있으면 이 화면의 해제는 알람을 끄는 게 아니라 다음 단계(명언 입력)로
+  // 넘어가는 것뿐이라 문구도 그렇게 안내해야 한다.
+  const [missionEnabled, setMissionEnabled] = useState(false);
   const dismissedRef = useRef(false);
   // useAudioPlayer(코드상 이 함수보다 먼저 호출됨)의 내부 정리(release)는 React가
   // 언마운트 시 이펙트 클린업을 "등록 순서대로"(역순 아님) 실행하기 때문에 우리
@@ -65,9 +68,10 @@ export default function AlarmScreen() {
   useEffect(() => {
     let stopped = false;
     (async () => {
-      const loaded = await getActiveNap();
+      const [loadedNap, settings] = await Promise.all([getActiveNap(), getSettings()]);
       if (stopped) return;
-      setNap(loaded);
+      setNap(loadedNap);
+      setMissionEnabled(settings.missionEnabled);
     })();
     return () => {
       stopped = true;
@@ -80,40 +84,19 @@ export default function AlarmScreen() {
     dismissedRef.current = true;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈추고, iOS는 이
-    // 화면의 expo-audio 재생을 직접 멈춘다 — stopNativeAlarmSoundAsync는 Android에서만
-    // 동작하는 no-op 안전 래퍼다(src/notifications.ts 참고).
-    if (Platform.OS === 'ios') {
-      player.pause();
+
+    if (missionEnabled) {
+      // 슬라이드/롱프레스는 다음 단계(명언 입력)로 넘어가는 게이트일 뿐 — 알람음/진동은
+      // 미션까지 계속 울린다(사용자 지시). 실제 정지·알림 취소·기록 저장은 미션 통과
+      // 시점(app/mission.tsx → src/finishNap.ts)에서 한다.
+      await markAlarmDismissed();
+      router.replace('/mission');
+      return;
     }
-    await stopNativeAlarmSoundAsync();
 
     const active = nap ?? (await getActiveNap());
-    await cancelAlarmNotificationAsync(active?.notificationId ?? null);
-    if (active) {
-      // 커피냅은 "커피 마신 시각" 기준, 일반 낮잠은 "낮잠 시작" 기준으로 실제 사용된
-      // 총 시간을 계산한다 — NapRecord.offsetMinutes에 쓰인다.
-      const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
-      const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
-      if (active.isTest) {
-        // 테스트 낮잠(홈 화면 단축 버튼)은 후기를 받지 않는다 — 학습 반영 없이 기록만 남기고 홈으로.
-        await appendNapRecord({
-          completedAt: Date.now(),
-          mode: active.mode,
-          offsetMinutes,
-          result: 'test',
-          isTest: true,
-        });
-        await clearActiveNap();
-        router.replace('/');
-        return;
-      }
-      await savePendingFeedback({ mode: active.mode, offsetMinutes });
-    }
-    // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
-    // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
-    await clearActiveNap();
-    router.replace('/feedback');
+    const destination = await finishNap(player, active);
+    router.replace(destination);
   };
 
   // ── 슬라이드 해제 트랙 ──
@@ -204,21 +187,23 @@ export default function AlarmScreen() {
             onLayout={onTrackLayout}
             accessible
             accessibilityRole="button"
-            accessibilityLabel={t('a11ySlideLabel')}
-            accessibilityActions={[{ name: 'activate', label: t('a11yDismissAction') }]}
+            accessibilityLabel={t(missionEnabled ? 'a11ySlideLabelMission' : 'a11ySlideLabel')}
+            accessibilityActions={[
+              { name: 'activate', label: t(missionEnabled ? 'a11yDismissActionMission' : 'a11yDismissAction') },
+            ]}
             onAccessibilityAction={(event) => {
               if (event.nativeEvent.actionName === 'activate') handleDismiss();
             }}
           >
             <Animated.View style={[styles.slideTrackFill, trackFillStyle]} />
             <Text style={styles.slideLabel} pointerEvents="none">
-              {t('slideLabel')}
+              {t(missionEnabled ? 'slideLabelMission' : 'slideLabel')}
             </Text>
             <Animated.View style={[styles.slideThumb, thumbStyle]} />
           </View>
 
           <Text style={styles.longPressHint} pointerEvents="none">
-            {t('longPressHint')}
+            {t(missionEnabled ? 'longPressHintMission' : 'longPressHint')}
           </Text>
         </View>
       </GestureDetector>

@@ -43,6 +43,22 @@
 | `settings.missionOnDescription` | On — when the alarm rings, you must type a sentence to dismiss it | "you must"의 단정 강도가 원문 "해제할 수 있어요"보다 강압적으로 읽히는지 — **아직 미검수** |
 | `src/missionQuotes.ts`의 en 배열 전체 | (18개 문구) | 자체 작성 영어 문구라 원어민 자연스러움 검수가 특히 필요 — **아직 미검수** |
 
+#### 신규 추가 (미검수) — 순서 변경(슬라이드 먼저 → 명언 나중) + 설정 명언 목록 편집
+
+미션이 켜져 있을 때 알람 화면의 슬라이드/롱프레스가 "알람 끄기"가 아니라 "다음
+단계(명언)로 넘어가기"로 의미가 바뀌어(사용자 지시), 문구도 새로 분리했다. 명언
+목록을 설정 화면에서 직접 편집할 수 있게 된 것도 이번 변경.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `alarm.slideLabelMission` | Slide to continue | 미션이 켜진 상태에서도 사용자가 "이거 슬라이드하면 알람이 꺼지는 건가?"로 오해하지 않는지 — **아직 미검수** |
+| `alarm.longPressHintMission` | If sliding is hard, press and hold this area for 3 seconds to continue instead | 위와 같은 맥락, 문장이 다소 길어 자연스러운지 — **아직 미검수** |
+| `alarm.a11ySlideLabelMission` | Slide to continue to the next step | 스크린리더용 — 의미 전달이 명확한지 — **아직 미검수** |
+| `alarm.a11yDismissActionMission` | Continue to next step | 위와 동일 — **아직 미검수** |
+| `settings.missionQuotesLabel` | Edit quote list | 짧은 라벨이라 리스크 낮음 — **아직 미검수** |
+| `settings.missionQuotesHint` | One quote per line | 입력 형식 안내 — 명확한지 — **아직 미검수** |
+| `settings.missionQuotesSave` | Save | 표준적 표현 — **아직 미검수** |
+
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |

@@ -17,7 +17,7 @@ import {
   getCachedAnalysisList,
   getNapRecords,
   getSettings,
-  markMissionCompleted,
+  markAlarmDismissed,
   MIN_RECORDS_FOR_ANALYSIS,
   periodSinceMs,
   resolveAnalysisDetail,
@@ -128,7 +128,7 @@ describe('setMissionEnabled', () => {
   });
 });
 
-describe('markMissionCompleted', () => {
+describe('markAlarmDismissed', () => {
   const BASE_NAP: ActiveNap = {
     mode: 'fast',
     startedAt: 1000,
@@ -137,16 +137,16 @@ describe('markMissionCompleted', () => {
     notificationPermissionGranted: true,
   };
 
-  it('sets missionCompleted on the active nap without touching other fields', async () => {
+  it('sets alarmDismissed on the active nap without touching other fields', async () => {
     await saveActiveNap(BASE_NAP);
-    await markMissionCompleted();
+    await markAlarmDismissed();
 
     const nap = await getActiveNap();
-    expect(nap).toEqual({ ...BASE_NAP, missionCompleted: true });
+    expect(nap).toEqual({ ...BASE_NAP, alarmDismissed: true });
   });
 
   it('is a no-op when there is no active nap', async () => {
-    await markMissionCompleted();
+    await markAlarmDismissed();
     expect(await getActiveNap()).toBeNull();
   });
 });

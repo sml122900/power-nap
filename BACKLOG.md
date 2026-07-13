@@ -151,30 +151,44 @@ PROJECT.md §5·§6, STATUS.md 참조.
 PROJECT.md/STATUS.md 참조.
 
 - 설정 화면 "알람 해제 미션" 토글, 기본 OFF(기존 사용자 경험 보호) — `Settings.missionEnabled`.
-- ON일 때 알람 흐름: 명언 타이핑(`/mission`) → 기존 슬라이드/롱프레스 해제(`/alarm`) →
-  기상 체크리스트 → 설문. 기존 흐름 앞에 한 단계만 추가, 뒷단(`app/feedback.tsx`)은
-  변경 없음. `useNapWatchdog`의 라우팅 판정을 `resolveNapRoute` 순수 함수로 분리해
-  네 번째 목적지(`/mission`)를 추가.
-  ~~테스트 낮잠(`isTest`)은 후기와 마찬가지로 미션도 건너뛴다~~ — 도입 당시엔 도그푸딩
-  워크플로 방해 금지 목적으로 그렇게 했으나, 정작 테스트 버튼으로 미션 화면 자체를
-  확인할 수 없다는 문제가 있어 사용자 지시로 되돌림. 이제 테스트 낮잠도 미션을 탄다
-  (후기 화면의 isTest 스킵은 이 변경과 무관하게 유지).
-- 명언은 `src/missionQuotes.ts`에 로컬 상수로 한/영 각 18개(15~20 범위), 낮잠·휴식·
-  재충전·집중 테마, 20자 내외. **전부 자체 작성** — 실존 인물 인용구는 정확한 원문·
-  공개 출처를 확인할 수 없으면 오귀속 위험이 있어 배제(불확실하면 자체 작성 원칙).
+- **순서(사용자 지시로 확정, 도입 당시의 "명언 먼저 → 슬라이드"에서 변경)**: 알람 흐름은
+  슬라이드/롱프레스 해제(`/alarm`) → 명언 타이핑(`/mission`) → 기상 체크리스트 → 설문.
+  슬라이드/롱프레스는 알람을 끄는 게 아니라 "다음 단계로 넘어가는 게이트"일 뿐이고,
+  **알람음/진동은 명언 화면까지 계속 울린다**(사용자 지시 — 슬라이드만으로 알람이 꺼지면
+  다시 잠들 위험이 있다는 판단). 실제 사운드 정지·알림 취소·기록 저장은 명언 통과
+  시점에 한 번에 처리(`src/finishNap.ts` 신규 — `app/alarm.tsx`(미션 꺼짐 경로)와
+  `app/mission.tsx`(미션 켜짐, 명언 통과 시) 양쪽이 공유하는 낮잠 종료 공통 로직).
+  `ActiveNap.missionCompleted`는 폐지하고 `ActiveNap.alarmDismissed`로 교체 —
+  새 순서에서 명언은 항상 마지막 게이트라 "이미 통과했는지" 별도 추적이 필요 없어짐
+  (명언 통과 = ActiveNap 자체가 즉시 삭제되므로).
+  `useNapWatchdog`의 라우팅 판정(`resolveNapRoute`)은 알람 미해제(`/alarm`) →
+  해제됨+미션 켜짐(`/mission`) 순으로 판정.
+  테스트 낮잠(`isTest`)도 이 라우팅을 동일하게 탄다(이전 세션에 사용자 지시로 이미
+  되돌림 — 테스트 버튼으로 미션 화면 자체를 확인하려는 목적). 후기 화면의 isTest
+  스킵은 이 변경과 무관하게 유지.
+- 명언은 `src/missionQuotes.ts`에 로컬 상수(`MISSION_QUOTES`)로 한/영 각 18개(15~20
+  범위, 기본값) 제공. **설정 화면에서 직접 편집·추가 가능**(사용자 지시) —
+  `getMissionQuotes(locale)`/`setMissionQuotes(locale, quotes)`가 AsyncStorage에
+  언어별 커스텀 목록을 저장, 없으면 기본값으로 폴백. 설정 화면(미션 토글 ON일 때만
+  노출)은 줄바꿈으로 구분된 멀티라인 텍스트박스 하나 + "저장" 버튼(사용자가 직접
+  이 방식 선택 — 줄별 추가/삭제 UI 대신 가장 단순한 구현). 빈 줄은 저장 시 걸러내고,
+  결과가 0개면 저장을 막는다(명언이 하나도 없으면 미션 화면에서 뽑을 게 없어짐).
+  `pickRandomQuote`/`pickShorterQuote`는 이제 locale 대신 로드된 배열을 직접
+  받는다(순수 함수 유지, 커스텀/기본 여부를 몰라도 됨).
 - 입력 비교(`normalizeMissionInput`)는 공백·구두점 제거 + 소문자화 후 대조하는 관대한
   방식 — 오타 하나로 무한 재시도에 갇히지 않게. 건너뛰기 버튼 없음. 3회 연속 실패 시
   더 짧은 문구로 교체(`pickShorterQuote`).
-- 미션 중에도 알람음·진동은 계속 울린다(CLAUDE.md "알람 신뢰성" 원칙) — 기존
-  `app/alarm.tsx`에 있던 사운드/햅틱 시작 로직을 `src/useAlarmPlayback.ts`로 추출해
-  `app/mission.tsx`와 공유한다. Android는 애초에 네이티브 알람(STREAM_ALARM)이 화면과
-  무관하게 재생 중이라 영향 없음. iOS는 미션→알람 화면 전환 시 JS 오디오 플레이어
-  인스턴스가 바뀌면서 아주 짧게 재시작되는 정도(무음 구간 없음) — 화면 간 완전히
-  끊김 없는 오디오 세션을 유지하려면 라우팅 바깥에 상주하는 플레이어가 필요한데,
-  이번 기능 범위를 크게 벗어나 채택하지 않음.
+  `app/alarm.tsx`에 있던 사운드/햅틱 시작 로직은 `src/useAlarmPlayback.ts`로 추출해
+  `app/mission.tsx`와 공유한다(모듈 레벨 `alarmPlaybackActive` 가드로 화면 전환 시
+  중복 재생 방지 — 이제 알람→미션 방향으로 동작, 메커니즘 자체는 변경 없음). Android는
+  애초에 네이티브 알람(STREAM_ALARM)이 화면과 무관하게 재생 중이라 영향 없음. iOS는
+  알람→미션 화면 전환 시 JS 오디오 플레이어 인스턴스가 바뀌면서 아주 짧게 재시작되는
+  정도(무음 구간 없음) — 화면 간 완전히 끊김 없는 오디오 세션을 유지하려면 라우팅
+  바깥에 상주하는 플레이어가 필요한데, 이번 기능 범위를 크게 벗어나 채택하지 않음.
 - 미션 화면도 알람 화면과 동일하게 하드웨어 뒤로가기 차단.
-- jest: `missionQuotes.test.ts`(정규화 비교, 더 짧은 문구 선택), `useNapWatchdog.test.ts`
-  (resolveNapRoute 라우팅 전환 — 미션 on/off·완료 여부·isTest 조합).
+- jest: `missionQuotes.test.ts`(정규화 비교, 더 짧은 문구 선택, `getMissionQuotes`/
+  `setMissionQuotes` 저장·폴백), `useNapWatchdog.test.ts`(resolveNapRoute 라우팅
+  전환 — 알람 미해제/해제+미션 on·off/isTest 조합).
 
 ### 수학 문제 미션 — 배제
 

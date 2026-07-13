@@ -36,10 +36,12 @@ export interface ActiveNap {
   // Android에서 항상 notificationId가 채워지게 되며 더 이상 유효하지 않음).
   notificationPermissionGranted: boolean;
   isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
-  // 알람 해제 미션(명언 타이핑)을 이번 낮잠에서 이미 통과했는지 — /mission 화면이 성공
-  // 시 true로 남기고 /alarm으로 직접 이동한다. useNapWatchdog이 재판정할 때(예: 미션
-  // 화면에서 앱을 백그라운드로 보냈다 복귀) 다시 /mission으로 돌려보내지 않기 위한 값.
-  missionCompleted?: boolean;
+  // 알람 화면의 슬라이드/롱프레스를 이번 낮잠에서 이미 통과했는지 — 미션이 켜져 있으면
+  // 이 이후에 /mission으로 넘어가고(§순서: 슬라이드 먼저, 명언 나중), 알람음/진동은
+  // 미션까지 계속 울린다(실제 정지·기록 저장은 미션 통과 시점 — src/finishNap.ts).
+  // useNapWatchdog이 재판정할 때(예: 화면 전환 중 앱을 백그라운드로 보냈다 복귀) 다시
+  // /alarm으로 돌려보내지 않기 위한 값.
+  alarmDismissed?: boolean;
 }
 
 // 레거시(Phase 4-2 이전) 3버튼 후기 결과 — 신규 레코드는 더 이상 안 씀,
@@ -312,12 +314,13 @@ export async function clearActiveNap(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.activeNap);
 }
 
-// 미션 화면(app/mission.tsx)이 명언 타이핑에 성공한 직후 호출 — 이후 useNapWatchdog의
-// resolveNapRoute가 같은 ActiveNap을 다시 '/mission'으로 보내지 않는다.
-export async function markMissionCompleted(): Promise<void> {
+// 알람 화면(app/alarm.tsx)의 슬라이드/롱프레스 해제 직후 호출 — 미션이 켜져 있을 때만
+// 쓰인다. 이후 useNapWatchdog의 resolveNapRoute가 같은 ActiveNap을 다시 '/alarm'으로
+// 보내지 않고 '/mission'으로 넘긴다.
+export async function markAlarmDismissed(): Promise<void> {
   const nap = await getActiveNap();
   if (!nap) return;
-  await saveActiveNap({ ...nap, missionCompleted: true });
+  await saveActiveNap({ ...nap, alarmDismissed: true });
 }
 
 export async function savePendingFeedback(feedback: PendingFeedback): Promise<void> {
