@@ -830,6 +830,32 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
     설정 화면 명언 목록 편집(멀티라인 입력·저장·재로드), 언어 전환 시 다른 언어
     목록으로 갱신되는지 — 전부 사용자 진행.
 
+- **명언에 author 필드 추가 + 설정 명언 편집 UI를 행 단위로 교체**(`main`, 사용자
+  실사용 피드백 반영) — BACKLOG.md "구현됨 (알람 해제 미션)"/PROJECT.md §6.3.5 갱신:
+  - 직전 커밋에서 만든 "줄바꿈 텍스트박스 하나" 방식이 실사용해보니 별로라는 피드백 —
+    나중에 "소크라테스: 너 자신을 알라"처럼 실존 인물 명언에 출처를 붙일 계획이라
+    author 필드를 넣기로 하면서 통짜 텍스트로는 관리가 더 불편해짐. `MISSION_QUOTES`를
+    `string[]` → `{ text, author }[]`(`MissionQuote` 타입)로 변경, 기존 자체 작성
+    명언은 전부 author를 `'클로드'`(ko)/`'Claude'`(en)로 저장(사용자 지시). 정답
+    판정(`isMissionInputCorrect`)은 `text`만 비교, author는 미션 화면에 `— {{author}}`
+    캡션으로만 표시(있을 때만).
+  - 설정 화면 명언 편집을 행(row) 단위 UI로 교체 — 명언마다 텍스트 입력 2개(본문/말한
+    사람) + "삭제" 버튼, 목록 끝에 "+ 명언 추가" 버튼. 각 입력은 blur 시 전체 배열을
+    저장(저장 버튼 없음 — add/delete/blur마다 즉시 반영). 빈 텍스트 행은 저장 시
+    걸러내되 화면엔 남겨 계속 채울 수 있게 둠.
+  - `getMissionQuotes`/`setMissionQuotes`가 이제 `MissionQuote[]`를 읽고 쓴다.
+    **실기기에 이미 저장돼 있을 수 있는 이전 포맷(순수 문자열) 데이터를 위한 방어적
+    정규화** 추가 — 도그푸딩 중 실제로 문자열 포맷으로 한 번 저장했을 가능성이 있어
+    author: ''로 변환해 크래시 없이 읽음.
+  - jest 114개 통과(기존 111 + author/legacy-format 케이스 신규), tsc/expo-doctor/
+    expo export 3종 통과. 커밋 `c2d09cf`("feat: per-quote author field +
+    row-based quote editor in settings") push 완료. **릴리즈 재빌드 + 재설치 완료**.
+  - REVIEW_NEEDED.md 1순위 갱신(missionQuotesHint/Save 제거 → TextPlaceholder/
+    AuthorPlaceholder/Delete/Add + mission.quoteAuthor로 교체).
+  - **실기기 검증 대기**: 행 단위 추가/수정/삭제가 제대로 저장되는지, 미션 화면에
+    author 캡션이 표시되는지, 빈 행 처리, 실기기에 남아있던 이전 포맷 데이터가
+    깨지지 않고 정상 로드되는지 — 사용자 진행.
+
 ---
 
 **작업 완료 조건**: 앞으로 매 작업을 완료할 때마다 이 파일(STATUS.md)을 갱신한다.
