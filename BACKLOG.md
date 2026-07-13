@@ -173,17 +173,21 @@ PROJECT.md/STATUS.md 참조.
   자체 작성이라 author를 `'클로드'`(ko)/`'Claude'`(en)로 저장(사용자 지시). 미션
   화면은 명언 아래에 `— {{author}}` 캡션을 작게 보여준다(author가 빈 문자열이면
   숨김).
-- **설정 화면에서 명언을 각각 추가·수정·삭제 가능**(사용자 지시, 미션 토글 ON일 때만
-  노출) — 처음엔 줄바꿈 구분 텍스트박스 하나로 구현했으나, 명언 개수가 늘고 author
-  필드가 추가되면서 한 덩어리 텍스트로는 어느 줄이 몇 번째 명언인지 관리하기
-  불편하다는 피드백으로 **행(row) 단위 UI로 교체**: 명언마다 텍스트 입력 2개(명언
-  본문/말한 사람) + "삭제" 버튼, 목록 아래 "+ 명언 추가" 버튼. 각 입력은 blur 시
-  전체 배열을 저장(`getMissionQuotes(locale)`/`setMissionQuotes(locale, quotes)`가
-  AsyncStorage에 언어별 커스텀 목록 저장, 없으면 기본값 폴백). 빈 텍스트 행은 저장
-  시 걸러내되 화면에는 그대로 남겨 계속 채울 수 있게 둔다(사용자가 다 지워 0개가
-  되어도 `getMissionQuotes`가 기본값으로 자동 폴백하므로 별도 방어 로직 불필요).
-  `pickRandomQuote`/`pickShorterQuote`는 locale 대신 로드된 `MissionQuote[]`를
-  직접 받는다(순수 함수 유지, 커스텀/기본 여부를 몰라도 됨).
+- **명언을 각각 추가·수정·삭제 가능**(사용자 지시, 미션 토글 ON일 때만 노출) —
+  처음엔 설정 화면 안에 줄바꿈 구분 텍스트박스 하나로 인라인 구현했으나, 명언
+  개수가 늘고 author 필드까지 추가되면서 (1) 한 덩어리 텍스트로는 어느 줄이 몇
+  번째 명언인지 관리하기 불편하고 (2) 설정 화면 자체가 너무 길어진다는 피드백으로
+  두 번 반복 개선: **행(row) 단위 UI**(명언마다 텍스트 입력 2개(본문/말한 사람) +
+  "삭제" 버튼, 목록 아래 "+ 명언 추가" 버튼)로 바꾸고, 이 편집 UI 자체를
+  **`app/mission-quotes.tsx` 별도 화면으로 분리**(설정 화면에는 "명언 수정" 링크
+  한 줄만 남음, 미션 토글 ON일 때만 노출 → `router.push('/mission-quotes')`).
+  각 입력은 blur 시 전체 배열을 저장(`getMissionQuotes(locale)`/
+  `setMissionQuotes(locale, quotes)`가 AsyncStorage에 언어별 커스텀 목록 저장,
+  없으면 기본값 폴백). 빈 텍스트 행은 저장 시 걸러내되 화면에는 그대로 남겨 계속
+  채울 수 있게 둔다(사용자가 다 지워 0개가 되어도 `getMissionQuotes`가 기본값으로
+  자동 폴백하므로 별도 방어 로직 불필요). `pickRandomQuote`/`pickShorterQuote`는
+  locale 대신 로드된 `MissionQuote[]`를 직접 받는다(순수 함수 유지, 커스텀/기본
+  여부를 몰라도 됨).
 - 입력 비교(`normalizeMissionInput`)는 공백·구두점 제거 + 소문자화 후 대조하는 관대한
   방식 — 오타 하나로 무한 재시도에 갇히지 않게. 건너뛰기 버튼 없음. 3회 연속 실패 시
   더 짧은 문구로 교체(`pickShorterQuote`).

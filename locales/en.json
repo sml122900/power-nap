@@ -216,11 +216,14 @@
     "missionOffDescription": "Off — dismiss right away by sliding or long-pressing",
     "missionToggleOn": "Turn on",
     "missionToggleOff": "Turn off",
-    "missionQuotesLabel": "Edit quote list",
-    "missionQuotesTextPlaceholder": "Quote",
-    "missionQuotesAuthorPlaceholder": "Attributed to",
-    "missionQuotesDelete": "Delete",
-    "missionQuotesAdd": "+ Add quote"
+    "missionQuotesLink": "Edit quotes"
+  },
+  "missionQuotes": {
+    "title": "Edit quotes",
+    "textPlaceholder": "Quote",
+    "authorPlaceholder": "Attributed to",
+    "delete": "Delete",
+    "add": "+ Add quote"
   },
   "mission": {
     "title": "One line to wake your mind",

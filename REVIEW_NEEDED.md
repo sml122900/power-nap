@@ -55,11 +55,12 @@
 | `alarm.longPressHintMission` | If sliding is hard, press and hold this area for 3 seconds to continue instead | 위와 같은 맥락, 문장이 다소 길어 자연스러운지 — **아직 미검수** |
 | `alarm.a11ySlideLabelMission` | Slide to continue to the next step | 스크린리더용 — 의미 전달이 명확한지 — **아직 미검수** |
 | `alarm.a11yDismissActionMission` | Continue to next step | 위와 동일 — **아직 미검수** |
-| `settings.missionQuotesLabel` | Edit quote list | 짧은 라벨이라 리스크 낮음 — **아직 미검수** |
-| `settings.missionQuotesTextPlaceholder` | Quote | 짧은 placeholder — 리스크 낮음 — **아직 미검수** |
-| `settings.missionQuotesAuthorPlaceholder` | Attributed to | "말한 사람"의 번역으로 자연스러운지(나중에 실존 인물 명언·출처 추가 시 이 필드에 채워짐) — **아직 미검수** |
-| `settings.missionQuotesDelete` | Delete | 표준적 표현 — **아직 미검수** |
-| `settings.missionQuotesAdd` | + Add quote | 표준적 표현 — **아직 미검수** |
+| `settings.missionQuotesLink` | Edit quotes | 짧은 링크 라벨이라 리스크 낮음 — **아직 미검수** |
+| `missionQuotes.title` | Edit quotes | 화면 헤더, settings.missionQuotesLink와 동일 문구 — **아직 미검수** |
+| `missionQuotes.textPlaceholder` | Quote | 짧은 placeholder — 리스크 낮음 — **아직 미검수** |
+| `missionQuotes.authorPlaceholder` | Attributed to | "말한 사람"의 번역으로 자연스러운지(나중에 실존 인물 명언·출처 추가 시 이 필드에 채워짐) — **아직 미검수** |
+| `missionQuotes.delete` | Delete | 표준적 표현 — **아직 미검수** |
+| `missionQuotes.add` | + Add quote | 표준적 표현 — **아직 미검수** |
 | `mission.quoteAuthor` | — {{author}} | 인용 표기 관례(em dash)가 두 언어 모두에서 자연스러운지 — **아직 미검수** |
 
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요

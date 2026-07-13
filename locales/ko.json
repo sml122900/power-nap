@@ -216,11 +216,14 @@
     "missionOffDescription": "꺼짐 — 슬라이드하거나 길게 눌러 바로 해제해요",
     "missionToggleOn": "켜기",
     "missionToggleOff": "끄기",
-    "missionQuotesLabel": "명언 목록 편집",
-    "missionQuotesTextPlaceholder": "명언",
-    "missionQuotesAuthorPlaceholder": "말한 사람",
-    "missionQuotesDelete": "삭제",
-    "missionQuotesAdd": "+ 명언 추가"
+    "missionQuotesLink": "명언 수정"
+  },
+  "missionQuotes": {
+    "title": "명언 수정",
+    "textPlaceholder": "명언",
+    "authorPlaceholder": "말한 사람",
+    "delete": "삭제",
+    "add": "+ 명언 추가"
   },
   "mission": {
     "title": "정신을 깨우는 한 문장",
