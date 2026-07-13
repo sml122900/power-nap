@@ -184,6 +184,7 @@
     "stepIncreaseA11y": "{{step}}분 늘리기",
     "inputA11y": "{{label}} 분 직접 입력 ({{min}}~{{max}})",
     "unit": "분",
+    "napTimingSectionLabel": "낮잠 타이밍 조정",
     "dataSectionLabel": "데이터 및 분석",
     "consentGranted": "AI 분석 서버 전송에 동의함",
     "consentNotGranted": "AI 분석 서버 전송에 동의하지 않음",

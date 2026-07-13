@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -185,103 +185,106 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.list}>
-        {ROWS.map((row) => {
-          const value = valueFor(settings, row.mode);
-          return (
-            <View key={row.mode} style={styles.card}>
-              <Text style={styles.label}>{t(row.labelKey)}</Text>
-              <View style={styles.stepperRow}>
-                <Pressable
-                  onPress={() => onStep(row, -STEP)}
-                  style={styles.stepBtn}
-                  accessibilityLabel={t('stepDecreaseA11y', { step: STEP })}
-                >
-                  <Text style={styles.stepBtnText}>−</Text>
-                </Pressable>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={[styles.input, tabularNums]}
-                    value={texts[row.mode]}
-                    onChangeText={(text) =>
-                      setTexts((prev) => ({ ...prev, [row.mode]: text.replace(/[^0-9]/g, '').slice(0, 2) }))
-                    }
-                    onBlur={() => onCommitText(row)}
-                    onSubmitEditing={() => onCommitText(row)}
-                    keyboardType="number-pad"
-                    maxLength={2}
-                    textAlign="center"
-                    accessibilityLabel={t('inputA11y', { label: t(row.labelKey), min: row.min, max: row.max })}
-                  />
-                  <Text style={styles.unit}>{t('unit')}</Text>
-                </View>
-                <Pressable
-                  onPress={() => onStep(row, STEP)}
-                  style={styles.stepBtn}
-                  accessibilityLabel={t('stepIncreaseA11y', { step: STEP })}
-                >
-                  <Text style={styles.stepBtnText}>+</Text>
-                </Pressable>
-              </View>
-              <Text style={[styles.preview, tabularNums]}>{previewFor(row.mode, value)}</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      <View style={styles.dataSection}>
-        <Text style={styles.dataSectionLabel}>{t('dataSectionLabel')}</Text>
-        <View style={styles.dataRow}>
-          <Text style={styles.dataRowText}>
-            {aiConsent === true ? t('consentGranted') : t('consentNotGranted')}
-          </Text>
-          <Pressable onPress={onToggleAiConsent} style={styles.dataToggleBtn}>
-            <Text style={styles.dataToggleBtnText}>
-              {aiConsent === true ? t('consentToggleRevoke') : t('consentToggleGrant')}
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataRowText}>
+              {settings.missionEnabled ? t('missionOnDescription') : t('missionOffDescription')}
             </Text>
-          </Pressable>
+            <Pressable onPress={onToggleMission} style={styles.dataToggleBtn}>
+              <Text style={styles.dataToggleBtnText}>
+                {settings.missionEnabled ? t('missionToggleOff') : t('missionToggleOn')}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-        <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
-          <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
-        </Pressable>
-      </View>
 
-      <View style={styles.dataSection}>
-        <Text style={styles.dataSectionLabel}>{t('languageSectionLabel')}</Text>
-        <View style={styles.languageOptionList}>
-          {LANGUAGE_PREFERENCES.map((pref) => {
-            const selected = languagePref === pref;
+        <View style={styles.list}>
+          <Text style={styles.dataSectionLabel}>{t('napTimingSectionLabel')}</Text>
+          {ROWS.map((row) => {
+            const value = valueFor(settings, row.mode);
             return (
-              <Pressable
-                key={pref}
-                onPress={() => onSelectLanguage(pref)}
-                style={[styles.languageOptionRow, selected && styles.languageOptionRowSelected]}
-                accessibilityRole="button"
-                accessibilityLabel={t(`languageOption.${pref}`)}
-                accessibilityState={{ selected }}
-              >
-                <Text style={[styles.languageOptionText, selected && styles.languageOptionTextSelected]}>
-                  {t(`languageOption.${pref}`)}
-                </Text>
-              </Pressable>
+              <View key={row.mode} style={styles.card}>
+                <Text style={styles.label}>{t(row.labelKey)}</Text>
+                <View style={styles.stepperRow}>
+                  <Pressable
+                    onPress={() => onStep(row, -STEP)}
+                    style={styles.stepBtn}
+                    accessibilityLabel={t('stepDecreaseA11y', { step: STEP })}
+                  >
+                    <Text style={styles.stepBtnText}>−</Text>
+                  </Pressable>
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      style={[styles.input, tabularNums]}
+                      value={texts[row.mode]}
+                      onChangeText={(text) =>
+                        setTexts((prev) => ({ ...prev, [row.mode]: text.replace(/[^0-9]/g, '').slice(0, 2) }))
+                      }
+                      onBlur={() => onCommitText(row)}
+                      onSubmitEditing={() => onCommitText(row)}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      textAlign="center"
+                      accessibilityLabel={t('inputA11y', { label: t(row.labelKey), min: row.min, max: row.max })}
+                    />
+                    <Text style={styles.unit}>{t('unit')}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => onStep(row, STEP)}
+                    style={styles.stepBtn}
+                    accessibilityLabel={t('stepIncreaseA11y', { step: STEP })}
+                  >
+                    <Text style={styles.stepBtnText}>+</Text>
+                  </Pressable>
+                </View>
+                <Text style={[styles.preview, tabularNums]}>{previewFor(row.mode, value)}</Text>
+              </View>
             );
           })}
         </View>
-      </View>
 
-      <View style={styles.dataSection}>
-        <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
-        <View style={styles.dataRow}>
-          <Text style={styles.dataRowText}>
-            {settings.missionEnabled ? t('missionOnDescription') : t('missionOffDescription')}
-          </Text>
-          <Pressable onPress={onToggleMission} style={styles.dataToggleBtn}>
-            <Text style={styles.dataToggleBtnText}>
-              {settings.missionEnabled ? t('missionToggleOff') : t('missionToggleOn')}
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('languageSectionLabel')}</Text>
+          <View style={styles.languageOptionList}>
+            {LANGUAGE_PREFERENCES.map((pref) => {
+              const selected = languagePref === pref;
+              return (
+                <Pressable
+                  key={pref}
+                  onPress={() => onSelectLanguage(pref)}
+                  style={[styles.languageOptionRow, selected && styles.languageOptionRowSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(`languageOption.${pref}`)}
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.languageOptionText, selected && styles.languageOptionTextSelected]}>
+                    {t(`languageOption.${pref}`)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('dataSectionLabel')}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataRowText}>
+              {aiConsent === true ? t('consentGranted') : t('consentNotGranted')}
             </Text>
+            <Pressable onPress={onToggleAiConsent} style={styles.dataToggleBtn}>
+              <Text style={styles.dataToggleBtnText}>
+                {aiConsent === true ? t('consentToggleRevoke') : t('consentToggleGrant')}
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
+            <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -310,8 +313,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     color: colors.inkSoft,
   },
-  list: {
+  scrollContent: {
     marginTop: 24,
+    gap: 24,
+    paddingBottom: 8,
+  },
+  list: {
     gap: 12,
   },
   card: {
@@ -374,7 +381,6 @@ const styles = StyleSheet.create({
     color: colors.inkFaint,
   },
   dataSection: {
-    marginTop: 24,
     gap: 8,
   },
   dataSectionLabel: {
