@@ -743,6 +743,44 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - [ ] "파워냅이란?" 화면 실기기 확인(진입/스크롤/뒤로가기, 3링크 한 줄 배치가 영어
       로케일에서도 줄바꿈 없이 보이는지) — 사용자 진행
 
+- **설정 화면 스크롤 버그 수정 + 섹션 재배치 + 첫 컴포넌트 렌더 테스트**(`main`, 사용자
+  명시 지시):
+  - **버그 원인**: `app/settings.tsx`가 콘텐츠를 ScrollView 없이 플레인 `<View>`로
+    감싸고 있었음(다른 화면은 전부 ScrollView/FlatList 사용) — 작은 화면에서 하단 항목
+    (알람 해제 미션 등)에 물리적으로 도달 불가. `<ScrollView>`로 교체해 수정.
+  - **다른 화면 전수 점검 결과(버그 없음 확인)**: `about.tsx`/`analysis.tsx`/`feedback.tsx`/
+    `index.tsx`는 이미 ScrollView, `history.tsx`/`analysis-history.tsx`는 FlatList 사용 —
+    둘 다 RN 기본 baseStyle(`flexGrow:1, flexShrink:1`)로 스스로 크기를 맞춰 정상 동작.
+    설정 화면만 플레인 View라 예외적으로 버그였음.
+  - 섹션 순서를 사용 빈도·중요도 기준으로 재배치: ① 알람 해제 미션(토글, 맨 위) →
+    ② 수면 대기시간/카페인 발현시간(신규 헤더 "낮잠 타이밍 조정" 추가, `napTimingSectionLabel`
+    키) → ③ 언어 → ④ 데이터 및 분석(동의/서버 데이터 삭제 — 파괴적 동작이라 맨 아래).
+    스타일은 `scrollContent`의 `gap: 24`로 섹션 간 간격 통일(기존 섹션별 `marginTop: 24`
+    중복 제거).
+  - **첫 컴포넌트 렌더 테스트 도입**(사용자 확인 후 진행, CLAUDE.md 코드 규칙에 한 줄 기록):
+    `@testing-library/react-native`(devDependency) + React 19용 신규 피어 패키지
+    `test-renderer`(구 `react-test-renderer` 대체, npm에 `test-renderer`라는 별도
+    패키지로 존재 — 설치 필요했음) 추가. `src/settings.test.tsx`(4개 섹션 렌더 확인,
+    `expo-router/testing-library`의 `renderRouter` 사용).
+    - **`app/`가 아니라 `src/`에 둔 이유**: expo-router의 `require.context`가 `app/`
+      아래 파일을 파일명에 `.test.`가 있어도 그대로 프로덕션 번들에 포함시킨다 —
+      `expo-router/testing-library`가 끌어오는 Node 전용 `path` 모듈을 Metro가 iOS
+      번들에 넣을 수 없어 `expo export`가 깨짐(직접 재현 확인). `app/history.test.ts`는
+      이 문제가 없는 이유: 그 파일의 import 체인엔 Node 전용 모듈이 없었을 뿐 — 즉
+      `app/` 밑에 테스트를 두는 것 자체가 잠재 위험이라 `src/`로 옮겨 해결.
+    - **발견(이번 테스트가 처음 노출한 기존 인프라 갭)**: `src/i18n.ts`의
+      `getLanguagePreference`/`setLanguagePreference`가 쓰는 `await import(...)`
+      동적 import가 jest-expo의 metro caller 설정상 커밋 시점에 CommonJS로 안 바뀌고
+      네이티브 `import()`로 남아 "`--experimental-vm-modules` 없이 호출됨" 에러를
+      낸다 — 이 두 함수가 실제로 호출되는 컴포넌트 렌더 테스트가 이번이 처음이라 지금까지
+      드러난 적 없었음. 범위 밖이라 이번 테스트는 두 함수만 `jest.mock`으로 우회, 근본
+      수정(dynamic import 트랜스폼)은 하지 않음 — 필요해지면 별도 지시로.
+  - jest 108개 통과(기존 107 + 렌더 테스트 1개)/tsc/expo-doctor/expo export 4종 통과.
+    커밋 2개(`fix: settings screen scroll + reorder sections by priority` /
+    `test: add component render test for settings screen`), push 완료.
+  - **실기기 검증 대기**: 작은 화면(<700pt 기준 요청)에서 실제 스크롤 동작, 재배치된
+    섹션 순서 체감, "낮잠 타이밍 조정" 헤더 표시 — 사용자 진행.
+
 ---
 
 **작업 완료 조건**: 앞으로 매 작업을 완료할 때마다 이 파일(STATUS.md)을 갱신한다.
