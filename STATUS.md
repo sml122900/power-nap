@@ -780,6 +780,55 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
     `test: add component render test for settings screen`), push 완료.
   - **실기기 검증 대기**: 작은 화면(<700pt 기준 요청)에서 실제 스크롤 동작, 재배치된
     섹션 순서 체감, "낮잠 타이밍 조정" 헤더 표시 — 사용자 진행.
+  - **설정 화면 스크롤 짤림 후속 수정**(같은 세션, 실기기 확인 후 발견): 하단
+    "서버 데이터 삭제" 버튼이 끝까지 스크롤해도 짤리는 문제 — `container`의
+    `paddingBottom: 32`가 ScrollView 자체 뷰포트를 불필요하게 줄이고 있었음(제거),
+    `scrollContent.paddingBottom`을 8→40으로 확대. 재빌드·재설치 완료.
+
+- **알람 해제 미션 순서 변경(슬라이드 → 명언) + 설정 명언 목록 편집**(`main`, 사용자
+  명시 지시) — BACKLOG.md "구현됨 (알람 해제 미션)"/PROJECT.md §6.3·§6.3.5 갱신:
+  - **순서 반전**: 도입 당시 "명언 먼저 → 슬라이드"였던 걸 "슬라이드/롱프레스 먼저 →
+    명언 나중"으로 변경. 단, **알람음/진동은 슬라이드 이후에도 명언 화면까지 계속
+    울린다**(사용자 명시 확인 — 슬라이드만으로 알람이 꺼지면 다시 잠들 위험이 있다는
+    판단, 처음엔 "슬라이드가 곧 정지"로 가정했으나 질문해서 정정). 실제 사운드 정지·
+    알림 취소·기록 저장(`NapRecord`/`PendingFeedback`)은 명언 통과 시점에 한 번에
+    처리 — `src/finishNap.ts` 신규(공통 로직, `app/alarm.tsx`의 미션 꺼짐 경로와
+    `app/mission.tsx`의 명언 통과 경로가 공유).
+  - `ActiveNap.missionCompleted` 폐지 → `ActiveNap.alarmDismissed`로 교체(store.ts).
+    새 순서에서 명언은 항상 마지막 게이트라 "통과 여부" 추적이 불필요해짐(통과 =
+    ActiveNap 즉시 삭제). `useNapWatchdog.resolveNapRoute`는 이제 알람 미해제 →
+    `/alarm`, 해제됨+미션 on → `/mission` 순으로 판정(isTest 무관 동일 라우팅,
+    지난 세션에 이미 확정된 사항).
+  - 알람 화면 슬라이드/롱프레스 안내 문구가 미션 on/off에 따라 갈림 — 미션 off는
+    기존 "밀어서 끄기" 그대로, 미션 on은 "밀어서 다음으로"(신규 `*Mission` 키 4개,
+    `alarm.tsx`가 `getSettings()`로 로드한 `missionEnabled`로 분기).
+  - **명언 목록을 설정 화면에서 직접 편집·추가 가능**(사용자 지시) — 미션 토글 ON일
+    때만 노출, 줄바꿈으로 구분된 멀티라인 텍스트박스 1개 + "저장" 버튼(사용자가 이
+    구현 방식을 직접 선택 — 줄별 추가/삭제 UI 대신 가장 단순한 형태).
+    `src/missionQuotes.ts`에 `getMissionQuotes(locale)`/`setMissionQuotes(locale,
+    quotes)` 신규(AsyncStorage에 언어별 커스텀 목록 저장, 없으면 `MISSION_QUOTES`
+    기본값 폴백, 빈 배열 저장 시도는 폴백 유지). `pickRandomQuote`/`pickShorterQuote`
+    시그니처를 `locale` 대신 로드된 배열을 받도록 변경(순수 함수 유지).
+  - **발견(이번 세션 중 재확인된 기존 인프라 갭)**: `missionQuotes.ts`에 처음엔
+    i18n.ts와 같은 지연 `await import(...)` 패턴으로 AsyncStorage를 불러왔는데,
+    이 패턴 자체가 jest-expo의 metro caller 설정상 실제로 호출되면
+    "`--experimental-vm-modules` 없이 호출됨" 에러가 남(지난 세션 settings 렌더
+    테스트에서 처음 발견한 것과 동일 버그, 이번엔 새 테스트가 다시 밟음) — 이 파일은
+    지연 로딩이 보호할 "AsyncStorage 없이 도는 순수 함수 테스트"가 이미 없다는 걸
+    확인(유일한 테스트 파일이 새 저장 함수 테스트 때문에 AsyncStorage를 이미
+    mock하고 있음)하고 **정적 top-level import로 전환** — 버그를 원천 회피하면서
+    코드도 더 단순해짐.
+  - jest 111개 통과(기존 108 + missionQuotes 신규 4개 + useNapWatchdog 갱신 +
+    store.test.ts 갱신), tsc/expo-doctor/expo export 3종 통과. 커밋
+    `452cdfa`("feat: reorder mission after alarm dismiss, allow custom quote
+    lists") push 완료. **릴리즈 재빌드 + 재설치 완료**(JS/에셋만 변경, prebuild 불필요).
+  - REVIEW_NEEDED.md 1순위에 신규 문구(알람 슬라이드 미션 변형 4개, 설정 명언 편집
+    3개) 미검수로 등록.
+  - **실기기 검증 대기**: 미션 ON 상태에서 슬라이드/롱프레스 후 알람음이 끊기지
+    않고 명언 화면까지 이어지는지, "밀어서 다음으로" 문구 표시, 명언 통과 시 실제
+    알람 정지+기록 저장+후속 화면(체크리스트/후기 또는 테스트 낮잠이면 홈) 전환,
+    설정 화면 명언 목록 편집(멀티라인 입력·저장·재로드), 언어 전환 시 다른 언어
+    목록으로 갱신되는지 — 전부 사용자 진행.
 
 ---
 
