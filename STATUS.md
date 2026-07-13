@@ -685,6 +685,11 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 107개) 통과. 릴리즈 빌드 7차·실기기 설치 완료. 기능 실사용 검증(위 1~5번 항목)은
 전부 대기.**
 
+- **캐릭터 작업 보류**: 잠자는 강아지 캐릭터(숨쉬기 애니메이션, 배경 제거 jimp
+  파이프라인)는 `sleep-character` 브랜치에만 존재 — **main은 병합하지 않음**,
+  캐릭터 없는 상태가 기준. 사유·재개 조건은 BACKLOG.md "캐릭터 (보류)" 참고.
+  브랜치는 삭제하지 않고 보존(재사용 가능한 코드 포함).
+
 ## 브랜치 현황
 
 - `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 + B그룹(풀스크린 인텐트) +
@@ -700,6 +705,8 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - `phase-4-2` / `fullscreen-intent` / `phase-4-3` / `wake-checklist`: 전부 main에 병합
   완료 — 더 이상 별도로 갈 일 없음(정리 대상, 삭제는 사용자 지시 시). `phase-4-3`용
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
+- `sleep-character`: **main에 병합하지 않음** — 캐릭터 에셋 일관성 문제로 보류
+  (BACKLOG.md "캐릭터 (보류)" 참고). 삭제하지 말 것, 코드 재사용 목적으로 보존.
 
 ## 지금 단계
 
