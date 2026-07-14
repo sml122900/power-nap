@@ -189,8 +189,8 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.topLinksRow}>
-            <Pressable onPress={() => router.push('/history')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>{t('historyLink')}</Text>
+            <Pressable onPress={() => router.push('/mypage')} hitSlop={12}>
+              <Text style={styles.historyLinkText}>{t('mypageLink')}</Text>
             </Pressable>
             <Text style={styles.topLinksSeparator}>·</Text>
             <Pressable onPress={() => router.push('/settings')} hitSlop={12}>

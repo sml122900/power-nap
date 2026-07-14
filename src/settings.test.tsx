@@ -1,7 +1,8 @@
-// 설정 화면 스크롤 회귀 방지용 렌더 테스트 — 5개 섹션(미션/기상 루틴/낮잠 타이밍/언어/
-// 데이터 및 분석)이 전부 트리에 존재하는지만 확인한다(스냅샷 수준). ScrollView 없이 plain View로
-// 되돌아가면 화면 자체는 여전히 렌더되므로, 이 테스트는 "스크롤 가능 여부"가 아니라
-// "섹션이 전부 마운트되는지"를 지킨다 — 실제 스크롤 동작은 실기기 확인 몫.
+// 설정 화면 스크롤 회귀 방지용 렌더 테스트 — 6개 섹션(언어/미션/기상 루틴/데이터 및 분석/
+// 데이터 삭제/약관 및 정책)이 전부 트리에 존재하는지만 확인한다(스냅샷 수준). 낮잠 타이밍
+// 조정/명언 수정/구매 복원은 마이페이지(mypage.test.tsx)로 이동했다. ScrollView 없이
+// plain View로 되돌아가면 화면 자체는 여전히 렌더되므로, 이 테스트는 "스크롤 가능 여부"가
+// 아니라 "섹션이 전부 마운트되는지"를 지킨다 — 실제 스크롤 동작은 실기기 확인 몫.
 //
 // app/ 대신 src/에 둔 이유: expo-router의 require.context가 app/ 아래 모든 파일을
 // 프로덕션 번들에도 포함시킨다(파일명에 .test.가 있어도 필터링 안 됨, 실제 라우트가
@@ -30,15 +31,21 @@ import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import SettingsScreen from '../app/settings';
 
 describe('SettingsScreen', () => {
-  it('renders all five sections after settings load', async () => {
+  it('renders all six sections, and no longer the items moved to mypage', async () => {
     renderRouter({ settings: SettingsScreen }, { initialUrl: '/settings' });
 
     // 초기 렌더는 getSettings() 비동기 로드 전이라 빈 View — 로드 완료를 기다린다.
-    await waitFor(() => expect(screen.getByText('알람 해제 미션')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('언어')).toBeTruthy());
 
+    expect(screen.getByText('알람 해제 미션')).toBeTruthy();
     expect(screen.getByText('기상 루틴')).toBeTruthy();
-    expect(screen.getByText('낮잠 타이밍 조정')).toBeTruthy();
-    expect(screen.getByText('언어')).toBeTruthy();
     expect(screen.getByText('데이터 및 분석')).toBeTruthy();
+    expect(screen.getByText('데이터 삭제')).toBeTruthy();
+    expect(screen.getByText('약관 및 정책')).toBeTruthy();
+
+    // 낮잠 타이밍 조정/명언 수정/구매 복원은 마이페이지로 이동했다 — 여기 없어야 한다.
+    expect(screen.queryByText('낮잠 타이밍 조정')).toBeNull();
+    expect(screen.queryByText('명언 수정')).toBeNull();
+    expect(screen.queryByText('구매 복원')).toBeNull();
   });
 });

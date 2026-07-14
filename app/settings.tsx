@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -7,64 +7,28 @@ import { useTranslation } from 'react-i18next';
 
 import { getCreditBalance, isAnalysisError, requestDataDeletion } from '@/aiAnalysis';
 import { PRIVACY_POLICY_URL } from '@/config';
-import { restorePurchases } from '@/purchases';
 import {
   getLanguagePreference,
   setLanguagePreference,
   SUPPORTED_LANGUAGES,
   type LanguagePreference,
 } from '@/i18n';
-import {
-  appendNapRecord,
-  applyManualAdjustment,
-  CAFFEINE_ONSET_MAX,
-  CAFFEINE_ONSET_MIN,
-  clearAiLocalData,
-  getAiConsent,
-  getSettings,
-  LATENCY_MAX,
-  LATENCY_MIN,
-  setAiConsent,
-  setMissionEnabled,
-  setWakeRoutineEnabled,
-  TARGET_SLEEP_MIN,
-  type NapMode,
-  type Settings,
-} from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
-
-const STEP = 1;
-
-type Row = { mode: NapMode; labelKey: string; min: number; max: number };
-
-const ROWS: Row[] = [
-  { mode: 'fast', labelKey: 'rowLabel.fast', min: LATENCY_MIN, max: LATENCY_MAX },
-  { mode: 'slow', labelKey: 'rowLabel.slow', min: LATENCY_MIN, max: LATENCY_MAX },
-  { mode: 'coffee', labelKey: 'rowLabel.coffee', min: CAFFEINE_ONSET_MIN, max: CAFFEINE_ONSET_MAX },
-];
+import { clearAiLocalData, getAiConsent, getSettings, setAiConsent, setMissionEnabled, setWakeRoutineEnabled, type Settings } from '@/store';
+import { colors, fontFamily, radius } from '@/theme';
 
 const LANGUAGE_PREFERENCES: LanguagePreference[] = ['system', ...SUPPORTED_LANGUAGES];
 
-function valueFor(settings: Settings, mode: NapMode): number {
-  return mode === 'coffee' ? settings.caffeineOnset : settings.latency[mode];
-}
-
+// 설정 화면은 동작(behavior) 토글·계정 관리만 다룬다 — 낮잠 타이밍 조정/명언 수정/
+// 구매 복원은 마이페이지(/mypage)로 이동했다(사용자 지시로 "허브"/"동작" 역할 분리).
 export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation('settings');
   const [settings, setSettings] = useState<Settings | null>(null);
-  // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
-  // (feedback.tsx/index.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
-  const [texts, setTexts] = useState<Record<NapMode, string>>({ fast: '', slow: '', coffee: '' });
   const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
   const [languagePref, setLanguagePref] = useState<LanguagePreference | null>(null);
-  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
-    getSettings().then((s) => {
-      setSettings(s);
-      setTexts({ fast: String(s.latency.fast), slow: String(s.latency.slow), coffee: String(s.caffeineOnset) });
-    });
+    getSettings().then(setSettings);
     getAiConsent().then(setAiConsentState);
     getLanguagePreference().then(setLanguagePref);
   }, []);
@@ -100,23 +64,6 @@ export default function SettingsScreen() {
     const next = !settings.wakeRoutineEnabled;
     await setWakeRoutineEnabled(next);
     setSettings({ ...settings, wakeRoutineEnabled: next });
-  };
-
-  // "구매 복원" — AI_ANALYSIS.md §7 Phase D. 기기 변경/재설치 시 RevenueCat에 남아있는
-  // 구매 이력을 현재 익명 uid에 다시 연결한다(크레딧 자체는 webhook이 이미 적립해둔 것을
-  // 되찾는 게 아니라, RevenueCat 쪽 구매 기록을 동기화하는 절차 — 실제 크레딧 원장은
-  // 항상 서버가 진실의 원천).
-  const onRestorePurchases = async () => {
-    if (restoring) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRestoring(true);
-    const outcome = await restorePurchases();
-    setRestoring(false);
-    if (outcome.status === 'success') {
-      Alert.alert(t('restoreSuccessTitle'), t('restoreSuccessBody'));
-    } else if (outcome.status === 'error') {
-      Alert.alert(t('restoreErrorTitle'), outcome.message);
-    }
   };
 
   // 개인정보처리방침 "서버 데이터 삭제" — 2단계 확인(안내 → 최종 확인) 후 실행.
@@ -156,55 +103,9 @@ export default function SettingsScreen() {
     }
   };
 
-  // 스테퍼/텍스트 확정 모두 이 경로로만 저장한다. NapRecord.manualAdjust.source를
-  // 'settings'로 남겨 후기 화면의 "직접 조정하기"(source: 'feedback')와 구분한다 —
-  // Phase 4-3부터 latency/caffeineOnset을 바꾸는 경로는 이 두 곳뿐이다(§5).
-  const commit = async (mode: NapMode, nextValue: number) => {
-    const prevValue = settings ? valueFor(settings, mode) : nextValue;
-    if (nextValue === prevValue) return;
-    const updated = await applyManualAdjustment(mode, nextValue);
-    const finalValue = valueFor(updated, mode);
-    setSettings(updated);
-    setTexts((t) => ({ ...t, [mode]: String(finalValue) }));
-    await appendNapRecord({
-      completedAt: Date.now(),
-      mode,
-      offsetMinutes: mode === 'coffee' ? finalValue : TARGET_SLEEP_MIN + finalValue,
-      manualAdjust: { source: 'settings', beforeMinutes: prevValue, afterMinutes: finalValue },
-    });
-  };
-
-  const onStep = (row: Row, delta: number) => {
-    if (!settings) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const current = valueFor(settings, row.mode);
-    const next = Math.min(row.max, Math.max(row.min, current + delta));
-    commit(row.mode, next);
-  };
-
-  const onCommitText = (row: Row) => {
-    if (!settings) return;
-    const parsed = parseInt(texts[row.mode], 10);
-    const prev = valueFor(settings, row.mode);
-    const next = Number.isNaN(parsed) ? prev : Math.min(row.max, Math.max(row.min, parsed));
-    setTexts((t) => ({ ...t, [row.mode]: String(next) }));
-    commit(row.mode, next);
-  };
-
   if (!settings) {
     return <View style={styles.container} />;
   }
-
-  const previewFor = (mode: NapMode, value: number): string => {
-    if (mode === 'coffee') return t('previewCoffee', { value });
-    const rowLabelKey = mode === 'fast' ? 'rowLabel.fast' : 'rowLabel.slow';
-    return t('previewLatency', {
-      label: t(rowLabelKey),
-      target: TARGET_SLEEP_MIN,
-      value,
-      total: TARGET_SLEEP_MIN + value,
-    });
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -216,85 +117,6 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.dataSection}>
-          <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataRowText}>
-              {settings.missionEnabled ? t('missionOnDescription') : t('missionOffDescription')}
-            </Text>
-            <Pressable onPress={onToggleMission} style={styles.dataToggleBtn}>
-              <Text style={styles.dataToggleBtnText}>
-                {settings.missionEnabled ? t('missionToggleOff') : t('missionToggleOn')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {settings.missionEnabled && (
-            <Pressable onPress={() => router.push('/mission-quotes')} style={styles.missionQuotesLinkBtn}>
-              <Text style={styles.missionQuotesLinkBtnText}>{t('missionQuotesLink')}</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.dataSection}>
-          <Text style={styles.dataSectionLabel}>{t('wakeRoutineSectionLabel')}</Text>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataRowText}>
-              {settings.wakeRoutineEnabled ? t('wakeRoutineOnDescription') : t('wakeRoutineOffDescription')}
-            </Text>
-            <Pressable onPress={onToggleWakeRoutine} style={styles.dataToggleBtn}>
-              <Text style={styles.dataToggleBtnText}>
-                {settings.wakeRoutineEnabled ? t('wakeRoutineToggleOff') : t('wakeRoutineToggleOn')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.list}>
-          <Text style={styles.dataSectionLabel}>{t('napTimingSectionLabel')}</Text>
-          {ROWS.map((row) => {
-            const value = valueFor(settings, row.mode);
-            return (
-              <View key={row.mode} style={styles.card}>
-                <Text style={styles.label}>{t(row.labelKey)}</Text>
-                <View style={styles.stepperRow}>
-                  <Pressable
-                    onPress={() => onStep(row, -STEP)}
-                    style={styles.stepBtn}
-                    accessibilityLabel={t('stepDecreaseA11y', { step: STEP })}
-                  >
-                    <Text style={styles.stepBtnText}>−</Text>
-                  </Pressable>
-                  <View style={styles.inputRow}>
-                    <TextInput
-                      style={[styles.input, tabularNums]}
-                      value={texts[row.mode]}
-                      onChangeText={(text) =>
-                        setTexts((prev) => ({ ...prev, [row.mode]: text.replace(/[^0-9]/g, '').slice(0, 2) }))
-                      }
-                      onBlur={() => onCommitText(row)}
-                      onSubmitEditing={() => onCommitText(row)}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      textAlign="center"
-                      accessibilityLabel={t('inputA11y', { label: t(row.labelKey), min: row.min, max: row.max })}
-                    />
-                    <Text style={styles.unit}>{t('unit')}</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => onStep(row, STEP)}
-                    style={styles.stepBtn}
-                    accessibilityLabel={t('stepIncreaseA11y', { step: STEP })}
-                  >
-                    <Text style={styles.stepBtnText}>+</Text>
-                  </Pressable>
-                </View>
-                <Text style={[styles.preview, tabularNums]}>{previewFor(row.mode, value)}</Text>
-              </View>
-            );
-          })}
-        </View>
-
         <View style={styles.dataSection}>
           <Text style={styles.dataSectionLabel}>{t('languageSectionLabel')}</Text>
           <View style={styles.languageOptionList}>
@@ -319,6 +141,34 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataRowText}>
+              {settings.missionEnabled ? t('missionOnDescription') : t('missionOffDescription')}
+            </Text>
+            <Pressable onPress={onToggleMission} style={styles.dataToggleBtn}>
+              <Text style={styles.dataToggleBtnText}>
+                {settings.missionEnabled ? t('missionToggleOff') : t('missionToggleOn')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('wakeRoutineSectionLabel')}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataRowText}>
+              {settings.wakeRoutineEnabled ? t('wakeRoutineOnDescription') : t('wakeRoutineOffDescription')}
+            </Text>
+            <Pressable onPress={onToggleWakeRoutine} style={styles.dataToggleBtn}>
+              <Text style={styles.dataToggleBtnText}>
+                {settings.wakeRoutineEnabled ? t('wakeRoutineToggleOff') : t('wakeRoutineToggleOn')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.dataSection}>
           <Text style={styles.dataSectionLabel}>{t('dataSectionLabel')}</Text>
           <View style={styles.dataRow}>
             <Text style={styles.dataRowText}>
@@ -330,16 +180,19 @@ export default function SettingsScreen() {
               </Text>
             </Pressable>
           </View>
-          <Pressable onPress={onRestorePurchases} disabled={restoring} style={styles.missionQuotesLinkBtn}>
-            <Text style={styles.missionQuotesLinkBtnText}>
-              {restoring ? t('restoringPurchases') : t('restorePurchasesButton')}
-            </Text>
-          </Pressable>
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('deleteSectionLabel')}</Text>
           <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
             <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
           </Pressable>
-          <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} style={styles.missionQuotesLinkBtn}>
-            <Text style={styles.missionQuotesLinkBtnText}>{t('privacyPolicyLink')}</Text>
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('legalSectionLabel')}</Text>
+          <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} style={styles.linkBtn}>
+            <Text style={styles.linkBtnText}>{t('privacyPolicyLink')}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -375,72 +228,10 @@ const styles = StyleSheet.create({
     gap: 24,
     paddingBottom: 40,
   },
-  list: {
-    gap: 12,
-  },
-  card: {
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  label: {
-    fontSize: 15,
-    fontFamily: fontFamily.bold,
-    color: colors.ink,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-  },
-  stepBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBtnText: {
-    fontSize: 18,
-    fontFamily: fontFamily.bold,
-    color: colors.ink,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  input: {
-    minWidth: 40,
-    textAlign: 'center',
-    fontSize: 16,
-    fontFamily: fontFamily.bold,
-    color: colors.ink,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.line,
-    paddingVertical: 2,
-  },
-  unit: {
-    fontSize: 14,
-    fontFamily: fontFamily.semibold,
-    color: colors.inkSoft,
-  },
-  preview: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontFamily: fontFamily.regular,
-    color: colors.inkFaint,
-  },
   dataSection: {
     gap: 8,
   },
-  missionQuotesLinkBtn: {
+  linkBtn: {
     marginTop: 4,
     paddingVertical: 14,
     borderRadius: radius.md,
@@ -448,7 +239,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     alignItems: 'center',
   },
-  missionQuotesLinkBtnText: {
+  linkBtnText: {
     fontSize: 14,
     fontFamily: fontFamily.bold,
     color: colors.ink,
@@ -487,7 +278,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   deleteDataBtn: {
-    marginTop: 8,
     paddingVertical: 14,
     borderRadius: radius.md,
     borderWidth: 1.5,
