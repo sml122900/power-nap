@@ -3,13 +3,14 @@
 // 조정 스테퍼는 원래 설정 화면에 있던 걸 그대로 옮겨왔다("수면설정시간 조정 — 설정에서
 // 이동").
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { getCreditBalance } from '@/aiAnalysis';
+import { purchaseExtraAnalysis } from '@/purchases';
 import {
   appendNapRecord,
   applyManualAdjustment,
@@ -49,6 +50,8 @@ export default function MyPageScreen() {
   const [aiConsent, setAiConsent] = useState<boolean | null>(null);
   // null = 아직 조회 전(또는 미동의라 조회 자체를 안 함), number = 조회된 잔량.
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchasePending, setPurchasePending] = useState(false);
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -62,6 +65,42 @@ export default function MyPageScreen() {
       if (consent === true) getCreditBalance().then(setCreditBalance);
     });
   }, []);
+
+  // 이용권 구매 — 기존엔 402(무료 소진) 화면에서만 가능했는데, 잔량 옆에 바로 사는 게
+  // 더 직관적이라는 사용자 지시로 추가(app/analysis.tsx의 onPurchase와 동일 패턴).
+  // 실제 크레딧 적립은 RevenueCat webhook 경유라 구매 성공 직후엔 반영 전일 수 있어
+  // 잠깐 폴링한다.
+  const onPurchase = async () => {
+    if (purchasing || purchasePending) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPurchasing(true);
+    const outcome = await purchaseExtraAnalysis();
+    setPurchasing(false);
+
+    if (outcome.status === 'error') {
+      Alert.alert(t('analysisReport:purchaseErrorTitle'), outcome.message);
+      return;
+    }
+    if (outcome.status === 'cancelled') return;
+
+    setPurchasePending(true);
+    const beforeBalance = creditBalance ?? 0;
+    let updatedBalance: number | null = null;
+    for (let i = 0; i < 15; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const balance = await getCreditBalance();
+      if (balance !== null && balance > beforeBalance) {
+        updatedBalance = balance;
+        break;
+      }
+    }
+    setPurchasePending(false);
+    if (updatedBalance !== null) {
+      setCreditBalance(updatedBalance);
+    } else {
+      Alert.alert(t('analysisReport:purchaseErrorTitle'), t('analysisReport:purchaseTimeoutMessage'));
+    }
+  };
 
   const commit = async (mode: NapMode, nextValue: number) => {
     const prevValue = settings ? valueFor(settings, mode) : nextValue;
@@ -124,6 +163,20 @@ export default function MyPageScreen() {
           <Text style={styles.creditText}>
             {aiConsent === true ? t('creditBalance', { count: creditBalance ?? 0 }) : t('creditBalanceConsentNotice')}
           </Text>
+          {aiConsent === true &&
+            (purchasePending ? (
+              <ActivityIndicator color={colors.inkFaint} />
+            ) : (
+              <Pressable
+                onPress={onPurchase}
+                disabled={purchasing}
+                style={[styles.purchaseBtn, purchasing && styles.purchaseBtnDisabled]}
+              >
+                <Text style={styles.purchaseBtnText}>
+                  {purchasing ? t('analysisReport:purchasing') : t('analysisReport:purchaseButton')}
+                </Text>
+              </Pressable>
+            ))}
         </View>
 
         <View style={styles.list}>
@@ -223,6 +276,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   creditBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     borderWidth: 1.5,
     borderColor: colors.line,
     borderRadius: radius.md,
@@ -231,9 +288,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   creditText: {
+    flex: 1,
     fontSize: 14,
     fontFamily: fontFamily.semibold,
     color: colors.ink,
+  },
+  purchaseBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+  },
+  purchaseBtnDisabled: {
+    opacity: 0.6,
+  },
+  purchaseBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.surface,
   },
   sectionLabel: {
     fontSize: 13,
