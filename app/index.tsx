@@ -20,11 +20,13 @@ import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatTime } from '@/format';
 import { scheduleAlarmNotificationAsync } from '@/notifications';
 import {
+  appendNapRecord,
   computeCoffeeAlarmAt,
   getSettings,
   saveActiveNap,
   TARGET_SLEEP_MIN,
   type ActiveNap,
+  type NapMode,
   type Settings,
 } from '@/store';
 import { colors, fontFamily, radius, tabularNums } from '@/theme';
@@ -141,6 +143,25 @@ export default function HomeScreen() {
     } finally {
       startingRef.current = false;
     }
+  };
+
+  // 개발용 — AI 분석 진입 조건(실제 낮잠 5개 이상, isTest 제외)을 실기기에서 빠르게
+  // 충족시키기 위한 더미 기록 생성. SHOW_TEST_BUTTONS로만 노출(다른 단축 테스트 버튼과
+  // 동일한 게이트), isTest를 아예 안 넣어 "실제 낮잠"으로 집계된다.
+  const onSeedDummyRecords = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const modes: NapMode[] = ['fast', 'slow', 'coffee', 'fast', 'slow'];
+    const now = Date.now();
+    for (let i = 0; i < modes.length; i++) {
+      const mode = modes[i];
+      await appendNapRecord({
+        completedAt: now - (modes.length - i) * 24 * 60 * 60 * 1000,
+        mode,
+        offsetMinutes: mode === 'coffee' ? 25 : TARGET_SLEEP_MIN + 5,
+        survey: { posture: 'mid', noise: 'mid', light: 'mid', satisfaction: 'mid' },
+      });
+    }
+    setToastMessage(t('toastDummyRecordsSeeded'));
   };
 
   const toggleCoffeeOpen = () => {
@@ -305,6 +326,9 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable onPress={() => startFastSlow('fast', 10_000)} style={styles.devBtn}>
                   <Text style={styles.devBtnText}>{t('devTest10sec')}</Text>
+                </Pressable>
+                <Pressable onPress={onSeedDummyRecords} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>{t('devSeedDummyRecords')}</Text>
                 </Pressable>
               </View>
             )}

@@ -41,7 +41,9 @@
     "learnNote": "문헌 근거로 정한 기본값이에요. 다르게 느껴지면 후기나 설정에서 직접 조정할 수 있어요",
     "learnNoteBold": "적용된 시간 — 바로 잠듦 {{fast}}분 · 뒤척임 {{slow}}분",
     "devTest1min": "테스트: 1분 낮잠",
-    "devTest10sec": "테스트: 10초"
+    "devTest10sec": "테스트: 10초",
+    "devSeedDummyRecords": "더미 기록 5개",
+    "toastDummyRecordsSeeded": "더미 낮잠 기록 5개 생성됨"
   },
   "about": {
     "title": "파워냅이란?",

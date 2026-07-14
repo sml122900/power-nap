@@ -41,7 +41,9 @@
     "learnNote": "These are literature-based defaults. If they feel off, you can adjust them in feedback or settings",
     "learnNoteBold": "Current times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
     "devTest1min": "Test: 1 min nap",
-    "devTest10sec": "Test: 10 sec"
+    "devTest10sec": "Test: 10 sec",
+    "devSeedDummyRecords": "5 dummy records",
+    "toastDummyRecordsSeeded": "Created 5 dummy nap records"
   },
   "about": {
     "title": "About PowerNap",
