@@ -184,6 +184,22 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
 - 테스트 파일(.test.tsx)을 app/ 디렉터리에 두면 expo-router require.context가
   프로덕션 번들에 포함시켜 expo export가 깨진다(Node 전용 의존성 유입). 컴포넌트
   테스트는 src/에 둘 것 — 실재현으로 확인된 사항.
+- EXPO_PUBLIC_* 환경변수는 babel-preset-expo의 인라인 플러그인이 `process.env.FOO`
+  같은 **정적** 멤버 접근만 빌드 시점에 리터럴로 치환한다. `process.env[변수명]`처럼
+  동적 접근을 쓰면 아무것도 치환되지 않고 런타임엔 항상 undefined다(.env 값 자체는
+  멀쩡한데 "값이 없다" 에러가 반복되는 원인 — src/purchases.ts의 resolveApiKey가
+  실제로 이렇게 걸렸었다, 커밋 fa0c4a9). 값 존재 여부를 의심하기 전에 코드가
+  `process.env.EXACT_NAME` 형태로 읽는지부터 확인할 것. 검증은 반드시 실제 빌드
+  산출물(APK 내 JS 번들)에서 grep으로 값 자체를 찾을 것 — 변수 "이름" 문자열은
+  에러 메시지 등에 섞여 있어도 나오므로 `grep "이름\|값"`처럼 OR로 뭉뚱그려 확인하면
+  이름만 매치되고도 통과한 것처럼 착각한다(실제로 이 착각으로 하루를 날린 사례).
+- RevenueCat Test Store API 키는 디버그 빌드에서만 동작한다 — 릴리즈(서명) 빌드에서
+  초기화하면 SDK가 "Wrong API Key ... app will close to protect security of test
+  purchases"로 앱을 강제 종료시킨다(공식 문서에 명시된 의도된 보안 장치, iOS/Android
+  공통, 공식 우회 방법 없음). Test Store로 결제 파이프라인을 검증할 땐 반드시
+  `npx expo run:android`(디버그 variant)로 설치할 것 — `gradlew assembleRelease`로는
+  검증 불가. Play Console 계정(DUNS) 발급 후 실스토어 전환 시에만 릴리즈 빌드로
+  넘어간다(src/config.ts REVENUECAT_STORE='play').
 
 코드 규칙
 

@@ -33,6 +33,15 @@ function resolveApiKey(): string {
     throw new Error(`${envVar}가 .env에 없다.`);
   }
   if (REVENUECAT_STORE === 'test') {
+    // RevenueCat Test Store 키는 릴리즈(서명) 빌드에서 SDK 자체가 거부하고 앱을 강제
+    // 종료시킨다(공식 문서에 명시된 의도된 동작, CLAUDE.md 지뢰 목록 참고) — __DEV__는
+    // 디버그(Metro 연결) 빌드에서만 true라 SDK가 보는 것과 같은 신호로 먼저 걸러서,
+    // 저 크래시보다 훨씬 명확한 에러를 여기서 먼저 낸다.
+    if (!__DEV__) {
+      throw new Error(
+        'REVENUECAT_STORE가 "test"인 채로 릴리즈 빌드가 실행됐다 — RevenueCat SDK가 이 키를 거부하고 앱을 강제 종료시킨다. src/config.ts의 REVENUECAT_STORE를 "play"로 바꿀 것.',
+      );
+    }
     console.warn(
       '[purchases] RevenueCat TEST 키로 초기화됨 — 실스토어 출시 전 src/config.ts의 REVENUECAT_STORE를 "play"로 바꿀 것.',
     );
