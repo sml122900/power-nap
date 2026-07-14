@@ -394,6 +394,14 @@ export async function getNapRecords(): Promise<NapRecord[]> {
   }
 }
 
+// 히스토리 화면의 개별 기록 삭제 — completedAt이 유니크 키다(같은 화면의 FlatList
+// keyExtractor와 동일하게 취급). 주변 방해가 컸던 낮잠처럼 학습/분석에 안 쓰고 싶은
+// 기록을 사용자가 직접 지울 수 있게 한다(사용자 지시).
+export async function deleteNapRecord(completedAt: number): Promise<void> {
+  const records = await getNapRecords();
+  await AsyncStorage.setItem(KEYS.napRecords, JSON.stringify(records.filter((r) => r.completedAt !== completedAt)));
+}
+
 // AI 분석 전송 동의(AI_ANALYSIS.md §6) — null은 "아직 물어본 적 없음"(최초 진입 시
 // 동의 화면 노출), false는 "거부함"(재진입해도 다시 물어봄), true는 "동의함"(바로 분석
 // 화면으로). 설정 화면에서 이 값을 직접 뒤집을 수 있다("재동의 가능").

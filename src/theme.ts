@@ -29,6 +29,10 @@ export const colors = {
   // 커피냅 버튼/칩 전용 보조 색
   amberBorder: '#F0D3A4',
   amberPress: '#F5E4C3', // amberTint보다 한 단계 진한 프레스 상태 — brandPress/secondaryPressed와 같은 역할
+
+  // 파괴적 동작(낮잠 기록 삭제 등) 전용 — brand/amber와 같은 패턴(기본색 + 프레스 시 한 단계 진하게).
+  danger: '#E14B4B',
+  dangerPress: '#C93E3E',
 } as const;
 
 export const radius = {

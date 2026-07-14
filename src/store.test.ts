@@ -10,6 +10,7 @@ import {
   canRunAnalysis,
   computeCoffeeAlarmAt,
   computeSuggestionApplication,
+  deleteNapRecord,
   filterAnalyzableRecords,
   getActiveNap,
   getAiConsent,
@@ -490,6 +491,27 @@ describe('wake-up routine checklist (3-field, wake-sequence)', () => {
 
     const records = await getNapRecords();
     expect(records[0].wakeChecklist).toEqual({ immediate: true, stretch: false, light: false, water: true });
+  });
+});
+
+describe('deleteNapRecord', () => {
+  it('removes only the record matching the given completedAt', async () => {
+    await appendNapRecord({ completedAt: 1, mode: 'fast', offsetMinutes: 20, survey: null });
+    await appendNapRecord({ completedAt: 2, mode: 'slow', offsetMinutes: 30, survey: null });
+    await appendNapRecord({ completedAt: 3, mode: 'coffee', offsetMinutes: 25, survey: null });
+
+    await deleteNapRecord(2);
+
+    const records = await getNapRecords();
+    expect(records.map((r) => r.completedAt)).toEqual([1, 3]);
+  });
+
+  it('is a no-op when no record matches', async () => {
+    await appendNapRecord({ completedAt: 1, mode: 'fast', offsetMinutes: 20, survey: null });
+
+    await deleteNapRecord(999);
+
+    expect((await getNapRecords()).map((r) => r.completedAt)).toEqual([1]);
   });
 });
 

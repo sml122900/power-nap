@@ -130,6 +130,10 @@
     "emptyText": "No naps recorded yet.",
     "testBadge": "Test",
     "rowDetailA11y": "View nap record details",
+    "deleteButton": "Delete this record",
+    "deleteConfirmTitle": "Delete this nap record?",
+    "deleteConfirmBody": "This cannot be undone.",
+    "deleteConfirmButton": "Delete",
     "resultLabel": {
       "tooDeep": "Slept too deeply",
       "justRight": "Just right",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { formatDateTime } from '@/format';
 import i18n from '@/i18n';
 import {
   canRunAnalysis,
+  deleteNapRecord,
   filterAnalyzableRecords,
   getAiConsent,
   getNapRecords,
@@ -159,6 +160,23 @@ export default function HistoryScreen() {
     getAiConsent().then(setConsented);
   }, []);
 
+  // 주변 방해가 컸던 낮잠처럼 학습/분석에 쓰고 싶지 않은 기록을 사용자가 직접 지운다
+  // (사용자 지시). 되돌릴 수 없는 동작이라 Alert 확인 한 번을 거친다.
+  const onDelete = (completedAt: number) => {
+    Alert.alert(t('deleteConfirmTitle'), t('deleteConfirmBody'), [
+      { text: t('common:cancel'), style: 'cancel' },
+      {
+        text: t('deleteConfirmButton'),
+        style: 'destructive',
+        onPress: async () => {
+          await deleteNapRecord(completedAt);
+          setRecords((prev) => prev.filter((r) => r.completedAt !== completedAt));
+          setExpanded((prev) => (prev === completedAt ? null : prev));
+        },
+      },
+    ]);
+  };
+
   // isTest 레코드는 학습에 반영되지 않는 것과 동일하게 분석 가능 여부 판정에서도 뺀다.
   const canAnalyze = canRunAnalysis(filterAnalyzableRecords(records).length);
   // 동의 전에는 서버 호출 자체를 안 한다(전송 동의 원칙) — 동의 후 + 분석 가능할 때만 조회.
@@ -256,6 +274,9 @@ export default function HistoryScreen() {
                         {row.value}
                       </Text>
                     ))}
+                    <Pressable onPress={() => onDelete(item.completedAt)} style={styles.deleteBtn}>
+                      <Text style={styles.deleteBtnText}>{t('deleteButton')}</Text>
+                    </Pressable>
                   </View>
                 )}
               </Pressable>
@@ -402,5 +423,18 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontFamily: fontFamily.semibold,
     color: colors.inkSoft,
+  },
+  deleteBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    alignItems: 'center',
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    color: colors.danger,
   },
 });

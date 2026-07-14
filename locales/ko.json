@@ -130,6 +130,10 @@
     "emptyText": "아직 기록된 낮잠이 없어요.",
     "testBadge": "테스트",
     "rowDetailA11y": "낮잠 기록 상세 보기",
+    "deleteButton": "이 기록 삭제",
+    "deleteConfirmTitle": "이 낮잠 기록을 삭제할까요?",
+    "deleteConfirmBody": "삭제하면 되돌릴 수 없어요.",
+    "deleteConfirmButton": "삭제",
     "resultLabel": {
       "tooDeep": "너무 깊게 잤어요",
       "justRight": "딱 좋았어요",
