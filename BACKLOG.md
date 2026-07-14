@@ -282,6 +282,10 @@ PROJECT.md/STATUS.md 참조.
   이때도 히스토리 화면 하단 배너 정도로 제한 검토, 전면광고는 배제
 - 기술 메모: react-native-google-mobile-ads(AdMob), UMP SDK 동의 흐름 필요(GDPR)
 
+## 알려진 갭 (우회 중, 근본 수정 보류)
+
+- `src/i18n.ts` 동적 import가 jest 환경에서 동작하지 않는 기존 갭 — 우회 중, 근본 수정 보류
+
 ## v2 이후 (장기)
 
 - 가속도계 입면 감지: 뒤척임 멈춘 시점 = 실제 입면으로 보고

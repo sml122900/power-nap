@@ -181,6 +181,9 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   tsc 전에 expo start 1회 필요.
 - 알림 권한(POST_NOTIFICATIONS)과 네이티브 알람 예약은 별개 — 권한 체크가 알람 예약
   경로를 막지 않게. Android 13+는 알림 권한 기본 거부라 이 경로가 흔함.
+- 테스트 파일(.test.tsx)을 app/ 디렉터리에 두면 expo-router require.context가
+  프로덕션 번들에 포함시켜 expo export가 깨진다(Node 전용 의존성 유입). 컴포넌트
+  테스트는 src/에 둘 것 — 실재현으로 확인된 사항.
 
 코드 규칙
 
