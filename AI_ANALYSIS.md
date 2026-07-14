@@ -135,6 +135,57 @@
 - **Phase C — 앱 통합**: 동의 UI, 분석 진입점, 리포트 화면, 후속 질문 3턴
 - **Phase D — 결제**: Play Console 인앱상품 등록(1,000원 소모성 1종), RevenueCat
   연동, webhook → 크레딧 적립, 라이선스 테스터로 검증
+  - **전략: RevenueCat Test Store로 전체 파이프라인을 먼저 검증하고, Play Console
+    계정(DUNS) 발급 후 상수 하나만 바꿔 실스토어로 전환한다.** 코드·서버·webhook은
+    완료, 실결제(Play) 검증만 DUNS 대기로 보류. 지금까지:
+    - `react-native-purchases`(RevenueCat SDK) 설치, `src/purchases.ts` 신규 —
+      `purchaseExtraAnalysis()`/`restorePurchases()`. 익명 Supabase uid를 그대로
+      `appUserID`로 넘겨 RevenueCat 자체 익명 ID와 이중화되지 않게 함(첫 호출 시점까지
+      지연 초기화 — 동의 전 화면 로드만으로 네트워크가 나가지 않게, 세션 수립 후
+      configure 순서 보장).
+    - **키 전략**: `src/config.ts`의 `REVENUECAT_STORE`(`'test'|'play'`, 기본
+      `'test'`)가 `EXPO_PUBLIC_REVENUECAT_KEY_TEST`/`_PLAY` 중 하나를 고른다(둘 다
+      `.env`에 실제 값 등록됨). `'test'`로 초기화되면 콘솔에 경고를 남겨 이 상태
+      그대로 실스토어 빌드가 나가지 않게 함(하드 assert는 아님 — Test Store 검증용
+      릴리즈 빌드도 의도적으로 `'test'`를 쓰기 때문). 실스토어 전환은 이 상수를
+      `'play'`로 바꾸는 것뿐 — 코드 변경 불필요.
+    - `app/analysis.tsx` 402(무료 소진) 화면의 결제 버튼을 실제 구매 플로우로 교체 —
+      성공 시 "이용권이 곧 적립돼요" 안내 후 크레딧 잔액을 2초 간격 최대 30초 폴링,
+      적립 확인되면 분석을 자동 재시도(webhook 반영 지연 대응), 30초 내 미확인 시
+      "적립이 지연되고 있어요. 잠시 후 다시 확인해주세요". 취소는 원상복구, 실패는
+      Alert. 이중탭은 `purchasing`/`purchasePending` 상태로 가드.
+    - `app/settings.tsx` "데이터 및 분석" 섹션에 "구매 복원" 링크 추가.
+    - `supabase/functions/revenuecat-webhook` 신규 — RevenueCat 대시보드의 고정
+      Authorization 헤더 값으로 인증(HMAC 아님), `INITIAL_PURCHASE`/`NON_RENEWING_PURCHASE`
+      + 상품 ID(`powernap_extra_analysis_1000`) 일치 → `credit_events` purchase +1,
+      `REFUND`/`CANCELLATION` → refund -1. `${event.transaction_id}:${reason}`을
+      `external_id`로 써서 재전송 중복 적립을 막는다(23505 → 200 ack) — reason별
+      네임스페이스를 나눈 이유: 같은 거래의 구매/환불 이벤트가 같은 transaction_id를
+      공유해서, 나누지 않으면 환불 insert가 구매의 unique 제약과 충돌해 "중복"으로
+      잘못 무시된다(회귀 테스트로 확인). 이미 소진한 크레딧의 환불로 잔액이 음수가
+      되는 케이스는 `credits.balance` check 제약이 insert를 롤백시키는 걸 그대로
+      활용해 거부하고 로그만 남긴다(23514 → 200 ack,
+      `refund_rejected_insufficient_balance` — 자동 처리 대신 운영자 판단 사항으로
+      남김, §8 리스크 메모 참고). `app_user_id`가 우리 유저 테이블에 없으면(23503 FK
+      위반) 202로 ack하고 로그만 남겨 RevenueCat의 무한 재시도를 유도하지 않는다.
+    - `supabase/tests/revenuecat-webhook.test.ts`: 실제 배포된 함수를 합성 RevenueCat
+      페이로드로 호출하는 통합 테스트 9개(미인증/오인증 401, 구매 적립, 재전송 중복
+      무시, 상품 ID 불일치 무시, 환불 차감, 같은 transaction_id의 구매+환불 둘 다
+      정상 반영(dedup 네임스페이스 회귀 테스트), 잔액 부족 환불 거부, 존재하지 않는
+      유저 202, 무관 이벤트 무시) — Play Console/RevenueCat 프로젝트 없이도 웹훅
+      로직 자체는 실서버로 검증 완료.
+    - 패키지명을 `com.anonymous.powernap` → `com.lifebook.powernap`로 변경(app.json,
+      Play Console 최초 앱 등록 전 마지막 기회라 사용자 확정) — 소스 전수 검색 결과
+      다른 곳은 전부 패키지명을 동적으로 참조해(딥링크의 `Constants.expoConfig`,
+      config plugin의 `AndroidConfig` 헬퍼) 하드코딩된 곳이 없었음, `ios.bundleIdentifier`도
+      아직 미설정이라 맞출 대상 없음. `prebuild --clean` 후 `aapt`로 최종 APK
+      패키지명 확인 완료. 기기의 기존 `com.anonymous.powernap` 설치본과는 별개
+      앱이 되므로(로컬 낮잠 기록 미이전) 검증 후 수동 삭제 필요.
+    - **남은 것(DUNS 발급 후)**: Play Console 앱 등록 + 소모성 상품
+      `powernap_extra_analysis_1000` 등록(가격 1,000원), RevenueCat의 Play Store
+      앱에 Google Play 서비스 계정(영수증 검증용) 연동, `src/config.ts`의
+      `REVENUECAT_STORE`를 `'play'`로 전환, 라이선스 테스터 계정으로 실구매 →
+      실기기 크레딧 반영 확인.
 - **Phase E — 정책 문서**: 개인정보처리방침 초안 `PRIVACY_POLICY.md`(레포 루트) +
   서버 데이터 삭제 기능 구현 완료(위 §6 참고, 법률 검토 및 영어판은 아직 — 문서
   상단 주의문 참고). 남은 항목: Play 데이터 안전 섹션 갱신, 동의 플로우 최종 점검,

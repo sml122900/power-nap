@@ -193,6 +193,10 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
 - 단축 낮잠 테스트 버튼(10초/1분) 노출 여부는 src/config.ts의 SHOW_TEST_BUTTONS로 관리
   (도그푸딩 중엔 릴리즈 빌드에서도 노출되도록 true). __DEV__ 게이트 아님 — 정식 출시 전
   SHOW_TEST_BUTTONS=false 확인 (릴리즈 체크리스트)
+- RevenueCat 결제 검증 스토어(TEST/PLAY)는 src/config.ts의 REVENUECAT_STORE로 관리
+  (SHOW_TEST_BUTTONS와 동일한 명시적 상수 패턴, __DEV__ 게이트 아님). Play Console
+  실스토어 출시 직전 REVENUECAT_STORE='play' 확인 (릴리즈 체크리스트, AI_ANALYSIS.md
+  §7 Phase D 참고)
 - 시각 포맷은 src/format.ts 재사용
 - 컴포넌트 렌더 테스트는 @testing-library/react-native 사용 (app/settings.test.tsx가 첫 사례)
 

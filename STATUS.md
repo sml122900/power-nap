@@ -707,15 +707,20 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
   worktree(`power-nap-phase43`)도 같은 이유로 정리 대상.
 - `sleep-character`: **main에 병합하지 않음** — 캐릭터 에셋 일관성 문제로 보류
   (BACKLOG.md "캐릭터 (보류)" 참고). 삭제하지 말 것, 코드 재사용 목적으로 보존.
+- `payments`: AI 분석 Phase D(결제) 작업 중, `main` 기준 분기, 아직 미병합 —
+  RevenueCat 연동 코드/webhook 서버는 완료(Test Store 키로 파이프라인 전체 검증
+  가능한 구조), 실결제(Play) 검증은 Play Console DUNS 대기 중.
 
 ## 지금 단계
 
 **v1 계획 기능 + AI 분석(v1.1) Phase A~C + 다국어(한/영) + 알림 권한 안내 개선 +
 서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면 전부 `main`에 병합, 4종
-검증 통과.** 남은 건 위 다섯 개 신규 기능의 실기기 검증(재빌드·설치는 다음 지시
-대기) + 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등, CLAUDE.md 코드 규칙
-참고) + AI 분석 Phase D(결제, 별도 지시 대기). 그 외 [BACKLOG.md](BACKLOG.md) 항목은
-여전히 요청 없이 착수하지 않는다.
+검증 통과.** AI 분석 Phase D(결제)는 `payments` 브랜치에서 코드·서버 착수 완료(위
+항목 참고), 실결제 검증은 Play Console 계정(DUNS) 대기 중이라 보류. 남은 건 다섯 개
+신규 기능(권한 안내/서버 데이터 삭제/미션/정보 화면 + 이번 Phase D)의 실기기 검증
+(재빌드·설치는 다음 지시 대기) + 출시 전 체크리스트(SHOW_TEST_BUTTONS=false 전환 등,
+CLAUDE.md 코드 규칙 참고). 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이
+착수하지 않는다.
 
 ## 미해결 항목
 
@@ -742,6 +747,12 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
       사용자 진행
 - [ ] "파워냅이란?" 화면 실기기 확인(진입/스크롤/뒤로가기, 3링크 한 줄 배치가 영어
       로케일에서도 줄바꿈 없이 보이는지) — 사용자 진행
+- [ ] AI 분석 Phase D(결제) Test Store 실기기 검증 — 사용자 진행 예정(아래 시나리오
+      목록 참고). 실결제(Play) 검증은 Play Console 계정(DUNS) 발급 대기 중 — 발급 후:
+      Play Console 앱 등록 + 소모성 상품(`powernap_extra_analysis_1000`, 1,000원)
+      등록, RevenueCat Play Store 앱에 Google Play 서비스 계정 연동,
+      `src/config.ts`의 `REVENUECAT_STORE`를 `'play'`로 전환, 라이선스 테스터 실구매
+      검증
 
 - **설정 화면 스크롤 버그 수정 + 섹션 재배치 + 첫 컴포넌트 렌더 테스트**(`main`, 사용자
   명시 지시):
@@ -877,6 +888,87 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
   - **실기기 검증 대기**: 설정 화면 길이가 실제로 짧아졌는지, "명언 수정" 링크 탭 →
     새 화면 진입 → 뒤로가기로 설정 복귀, 새 화면에서의 행 단위 편집이 이전과 동일하게
     동작하는지 — 사용자 진행.
+
+- **AI 분석 Phase D 착수 — 결제, RevenueCat Test Store로 전체 파이프라인 검증**
+  (`payments` 브랜치, `main` 기준 분기, 사용자 명시 지시) — AI_ANALYSIS.md §7 Phase D
+  갱신. 전략: Play Console 계정(DUNS) 발급 전까지 RevenueCat Test Store 키로 전체
+  구매 파이프라인을 검증하고, 실스토어 전환은 상수 하나만 바꾸면 되는 구조로 설계.
+  커밋 4개로 분리(패키지명 / SDK+구매 플로우 / webhook / 문서):
+  - **패키지명** `com.anonymous.powernap` → `com.lifebook.powernap`(app.json, 사용자
+    확정 — Play Console 최초 등록 전 마지막 기회). 레포 전수 검색 결과 다른 곳은
+    전부 동적 참조(딥링크의 `Constants.expoConfig`, config plugin의 `AndroidConfig`
+    헬퍼)라 하드코딩된 곳 없음, `ios.bundleIdentifier`도 미설정이라 맞출 대상 없음.
+  - **RevenueCat SDK + 구매 플로우**: `react-native-purchases` 설치. `src/config.ts`에
+    `REVENUECAT_STORE`(`'test'|'play'`, 기본 `'test'`) 신규 — `SHOW_TEST_BUTTONS`와
+    같은 패턴(명시적 상수, `__DEV__` 게이트 아님). `src/purchases.ts` 신규 —
+    `resolveApiKey()`가 이 상수로 `EXPO_PUBLIC_REVENUECAT_KEY_TEST`/`_PLAY` 중 하나를
+    골라 `Purchases.configure`(익명 Supabase uid를 `appUserID`로, 세션 수립 후
+    초기화 순서 보장). `'test'` 키로 뜨면 콘솔 경고(하드 assert 아님 — 검증 릴리즈
+    빌드도 의도적으로 test 키를 쓰기 때문).
+    - `app/analysis.tsx` 402 화면: "준비 중" placeholder를 실제 구매 버튼으로 교체.
+      구매 성공 시 "이용권이 곧 적립돼요" 안내 + 크레딧 잔액을 2초 간격 최대 30초
+      폴링(webhook 반영 지연 대응), 적립 확인되면 분석 자동 재시도, 30초 내 미확인
+      시 "적립이 지연되고 있어요. 잠시 후 다시 확인해주세요". 취소는 원상복구,
+      실패는 Alert, `purchasing`/`purchasePending` 상태로 이중탭·중복폴링 가드.
+      기존 `useEffect` 내부 분석 요청 로직을 `runFreshAnalysis()`로 분리해 최초
+      진입과 구매 후 재시도가 공유(언마운트 가드도 `mountedRef`로 통일).
+    - `app/settings.tsx` "데이터 및 분석" 섹션에 "구매 복원" 버튼 추가.
+    - `react-native-purchases`가 하위 의존성
+      `@revenuecat/purchases-js-hybrid-mappings`(ESM 전용)를 끌어와 jest-expo 기본
+      `transformIgnorePatterns`로 파싱이 깨지는 문제 발견 — 화면 렌더 테스트
+      (`src/settings.test.tsx`)가 `@/purchases`를 거쳐 처음 노출됨.
+      `__mocks__/react-native-purchases.js` 신규(node_modules 모킹 관례상 루트
+      `__mocks__/`에 두면 `jest.mock()` 호출 없이 자동 적용) — 실제 네이티브 SDK는
+      렌더/로직 테스트에서 태울 필요 없음.
+    - `.env`에 실제 `EXPO_PUBLIC_REVENUECAT_KEY_TEST`/`_PLAY` 값 등록(RevenueCat
+      대시보드에서 발급, 사용자가 전달). `.env.example`은 두 키 모두 빈 값으로.
+  - **revenuecat-webhook**: RevenueCat 대시보드가 보내는 고정 Authorization 헤더
+    값으로 인증(HMAC 아님, `.env`의 `REVENUECAT_WEBHOOK_SECRET`과 Supabase Edge
+    Function secret 양쪽에 동일 값 등록·배포 완료). `INITIAL_PURCHASE`/
+    `NON_RENEWING_PURCHASE` + 상품 ID 일치 → `credit_events` purchase +1,
+    `REFUND`/`CANCELLATION` → refund -1. `${event.transaction_id}:${reason}`을
+    `external_id`로 써서 재전송 중복을 unique 제약으로 막는다(23505 → 200 ack) —
+    reason별 네임스페이스가 필요한 이유: 같은 거래의 구매/환불이 같은
+    transaction_id를 공유해서, 안 나누면 환불 insert가 구매의 unique 제약과 충돌해
+    "중복"으로 잘못 무시된다(회귀 테스트로 실제 확인). 이미 소진한 크레딧의 환불로
+    잔액이 음수가 되려는 케이스는 `credits.balance` check(>=0) 제약이 insert를 자동
+    롤백시키는 걸 그대로 활용해 거부(23514 → 200 ack +
+    `refund_rejected_insufficient_balance`, 콘솔 로그만 남기고 자동 처리 안 함 —
+    사용자 확정: 정책 판단 필요 사항). `app_user_id`가 우리 유저 테이블에 없으면
+    (23503 FK 위반) 202로 ack + 로그만(RevenueCat의 무한 재시도 방지).
+    - `supabase/tests/revenuecat-webhook.test.ts`: 배포된 함수를 합성 RevenueCat
+      페이로드로 호출하는 통합 테스트 9개(미인증/오인증 401, 구매 적립, 재전송 중복
+      무시, 상품 ID 불일치 무시, 환불 차감, 같은 transaction_id의 구매+환불 둘 다
+      정상 반영(dedup 네임스페이스 회귀 테스트), 잔액 부족 환불 거부, 존재하지 않는
+      유저 202, 무관 이벤트 무시) — **실제 배포 후 9개 전부 통과 확인**(최초
+      event.id 기반 dedup으로 배포했다가 transaction_id+reason 방식으로 수정 후
+      재배포·재검증).
+  - jest(app) 114개 그대로(기존 테스트 개수 유지, 모킹으로 회귀 없이 통과) +
+    jest(supabase) 24개(기존 15 + revenuecat-webhook 9개 신규) 전부 통과.
+    tsc/expo-doctor/expo export 3종도 통과. 커밋 4개로 분리(패키지명 `68fb9ff` /
+    SDK+구매 플로우 `09b4f7b` / webhook `05f1daf` / 이 문서).
+  - **릴리즈 빌드 + aapt 패키지명 확인 완료**: 이번 회차엔 새 네이티브 의존성이 없어
+    (react-native-purchases는 직전 회차에 이미 설치·링크됨) `prebuild --clean` 없이
+    `gradlew assembleRelease`만 재실행(2분 12초, 대부분 UP-TO-DATE). `aapt dump
+    badging`로 최종 APK의 `package: name='com.lifebook.powernap'` 확인.
+  - **실기기 설치 대기** — adb에 연결된 기기가 없어 이번 세션에서는 설치까지 못함.
+    기기 연결 후 기존 `com.anonymous.powernap` 설치본은 별개 앱이라 수동 삭제 권장,
+    이어서 새 APK(`android/app/build/outputs/apk/release/app-release.apk`) 설치.
+  - **Test Store 실기기 확인 시나리오**(기기 연결 후 사용자 진행):
+    1. 히스토리 → AI 분석 → 기록 5개 미만이면 진입 자체가 막히는지(기존 동작 그대로)
+    2. 무료 분석 소진 상태 진입 → 402 화면에 실제 "추가 분석 구매" 버튼이 보이는지
+       (이전엔 "준비 중" 텍스트만 있었음)
+    3. 구매 버튼 탭 → RevenueCat Test Store 결제 시트가 뜨는지 → 결제 완료 →
+       "이용권이 곧 적립돼요" 메시지 → 잠시 후 분석이 자동으로 다시 시작되는지(최대
+       30초 폴링)
+    4. 결제 시트에서 취소 → 402 화면이 원래 상태로 돌아오는지(에러 얼럿 없이)
+    5. 설정 → 데이터 및 분석 → "구매 복원" 탭 → 성공/실패 안내가 뜨는지
+    6. 같은 상품을 두 번 연속 빠르게 탭해도(중복 탭) 결제 시트가 한 번만 뜨는지
+    7. 기기를 비행기 모드로 두고 구매 시도 → 에러 얼럿이 뜨는지(크래시 없이)
+    8. (선택) RevenueCat 대시보드에서 방금 결제를 환불 처리 → 크레딧이 -1 되는지는
+       webhook 통합 테스트로 이미 서버 쪽 검증 완료 — 앱에서 별도 확인할 것은 없음
+    9. 앱 재설치 시 기존 `com.anonymous.powernap`과 완전히 분리된 새 앱으로 뜨는지
+       (낮잠 기록 등 로컬 데이터 없이 시작하는 게 정상)
 
 ---
 

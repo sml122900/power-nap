@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
+import { PRIVACY_POLICY_URL } from '@/config';
 import { setAiConsent } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 
@@ -32,7 +33,9 @@ export default function AnalysisConsentScreen() {
       <View style={styles.body}>
         <Text style={styles.paragraph}>{t('paragraph1')}</Text>
         <Text style={styles.paragraph}>{t('paragraph2')}</Text>
-        <Text style={styles.privacyPlaceholder}>{t('privacyPlaceholder')}</Text>
+        <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+          <Text style={styles.privacyLink}>{t('privacyPolicyLink')}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.actions}>
@@ -74,10 +77,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
   },
-  privacyPlaceholder: {
+  privacyLink: {
     fontSize: 13,
     fontFamily: fontFamily.semibold,
     color: colors.inkFaint,
+    textDecorationLine: 'underline',
   },
   actions: {
     marginTop: 'auto',
