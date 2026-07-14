@@ -17,9 +17,18 @@ let configured = false;
 // config.ts의 상수 하나만 바꾸면 되게 만든다. 'test' 키로 뜬 경우 콘솔에 경고를 남겨
 // 실수로 이 상태 그대로 출시 빌드가 나가는 걸 눈에 띄게 한다(하드 assert는 하지 않음 —
 // 검증 목적 릴리즈 빌드도 의도적으로 'test' 키를 쓰기 때문).
+//
+// 지뢰: EXPO_PUBLIC_* 값은 babel-preset-expo의 인라인 플러그인이 `process.env.FOO`처럼
+// **정적** 멤버 접근만 빌드 시점에 리터럴로 치환한다 — `process.env[변수명]`처럼 동적
+// 접근을 쓰면 아무것도 치환되지 않고 런타임엔 항상 undefined다(실기기에서 "EXPO_PUBLIC_
+// REVENUECAT_KEY_TEST가 .env에 없다" 에러가 반복된 근본 원인, .env 파일 자체는 항상
+// 정상이었음 — src/supabase.ts의 정적 접근과 대조해 실증 확인). 두 키를 각각 정적으로
+// 읽어와야 한다 — REVENUECAT_STORE 분기는 어느 값을 쓸지 고르는 데만 쓴다.
 function resolveApiKey(): string {
+  const testKey = process.env.EXPO_PUBLIC_REVENUECAT_KEY_TEST;
+  const playKey = process.env.EXPO_PUBLIC_REVENUECAT_KEY_PLAY;
   const envVar = REVENUECAT_STORE === 'play' ? 'EXPO_PUBLIC_REVENUECAT_KEY_PLAY' : 'EXPO_PUBLIC_REVENUECAT_KEY_TEST';
-  const apiKey = process.env[envVar];
+  const apiKey = REVENUECAT_STORE === 'play' ? playKey : testKey;
   if (!apiKey) {
     throw new Error(`${envVar}가 .env에 없다.`);
   }
