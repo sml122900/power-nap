@@ -210,6 +210,7 @@
     "deleteSuccessTitle": "삭제 완료",
     "deleteSuccessBody": "서버에 저장된 데이터가 모두 삭제됐어요.",
     "deleteErrorTitle": "삭제 실패",
+    "privacyPolicyLink": "개인정보처리방침",
     "languageSectionLabel": "언어",
     "languageOption": {
       "system": "기기 설정 따름",
@@ -244,7 +245,7 @@
     "title": "AI 분석 안내",
     "paragraph1": "분석을 위해 낮잠 기록(수면 시각·설문·메모)이 서버로 전송됩니다. 전송된 기록은 대기시간·카페인 발현시간 조정 제안과 조언을 만드는 데만 쓰입니다.",
     "paragraph2": "제안은 참고용이며, 실제 설정 반영은 항상 직접 눌러야만 적용됩니다.",
-    "privacyPlaceholder": "처리방침 (준비 중)",
+    "privacyPolicyLink": "개인정보처리방침",
     "accept": "동의하고 시작",
     "decline": "다음에"
   },

@@ -210,6 +210,7 @@
     "deleteSuccessTitle": "Deleted",
     "deleteSuccessBody": "All data stored on the server has been deleted.",
     "deleteErrorTitle": "Deletion failed",
+    "privacyPolicyLink": "Privacy Policy",
     "languageSectionLabel": "Language",
     "languageOption": {
       "system": "Follow system setting",
@@ -244,7 +245,7 @@
     "title": "About AI Analysis",
     "paragraph1": "To generate the analysis, your nap records (times, survey answers, notes) are sent to our server. The data sent is used only to create suggestions and advice for adjusting your wait time and caffeine onset time.",
     "paragraph2": "Suggestions are for reference only — they're applied to your settings only when you tap to apply them yourself.",
-    "privacyPlaceholder": "Privacy Policy (coming soon)",
+    "privacyPolicyLink": "Privacy Policy",
     "accept": "Agree & start",
     "decline": "Not now"
   },

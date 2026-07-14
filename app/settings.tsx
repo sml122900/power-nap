@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { getCreditBalance, isAnalysisError, requestDataDeletion } from '@/aiAnalysis';
+import { PRIVACY_POLICY_URL } from '@/config';
 import { restorePurchases } from '@/purchases';
 import {
   getLanguagePreference,
@@ -312,6 +313,9 @@ export default function SettingsScreen() {
           </Pressable>
           <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
             <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} style={styles.missionQuotesLinkBtn}>
+            <Text style={styles.missionQuotesLinkBtnText}>{t('privacyPolicyLink')}</Text>
           </Pressable>
         </View>
       </ScrollView>

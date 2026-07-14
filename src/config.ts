@@ -7,3 +7,5 @@ export const SHOW_TEST_BUTTONS = true;
 // PLAY 중 하나를 고른다). 'test'인 채로 초기화되면 콘솔에 경고를 남긴다 — 정식 출시
 // 직전 'play'로 바꿨는지 SHOW_TEST_BUTTONS와 함께 확인할 것(릴리즈 체크리스트).
 export const REVENUECAT_STORE: 'test' | 'play' = 'test';
+
+export const PRIVACY_POLICY_URL = 'https://lifebookapplication.com/privacy/powernap';
