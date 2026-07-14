@@ -33,6 +33,7 @@ export default function AnalysisConsentScreen() {
       <View style={styles.body}>
         <Text style={styles.paragraph}>{t('paragraph1')}</Text>
         <Text style={styles.paragraph}>{t('paragraph2')}</Text>
+        <Text style={styles.paragraph}>{t('paragraph3')}</Text>
         <Pressable onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
           <Text style={styles.privacyLink}>{t('privacyPolicyLink')}</Text>
         </Pressable>

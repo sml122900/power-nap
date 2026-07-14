@@ -179,6 +179,8 @@ export default function MyPageScreen() {
             ))}
         </View>
 
+        <Text style={styles.deviceNotice}>{t('deviceDataNotice')}</Text>
+
         <View style={styles.list}>
           <Text style={styles.sectionLabel}>{t('sleepTimingSectionLabel')}</Text>
           {ROWS.map((row) => {
@@ -310,6 +312,12 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 13,
     fontFamily: fontFamily.bold,
+    color: colors.inkFaint,
+  },
+  deviceNotice: {
+    fontSize: 12.5,
+    lineHeight: 18.75,
+    fontFamily: fontFamily.regular,
     color: colors.inkFaint,
   },
   list: {

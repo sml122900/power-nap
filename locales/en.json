@@ -230,7 +230,8 @@
     "napHistoryLink": "Nap History",
     "aiAnalysisHistoryLink": "AI Analysis History",
     "purchaseHistoryLink": "Purchase History",
-    "missionQuotesLink": "Edit quotes"
+    "missionQuotesLink": "Edit quotes",
+    "deviceDataNotice": "Nap records are stored on this device only. If you switch devices, you won't be able to bring your records over. Purchased credits can be recovered with \"Restore purchases\" on the same Google account."
   },
   "purchaseHistory": {
     "title": "Purchase History",
@@ -281,6 +282,7 @@
     "title": "About AI Analysis",
     "paragraph1": "To generate the analysis, your nap records (times, survey answers, notes) are sent to our server. The data sent is used only to create suggestions and advice for adjusting your wait time and caffeine onset time.",
     "paragraph2": "Suggestions are for reference only — they're applied to your settings only when you tap to apply them yourself.",
+    "paragraph3": "Sent records are tied to this device's anonymous account — if you switch devices, you won't be able to access past analyses anymore.",
     "privacyPolicyLink": "Privacy Policy",
     "accept": "Agree & start",
     "decline": "Not now"

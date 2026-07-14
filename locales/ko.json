@@ -230,7 +230,8 @@
     "napHistoryLink": "낮잠 기록",
     "aiAnalysisHistoryLink": "AI 분석 기록",
     "purchaseHistoryLink": "결제 내역",
-    "missionQuotesLink": "명언 수정"
+    "missionQuotesLink": "명언 수정",
+    "deviceDataNotice": "낮잠 기록은 이 기기에만 저장돼요. 기기를 바꾸면 기록을 가져올 수 없어요. 구매한 이용권은 같은 구글 계정에서 '구매 복원'으로 되찾을 수 있어요."
   },
   "purchaseHistory": {
     "title": "결제 내역",
@@ -281,6 +282,7 @@
     "title": "AI 분석 안내",
     "paragraph1": "분석을 위해 낮잠 기록(수면 시각·설문·메모)이 서버로 전송됩니다. 전송된 기록은 대기시간·카페인 발현시간 조정 제안과 조언을 만드는 데만 쓰입니다.",
     "paragraph2": "제안은 참고용이며, 실제 설정 반영은 항상 직접 눌러야만 적용됩니다.",
+    "paragraph3": "전송된 기록은 이 기기의 익명 계정에 연결돼요 — 기기를 바꾸면 지난 분석 기록에 다시 접근할 수 없어요.",
     "privacyPolicyLink": "개인정보처리방침",
     "accept": "동의하고 시작",
     "decline": "다음에"
