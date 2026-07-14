@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -7,11 +7,13 @@ import { useTranslation } from 'react-i18next';
 
 import {
   getAnalysisDetail,
+  getCreditBalance,
   isAnalysisError,
   requestAnalysis,
   requestFollowup,
   type AnalysisReport,
 } from '@/aiAnalysis';
+import { purchaseExtraAnalysis } from '@/purchases';
 import { formatFreeResetCountdown, turnsToExchanges, type FollowupExchange } from '@/analysisDisplay';
 import {
   appendNapRecord,
@@ -52,15 +54,52 @@ export default function AnalysisScreen() {
   const [turnsRemaining, setTurnsRemaining] = useState(0);
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchasePending, setPurchasePending] = useState(false);
 
   // 402(무료 소진) 상태일 때만 상태를 조회한다 — 로딩/리포트 화면에서는 불필요한 서버 호출.
   const freeReset = useFreeResetStatus(phase === 'insufficient_credit');
+
+  // 언마운트 후 setState를 막기 위한 가드 — 아래 effect와 구매 후 재시도(runFreshAnalysis)가
+  // 공유한다(둘 다 화면이 떠 있는 동안만 진행돼야 하는 비동기 흐름).
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+
+  // 새 분석 요청(records/settings → requestAnalysis) — 최초 진입과 구매 후 재시도가 공유한다.
+  const runFreshAnalysis = async (currentSettings: Settings) => {
+    const allRecords = await getNapRecords();
+    if (!mountedRef.current) return;
+    const sinceMs = params.since ? Number(params.since) : undefined;
+    const filtered = filterAnalyzableRecords(allRecords, sinceMs);
+    try {
+      const analysis = await requestAnalysis(filtered, currentSettings);
+      if (!mountedRef.current) return;
+      setAnalysisId(analysis.analysisId);
+      setReport(analysis.report);
+      setRecordsUsed(analysis.recordsUsed);
+      setReportLocale(i18n.language);
+      setTurnsRemaining(analysis.turnsRemaining);
+      setPhase('report');
+    } catch (err) {
+      if (!mountedRef.current) return;
+      if (isAnalysisError(err) && err.code === 'insufficient_credit') {
+        setPhase('insufficient_credit');
+      } else {
+        setErrorMessage(isAnalysisError(err) ? err.message : t('errorFallback'));
+        setPhase('error');
+      }
+    }
+  };
 
   // id(지난 분석 열람)/since(새 분석, 기간 필터)가 바뀔 때마다 완전히 다시 로드한다 —
   // 화면 인스턴스가 재사용될 수 있어(history → history 다른 id로 이동 등) useRef 1회성
   // 가드 대신 requestKey를 의존성으로 둔다. 매번 적용 상태/대화도 초기화한다.
   useEffect(() => {
-    let cancelled = false;
     setPhase('loading');
     setAppliedFast(false);
     setAppliedSlow(false);
@@ -71,12 +110,12 @@ export default function AnalysisScreen() {
 
     (async () => {
       const currentSettings = await getSettings();
-      if (cancelled) return;
+      if (!mountedRef.current) return;
       setSettings(currentSettings);
 
       if (params.id) {
         const detail = await getAnalysisDetail(Number(params.id));
-        if (cancelled) return;
+        if (!mountedRef.current) return;
         if (!detail) {
           setErrorMessage(t('detailLoadError'));
           setPhase('error');
@@ -92,34 +131,45 @@ export default function AnalysisScreen() {
         return;
       }
 
-      const allRecords = await getNapRecords();
-      if (cancelled) return;
-      const sinceMs = params.since ? Number(params.since) : undefined;
-      const filtered = filterAnalyzableRecords(allRecords, sinceMs);
-      try {
-        const analysis = await requestAnalysis(filtered, currentSettings);
-        if (cancelled) return;
-        setAnalysisId(analysis.analysisId);
-        setReport(analysis.report);
-        setRecordsUsed(analysis.recordsUsed);
-        setReportLocale(i18n.language);
-        setTurnsRemaining(analysis.turnsRemaining);
-        setPhase('report');
-      } catch (err) {
-        if (cancelled) return;
-        if (isAnalysisError(err) && err.code === 'insufficient_credit') {
-          setPhase('insufficient_credit');
-        } else {
-          setErrorMessage(isAnalysisError(err) ? err.message : t('errorFallback'));
-          setPhase('error');
-        }
-      }
+      await runFreshAnalysis(currentSettings);
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [requestKey]);
+
+  // 402 화면의 구매 버튼. 실제 크레딧 적립은 RevenueCat webhook 경유라 구매 성공 직후엔
+  // 아직 반영 전일 수 있어 잠깐 폴링한 뒤 분석을 재시도한다(AI_ANALYSIS.md §7 Phase D).
+  const onPurchase = async () => {
+    if (purchasing || purchasePending || !settings) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPurchasing(true);
+    const outcome = await purchaseExtraAnalysis();
+    setPurchasing(false);
+    if (!mountedRef.current) return;
+
+    if (outcome.status === 'error') {
+      Alert.alert(t('purchaseErrorTitle'), outcome.message);
+      return;
+    }
+    if (outcome.status === 'cancelled') return;
+
+    setPurchasePending(true);
+    let credited = false;
+    for (let i = 0; i < 15 && mountedRef.current; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const balance = await getCreditBalance();
+      if (balance !== null && balance > 0) {
+        credited = true;
+        break;
+      }
+    }
+    if (!mountedRef.current) return;
+    setPurchasePending(false);
+    if (credited) {
+      setPhase('loading');
+      await runFreshAnalysis(settings);
+    } else {
+      Alert.alert(t('purchaseErrorTitle'), t('purchaseTimeoutMessage'));
+    }
+  };
 
   const applyLatency = async (mode: 'fast' | 'slow', delta: number) => {
     if (!settings) return;
@@ -194,9 +244,20 @@ export default function AnalysisScreen() {
               {t('insufficientCreditCountdown', { time: formatFreeResetCountdown(freeReset.remainingMs) })}
             </Text>
           )}
-          <View style={styles.paymentPlaceholder}>
-            <Text style={styles.paymentPlaceholderText}>{t('paymentPlaceholder')}</Text>
-          </View>
+          {purchasePending ? (
+            <View style={styles.paymentPlaceholder}>
+              <ActivityIndicator color={colors.inkFaint} />
+              <Text style={styles.paymentPlaceholderText}>{t('purchasePending')}</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={onPurchase}
+              disabled={purchasing}
+              style={[styles.purchaseBtn, purchasing && styles.purchaseBtnDisabled]}
+            >
+              <Text style={styles.purchaseBtnText}>{purchasing ? t('purchasing') : t('purchaseButton')}</Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -390,16 +451,32 @@ const styles = StyleSheet.create({
     color: colors.inkFaint,
   },
   paymentPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: radius.md,
     backgroundColor: colors.bg,
-    opacity: 0.6,
   },
   paymentPlaceholderText: {
     fontSize: 14,
     fontFamily: fontFamily.bold,
     color: colors.inkFaint,
+  },
+  purchaseBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+  },
+  purchaseBtnDisabled: {
+    opacity: 0.6,
+  },
+  purchaseBtnText: {
+    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    color: colors.surface,
   },
   recordsUsedText: {
     marginTop: 24,

@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { getCreditBalance, isAnalysisError, requestDataDeletion } from '@/aiAnalysis';
+import { restorePurchases } from '@/purchases';
 import {
   getLanguagePreference,
   setLanguagePreference,
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
   const [texts, setTexts] = useState<Record<NapMode, string>>({ fast: '', slow: '', coffee: '' });
   const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
   const [languagePref, setLanguagePref] = useState<LanguagePreference | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -87,6 +89,23 @@ export default function SettingsScreen() {
     const next = !settings.missionEnabled;
     await setMissionEnabled(next);
     setSettings({ ...settings, missionEnabled: next });
+  };
+
+  // "구매 복원" — AI_ANALYSIS.md §7 Phase D. 기기 변경/재설치 시 RevenueCat에 남아있는
+  // 구매 이력을 현재 익명 uid에 다시 연결한다(크레딧 자체는 webhook이 이미 적립해둔 것을
+  // 되찾는 게 아니라, RevenueCat 쪽 구매 기록을 동기화하는 절차 — 실제 크레딧 원장은
+  // 항상 서버가 진실의 원천).
+  const onRestorePurchases = async () => {
+    if (restoring) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRestoring(true);
+    const outcome = await restorePurchases();
+    setRestoring(false);
+    if (outcome.status === 'success') {
+      Alert.alert(t('restoreSuccessTitle'), t('restoreSuccessBody'));
+    } else if (outcome.status === 'error') {
+      Alert.alert(t('restoreErrorTitle'), outcome.message);
+    }
   };
 
   // 개인정보처리방침 "서버 데이터 삭제" — 2단계 확인(안내 → 최종 확인) 후 실행.
@@ -286,6 +305,11 @@ export default function SettingsScreen() {
               </Text>
             </Pressable>
           </View>
+          <Pressable onPress={onRestorePurchases} disabled={restoring} style={styles.missionQuotesLinkBtn}>
+            <Text style={styles.missionQuotesLinkBtnText}>
+              {restoring ? t('restoringPurchases') : t('restorePurchasesButton')}
+            </Text>
+          </Pressable>
           <Pressable onPress={onDeleteServerData} style={styles.deleteDataBtn}>
             <Text style={styles.deleteDataBtnText}>{t('deleteDataButton')}</Text>
           </Pressable>
