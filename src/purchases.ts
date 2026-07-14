@@ -2,7 +2,7 @@
 // 다룬다. Android(Google Play Billing)만 지원 — iOS 결제는 범위 밖(AI_ANALYSIS.md §2
 // "Google Play 인앱결제" 확정 사항).
 import { Platform } from 'react-native';
-import Purchases, { PURCHASES_ERROR_CODE } from 'react-native-purchases';
+import Purchases, { PRODUCT_CATEGORY, PURCHASES_ERROR_CODE } from 'react-native-purchases';
 
 import { REVENUECAT_STORE } from './config';
 import { ensureAnonymousSession } from './supabase';
@@ -83,24 +83,36 @@ function toErrorOutcome(err: unknown): PurchaseOutcome {
 
 // 402(무료 소진) 화면의 구매 버튼 → 이 함수. 실제 크레딧 적립은 webhook(→ Supabase)
 // 경유라 여기서는 스토어 구매만 완료시킨다 — 호출부가 완료 후 폴링으로 잔액을 확인한다.
+//
+// Offerings/Package API 대신 getProducts + purchaseStoreProduct로 상품을 직접 조회·구매한다
+// (사용자 지시로 전환 — "no Test Store products registered ... for your offerings" 에러의
+// 원인이 Offering을 안 만들었기 때문이었는데, 상품이 1개뿐이라 Offering/Package라는
+// 다상품 진열 추상화 자체가 필요 없다). 이 덕분에 RevenueCat 대시보드에서 필요한 설정이
+// "Product Catalog에 상품 1개 등록"만 남는다 — Offering을 만들고 Current로 지정하고
+// Package를 붙이는 절차가 통째로 없어진다(Play Console 실상품 전환 때도 마찬가지 —
+// AI_ANALYSIS.md §7 참고).
+//
+// 지뢰: getProducts의 두 번째 인자(PRODUCT_CATEGORY)를 생략하면 기본값이
+// SUBSCRIPTION이라 우리 상품 같은 소모성(NON_SUBSCRIPTION) 상품은 절대 안 잡힌다
+// (빈 배열만 돌아옴, 에러도 안 남 — 조용히 실패한다). 반드시 명시할 것.
 export async function purchaseExtraAnalysis(): Promise<PurchaseOutcome> {
   try {
     await ensurePurchasesConfigured();
-    const offerings = await Purchases.getOfferings();
-    const pkg = offerings.current?.availablePackages.find(
-      (p) => p.product.identifier === PRODUCT_EXTRA_ANALYSIS,
-    );
-    if (!pkg) {
+    const products = await Purchases.getProducts([PRODUCT_EXTRA_ANALYSIS], PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+    const product = products[0];
+    if (!product) {
       return { status: 'error', message: `Product not found: ${PRODUCT_EXTRA_ANALYSIS}` };
     }
-    await Purchases.purchasePackage(pkg);
+    await Purchases.purchaseStoreProduct(product);
     return { status: 'success' };
   } catch (err) {
     return toErrorOutcome(err);
   }
 }
 
-// 설정 화면 "구매 복원" 링크.
+// 설정 화면 "구매 복원" 링크. Offerings/getProducts 어느 쪽으로 상품을 조회했든 무관하다 —
+// 스토어에 실제로 기록된 구매 이력(CustomerInfo)을 그대로 복원하는 API라 상품 조회 경로와
+// 독립적이다(SDK 문서 확인, 코드 변경 불필요).
 export async function restorePurchases(): Promise<PurchaseOutcome> {
   try {
     await ensurePurchasesConfigured();

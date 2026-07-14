@@ -143,6 +143,15 @@
       `appUserID`로 넘겨 RevenueCat 자체 익명 ID와 이중화되지 않게 함(첫 호출 시점까지
       지연 초기화 — 동의 전 화면 로드만으로 네트워크가 나가지 않게, 세션 수립 후
       configure 순서 보장).
+    - **상품 조회는 Offerings API가 아니라 `Purchases.getProducts([id], PRODUCT_CATEGORY.
+      NON_SUBSCRIPTION)` + `purchaseStoreProduct()`로 직접 한다**(사용자 지시로 Offerings
+      의존 제거 — "no Test Store products registered for your offerings" 에러의 원인이
+      Offering 미생성이었는데, 상품이 1종뿐이라 여러 상품을 묶어 진열하는 Offering/Package
+      추상화 자체가 불필요했음). 이 덕분에 RevenueCat 대시보드에서 할 일이 **Product
+      Catalog에 상품 하나 등록**으로 끝난다 — Offering을 만들고 Current로 지정하고
+      Package를 붙이는 절차가 아예 없다(Test Store·Play 양쪽 다 동일). `getProducts`의
+      두 번째 인자를 빠뜨리면 기본값이 SUBSCRIPTION이라 소모성 상품은 조용히 빈 배열만
+      돌아온다 — CLAUDE.md 지뢰 목록 참고.
     - **키 전략**: `src/config.ts`의 `REVENUECAT_STORE`(`'test'|'play'`, 기본
       `'test'`)가 `EXPO_PUBLIC_REVENUECAT_KEY_TEST`/`_PLAY` 중 하나를 고른다(둘 다
       `.env`에 실제 값 등록됨). `'test'`로 초기화되면 콘솔에 경고를 남겨 이 상태
@@ -183,7 +192,8 @@
       앱이 되므로(로컬 낮잠 기록 미이전) 검증 후 수동 삭제 필요.
     - **남은 것(DUNS 발급 후)**: Play Console 앱 등록 + 소모성 상품
       `powernap_extra_analysis_1000` 등록(가격 1,000원), RevenueCat의 Play Store
-      앱에 Google Play 서비스 계정(영수증 검증용) 연동, `src/config.ts`의
+      앱에 Google Play 서비스 계정(영수증 검증용) 연동, RevenueCat Product Catalog에
+      같은 상품 ID 등록(Offering/Package는 불필요 — 위 참고), `src/config.ts`의
       `REVENUECAT_STORE`를 `'play'`로 전환, 라이선스 테스터 계정으로 실구매 →
       실기기 크레딧 반영 확인.
 - **Phase E — 정책 문서**: 개인정보처리방침 초안 `PRIVACY_POLICY.md`(레포 루트) +

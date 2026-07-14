@@ -213,6 +213,11 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   `npx expo run:android`(디버그 variant)로 설치할 것 — `gradlew assembleRelease`로는
   검증 불가. Play Console 계정(DUNS) 발급 후 실스토어 전환 시에만 릴리즈 빌드로
   넘어간다(src/config.ts REVENUECAT_STORE='play').
+- RevenueCat `Purchases.getProducts(ids, type)`의 두 번째 인자(PRODUCT_CATEGORY)를
+  생략하면 기본값이 SUBSCRIPTION이라, 우리 상품 같은 소모성(NON_SUBSCRIPTION) 상품은
+  조용히 빈 배열만 돌아온다(에러도 안 남 — "상품을 못 찾았다"는 결과만 보고 코드가
+  잘못됐다고 오판하기 쉬움). 소모성 상품은 항상
+  `PRODUCT_CATEGORY.NON_SUBSCRIPTION`을 명시할 것(src/purchases.ts 참고).
 
 코드 규칙
 
