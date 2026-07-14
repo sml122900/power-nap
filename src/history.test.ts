@@ -1,11 +1,18 @@
 // history.tsx가 store.ts -> @react-native-async-storage/async-storage를 끌어오므로,
 // 이 파일을 직접 렌더링하지 않고 순수 함수(detailText/surveySummary)만 테스트해도
 // import 체인 때문에 네이티브 모듈 목이 필요하다(store.test.ts와 동일 패턴).
+//
+// app/ 대신 src/에 둔 이유: expo-router의 require.context가 app/ 아래 모든 파일을
+// 라우트 후보로 스캔하며 앱 시작 시점에 즉시 require한다 — 파일명에 .test.가 있어도
+// 걸러지지 않는다. 이 파일은 jest.mock()(테스트 전용 전역 함수) 호출을 포함하는데,
+// `jest`가 없는 실제 앱 런타임에서 그 즉시실행 코드가 "Property 'jest' doesn't exist"로
+// 크래시한다(실기기 디버그 빌드에서 실재현 확인, app/history.test.ts였을 때 발생).
+// settings.test.tsx/mypage.test.tsx와 같은 이유로 src/에 둔다.
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-import { detailRows, detailText, surveySummary, wakeChecklistSummary } from './history';
+import { detailRows, detailText, surveySummary, wakeChecklistSummary } from '../app/history';
 import type { NapRecord } from '@/store';
 
 describe('surveySummary', () => {

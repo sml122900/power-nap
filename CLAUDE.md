@@ -181,9 +181,22 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   tsc 전에 expo start 1회 필요.
 - 알림 권한(POST_NOTIFICATIONS)과 네이티브 알람 예약은 별개 — 권한 체크가 알람 예약
   경로를 막지 않게. Android 13+는 알림 권한 기본 거부라 이 경로가 흔함.
-- 테스트 파일(.test.tsx)을 app/ 디렉터리에 두면 expo-router require.context가
-  프로덕션 번들에 포함시켜 expo export가 깨진다(Node 전용 의존성 유입). 컴포넌트
-  테스트는 src/에 둘 것 — 실재현으로 확인된 사항.
+- 테스트 파일(.test.ts/.test.tsx)을 app/ 디렉터리에 두면 expo-router require.context가
+  앱 시작 시점에 그 파일을 즉시 require한다. 컴포넌트 테스트는 src/에 둘 것.
+  **`expo export`가 항상 이걸 잡아주는 건 아니다** — 실제 재현으로 두 가지 서로 다른
+  깨짐 방식을 확인함:
+  (a) `expo-router/testing-library`처럼 Node 전용 의존성(`path` 등)을 끌어오면
+      Metro가 모듈을 못 찾아 export 자체가 **빌드 시점에 에러로 실패**한다
+      (settings.test.tsx/mypage.test.tsx가 여기 해당했던 이유).
+  (b) `jest.mock(...)`처럼 테스트 전역 함수만 최상단에서 호출하는 파일은 문법적으로
+      멀쩡해서 Metro가 **아무 에러 없이 번들링을 통과**시킨다 — `expo export`는 번들이
+      "만들어지는지"만 검증하지 "실행되는지"는 실행해보지 않기 때문. 실제 앱(디버그
+      Metro 연결/릴리즈 임베드 불문)에서 그 모듈이 로드되는 순간 "Property 'jest'
+      doesn't exist"로 크래시한다(app/history.test.ts가 이 케이스, expo export
+      ios/android 둘 다 통과한 채로 몇 차례나 커밋된 뒤에야 실기기 디버그 런타임에서
+      발견됨). 즉 이 지뢰는 **export 통과 여부로 안심하면 안 되고**, app/ 디렉터리
+      직접 `find app -iname "*.test.*"`로 매번 눈으로 확인하는 게 유일하게 믿을 수
+      있는 검증이다.
 - EXPO_PUBLIC_* 환경변수는 babel-preset-expo의 인라인 플러그인이 `process.env.FOO`
   같은 **정적** 멤버 접근만 빌드 시점에 리터럴로 치환한다. `process.env[변수명]`처럼
   동적 접근을 쓰면 아무것도 치환되지 않고 런타임엔 항상 undefined다(.env 값 자체는
