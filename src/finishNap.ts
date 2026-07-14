@@ -11,11 +11,15 @@ import { appendNapRecord, clearActiveNap, savePendingFeedback, type ActiveNap } 
 export type FinishNapDestination = '/' | '/feedback' | '/wake-stretch';
 
 // 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
-// 같은 패턴). 테스트 낮잠은 wakeRoutineEnabled와 무관하게 항상 홈으로(학습/기상 루틴 모두
-// 미반영). 그 외에는 기상 루틴이 켜져 있으면 /wake-stretch(→ light → water → feedback)를
-// 먼저 거치고, 꺼져 있으면 곧장 /feedback으로.
+// 같은 패턴). 기상 루틴이 켜져 있으면 테스트 낮잠도 /wake-stretch(→ light → water)를 거친다
+// (미션과 마찬가지로 이 화면들은 학습에 영향이 없는 순수 UI/데이터 수집이라 실제 알람과
+// 동일하게 보여줘야 도그푸딩이 된다 — 사용자 지시). 다만 설문 화면(/feedback)의 "직접
+// 조정하기"는 학습값을 직접 바꾸는 유일한 경로라 테스트 낮잠은 여전히 거기 도달하지 않는다
+// (CLAUDE.md 지뢰 목록 "테스트 낮잠이 latency를 오염시킨" 사고 재발 방지) — wake-water
+// 화면이 그 대신 기록만 남기고 홈으로 보낸다(WakeRoutineScreen 참고). 기상 루틴이 꺼져
+// 있으면 보여줄 화면이 없으니 테스트 낮잠은 기존과 동일하게 곧장 홈으로.
 export function resolveFinishNapDestination(active: ActiveNap | null, wakeRoutineEnabled: boolean): FinishNapDestination {
-  if (active?.isTest) return '/';
+  if (active?.isTest && !wakeRoutineEnabled) return '/';
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
 }
 
@@ -45,8 +49,9 @@ export async function finishNap(
   const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
   const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
 
-  if (active.isTest) {
-    // 테스트 낮잠(홈 화면 단축 버튼)은 후기를 받지 않는다 — 학습 반영 없이 기록만 남기고 홈으로.
+  if (active.isTest && !wakeRoutineEnabled) {
+    // 테스트 낮잠(홈 화면 단축 버튼) + 기상 루틴 꺼짐: 보여줄 화면이 없으니 후기 없이
+    // 기록만 남기고 홈으로(기존 동작 그대로).
     await appendNapRecord({
       completedAt: Date.now(),
       mode: active.mode,
@@ -58,7 +63,9 @@ export async function finishNap(
     return destination;
   }
 
-  await savePendingFeedback({ mode: active.mode, offsetMinutes });
+  // 테스트 낮잠 + 기상 루틴 켜짐: pendingFeedback에 isTest를 실어 보내 wake-stretch 등이
+  // getPendingFeedback() 가드를 통과하게 하고, 최종 기록은 water 화면이 남긴다(위 주석 참고).
+  await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
   await clearActiveNap();

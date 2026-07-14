@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { SlideToConfirm } from './SlideToConfirm';
-import { getPendingFeedback, markWakeChecklistItem, type WakeChecklist } from './store';
+import { appendNapRecord, clearPendingFeedback, getPendingFeedback, markWakeChecklistItem, type WakeChecklist } from './store';
 import { colors, fontFamily } from './theme';
 
 export type WakeStage = keyof WakeChecklist;
@@ -47,6 +47,27 @@ export function WakeRoutineScreen({ stage }: { stage: WakeStage }) {
     advancedRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await markWakeChecklistItem(stage);
+
+    // 테스트 낮잠은 water 화면에서 끝낸다 — /feedback의 "직접 조정하기"는 학습값을
+    // 직접 바꾸는 유일한 경로라 테스트 낮잠이 거기 도달하면 안 된다(CLAUDE.md 지뢰 목록,
+    // src/finishNap.ts의 resolveFinishNapDestination 주석 참고).
+    if (stage === 'water') {
+      const pending = await getPendingFeedback();
+      if (pending?.isTest) {
+        await appendNapRecord({
+          completedAt: Date.now(),
+          mode: pending.mode,
+          offsetMinutes: pending.offsetMinutes,
+          result: 'test',
+          isTest: true,
+          wakeChecklist: pending.wakeChecklist,
+        });
+        await clearPendingFeedback();
+        router.replace('/');
+        return;
+      }
+    }
+
     router.replace(NEXT_ROUTE[stage]);
   };
 

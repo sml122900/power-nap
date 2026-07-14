@@ -63,6 +63,9 @@ export interface PendingFeedback {
   // 기상 루틴 3화면(/wake-stretch → /wake-light → /wake-water)을 지나며 하나씩 채워진다
   // (markWakeChecklistItem). 기상 루틴이 꺼져 있으면 계속 undefined.
   wakeChecklist?: WakeChecklist;
+  // 테스트 낮잠(ActiveNap.isTest 승계) — true면 wake-water 화면이 /feedback 대신
+  // 여기서 기록을 마무리하고 홈으로 보낸다(src/finishNap.ts 참고, 학습 오염 방지).
+  isTest?: boolean;
 }
 
 // 후기 화면 4문항 설문(Phase 4-3) — 상/중/하 3단계, latency/caffeineOnset에 영향 없음

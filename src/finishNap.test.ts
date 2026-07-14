@@ -22,9 +22,13 @@ describe('resolveFinishNapDestination', () => {
     expect(resolveFinishNapDestination(BASE_NAP, false)).toBe('/feedback');
   });
 
-  it('sends test naps home regardless of the wake routine setting', () => {
+  it('sends test naps through the wake routine too when it is enabled (identical to a real nap)', () => {
     const testNap: ActiveNap = { ...BASE_NAP, isTest: true };
-    expect(resolveFinishNapDestination(testNap, true)).toBe('/');
+    expect(resolveFinishNapDestination(testNap, true)).toBe('/wake-stretch');
+  });
+
+  it('sends test naps straight home when the wake routine is off (nothing to demo, no feedback screen)', () => {
+    const testNap: ActiveNap = { ...BASE_NAP, isTest: true };
     expect(resolveFinishNapDestination(testNap, false)).toBe('/');
   });
 
