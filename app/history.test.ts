@@ -61,11 +61,18 @@ describe('detailText — v1 (legacy) vs v2 (Phase 4-3) records', () => {
 
 describe('wakeChecklistSummary', () => {
   it('joins only the checked items with the label order fixed', () => {
-    expect(wakeChecklistSummary({ immediate: true, stretch: false, light: false, water: true })).toBe('즉시 기상 · 물');
+    expect(wakeChecklistSummary({ stretch: false, light: false, water: true })).toBe('물');
   });
 
   it('renders a single checked item without a separator', () => {
-    expect(wakeChecklistSummary({ immediate: false, stretch: true, light: false, water: false })).toBe('기지개');
+    expect(wakeChecklistSummary({ stretch: true, light: false, water: false })).toBe('기지개');
+  });
+
+  it('ignores a legacy immediate field left over from the 4-field format', () => {
+    const legacy = { immediate: true, stretch: false, light: false, water: false } as unknown as Parameters<
+      typeof wakeChecklistSummary
+    >[0];
+    expect(wakeChecklistSummary(legacy)).toBe('');
   });
 });
 
@@ -124,10 +131,22 @@ describe('detailRows — expanded detail view', () => {
       mode: 'fast',
       offsetMinutes: 20,
       survey: null,
-      wakeChecklist: { immediate: true, stretch: true, light: false, water: false },
+      wakeChecklist: { stretch: true, light: false, water: true },
     };
     const rows = detailRows(record);
-    expect(rows).toContainEqual({ label: '기상 루틴', value: '즉시 기상 · 기지개' });
+    expect(rows).toContainEqual({ label: '기상 루틴', value: '기지개 · 물' });
+  });
+
+  it('omits the wake-checklist row for a legacy record where only immediate was checked', () => {
+    const record: NapRecord = {
+      completedAt: 1_700_000_000_000,
+      mode: 'fast',
+      offsetMinutes: 20,
+      survey: null,
+      wakeChecklist: { immediate: true, stretch: false, light: false, water: false } as unknown as NapRecord['wakeChecklist'],
+    };
+    const rows = detailRows(record);
+    expect(rows.some((row) => row.label === '기상 루틴')).toBe(false);
   });
 
   it('omits the wake-checklist row when the field is absent', () => {

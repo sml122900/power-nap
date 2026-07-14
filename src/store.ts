@@ -22,6 +22,11 @@ export interface Settings {
   // true면 알람 발화 시 슬라이드/롱프레스 해제 화면(/alarm) 전에 /mission을 먼저 거친다
   // (useNapWatchdog.resolveNapRoute 참고).
   missionEnabled: boolean;
+  // 기상 직후 행동 시퀀스(/wake-stretch → /wake-light → /wake-water) on/off — 기본 true.
+  // true면 알람(또는 미션) 해제 직후 설문(/feedback) 전에 이 3화면을 먼저 거친다
+  // (src/finishNap.ts의 resolveFinishNapDestination 참고). 명언 미션과는 목적이 달라
+  // 독립적으로 켜고 끌 수 있다.
+  wakeRoutineEnabled: boolean;
 }
 
 export interface ActiveNap {
@@ -55,6 +60,9 @@ export type NapRecordResult = NapFeedback | 'manual' | 'manual-settings' | 'test
 export interface PendingFeedback {
   mode: NapMode;
   offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
+  // 기상 루틴 3화면(/wake-stretch → /wake-light → /wake-water)을 지나며 하나씩 채워진다
+  // (markWakeChecklistItem). 기상 루틴이 꺼져 있으면 계속 undefined.
+  wakeChecklist?: WakeChecklist;
 }
 
 // 후기 화면 4문항 설문(Phase 4-3) — 상/중/하 3단계, latency/caffeineOnset에 영향 없음
@@ -68,10 +76,13 @@ export interface NapSurvey {
   satisfaction: SurveyRating; // 수면 만족도
 }
 
-// 기상 직후 행동 체크리스트(강제성 없음, 순수 데이터 수집) — 전부 미체크면 필드 자체를
-// 생략해 기존 레코드(필드 없음)와 동일한 하위 호환 형태를 유지한다.
+// 기상 직후 행동 시퀀스(wake-sequence, /wake-stretch → /wake-light → /wake-water) —
+// 각 화면을 밀어서 넘기면 해당 값이 true로 기록된다(markWakeChecklistItem).
+// 예전엔 4번째 필드로 immediate(스누즈 없이 바로 일어남)도 있었으나, 기상 루틴이
+// "슬라이드 해제 직후 곧장 진입하는 화면 시퀀스"로 바뀌면서 그 자체가 즉시 기상을
+// 함의하게 돼 별도 항목으로 물을 필요가 없어져 제거했다 — 구 레코드(4필드, immediate
+// 포함)를 읽을 때는 그냥 무시한다(마이그레이션 불필요, 타입에 없는 여분 필드로 남을 뿐).
 export interface WakeChecklist {
-  immediate: boolean; // 스누즈 없이 바로 일어남
   stretch: boolean; // 기지개
   light: boolean; // 밝은 빛
   water: boolean; // 물 한 잔
@@ -161,6 +172,7 @@ const DEFAULT_SETTINGS: Settings = {
   caffeineOnset: DEFAULT_CAFFEINE_ONSET,
   totalNaps: 0,
   missionEnabled: false,
+  wakeRoutineEnabled: true,
 };
 
 export const LATENCY_MIN = 0;
@@ -206,6 +218,7 @@ export async function getSettings(): Promise<Settings> {
     offsets?: Partial<Record<'fast' | 'slow', number>>;
     totalNaps?: number;
     missionEnabled?: boolean;
+    wakeRoutineEnabled?: boolean;
   };
   try {
     parsed = JSON.parse(raw);
@@ -214,7 +227,9 @@ export async function getSettings(): Promise<Settings> {
   }
 
   if (parsed.latency) {
-    // 이미 v3 형태(missionEnabled는 이번에 추가 — 없으면 기본 false, 기존 사용자 경험 보호).
+    // 이미 v3 형태(missionEnabled/wakeRoutineEnabled는 각각 추가된 시점이 달라 없으면
+    // 기본값으로 채운다 — missionEnabled는 기존 사용자 경험 보호 위해 false, wakeRoutineEnabled는
+    // 사용자 지시로 기본 true).
     return {
       latency: {
         fast: parsed.latency.fast ?? DEFAULT_LATENCY.fast,
@@ -223,6 +238,7 @@ export async function getSettings(): Promise<Settings> {
       caffeineOnset: parsed.caffeineOnset ?? DEFAULT_CAFFEINE_ONSET,
       totalNaps: parsed.totalNaps ?? 0,
       missionEnabled: parsed.missionEnabled ?? false,
+      wakeRoutineEnabled: parsed.wakeRoutineEnabled ?? true,
     };
   }
 
@@ -236,6 +252,7 @@ export async function getSettings(): Promise<Settings> {
     caffeineOnset: DEFAULT_CAFFEINE_ONSET,
     totalNaps: parsed.totalNaps ?? 0,
     missionEnabled: false,
+    wakeRoutineEnabled: true,
   };
   await saveSettings(migrated);
   return migrated;
@@ -250,6 +267,12 @@ export async function saveSettings(settings: Settings): Promise<void> {
 export async function setMissionEnabled(enabled: boolean): Promise<void> {
   const settings = await getSettings();
   await saveSettings({ ...settings, missionEnabled: enabled });
+}
+
+// 설정 화면 "기상 루틴" 토글 전용 — setMissionEnabled와 동일한 read-modify-write 패턴.
+export async function setWakeRoutineEnabled(enabled: boolean): Promise<void> {
+  const settings = await getSettings();
+  await saveSettings({ ...settings, wakeRoutineEnabled: enabled });
 }
 
 // 후기 화면 "직접 조정하기" 및 설정 화면 전용: 절대값을 clamp해 그대로 반영한다.
@@ -339,6 +362,17 @@ export async function getPendingFeedback(): Promise<PendingFeedback | null> {
 
 export async function clearPendingFeedback(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.pendingFeedback);
+}
+
+// 기상 루틴 화면(/wake-stretch·/wake-light·/wake-water)이 밀어서 넘길 때마다 호출 —
+// pendingFeedback.wakeChecklist에 해당 항목만 true로 병합해 저장한다(나머지는 기존 값
+// 또는 기본 false 유지). pendingFeedback이 없으면(직접 진입 등 예외 상황) no-op —
+// 화면 쪽에서 이미 홈으로 돌려보내는 가드를 따로 둔다.
+export async function markWakeChecklistItem(key: keyof WakeChecklist): Promise<void> {
+  const pending = await getPendingFeedback();
+  if (!pending) return;
+  const checklist: WakeChecklist = pending.wakeChecklist ?? { stretch: false, light: false, water: false };
+  await savePendingFeedback({ ...pending, wakeChecklist: { ...checklist, [key]: true } });
 }
 
 export async function appendNapRecord(record: NapRecord): Promise<void> {

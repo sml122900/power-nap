@@ -8,7 +8,22 @@ import { type AudioPlayer } from 'expo-audio';
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from './notifications';
 import { appendNapRecord, clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
 
-export async function finishNap(player: AudioPlayer, active: ActiveNap | null): Promise<'/' | '/feedback'> {
+export type FinishNapDestination = '/' | '/feedback' | '/wake-stretch';
+
+// 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
+// 같은 패턴). 테스트 낮잠은 wakeRoutineEnabled와 무관하게 항상 홈으로(학습/기상 루틴 모두
+// 미반영). 그 외에는 기상 루틴이 켜져 있으면 /wake-stretch(→ light → water → feedback)를
+// 먼저 거치고, 꺼져 있으면 곧장 /feedback으로.
+export function resolveFinishNapDestination(active: ActiveNap | null, wakeRoutineEnabled: boolean): FinishNapDestination {
+  if (active?.isTest) return '/';
+  return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
+}
+
+export async function finishNap(
+  player: AudioPlayer,
+  active: ActiveNap | null,
+  wakeRoutineEnabled: boolean
+): Promise<FinishNapDestination> {
   // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈추고, iOS는 이
   // 화면의 expo-audio 재생을 직접 멈춘다 — stopNativeAlarmSoundAsync는 Android에서만
   // 동작하는 no-op 안전 래퍼다(src/notifications.ts 참고).
@@ -18,9 +33,11 @@ export async function finishNap(player: AudioPlayer, active: ActiveNap | null): 
   await stopNativeAlarmSoundAsync();
   await cancelAlarmNotificationAsync(active?.notificationId ?? null);
 
+  const destination = resolveFinishNapDestination(active, wakeRoutineEnabled);
+
   if (!active) {
     await clearActiveNap();
-    return '/feedback';
+    return destination;
   }
 
   // 커피냅은 "커피 마신 시각" 기준, 일반 낮잠은 "낮잠 시작" 기준으로 실제 사용된
@@ -38,12 +55,12 @@ export async function finishNap(player: AudioPlayer, active: ActiveNap | null): 
       isTest: true,
     });
     await clearActiveNap();
-    return '/';
+    return destination;
   }
 
   await savePendingFeedback({ mode: active.mode, offsetMinutes });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
   await clearActiveNap();
-  return '/feedback';
+  return destination;
 }

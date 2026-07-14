@@ -81,6 +81,20 @@ feeling worse instead of better"와 `section5`의 "that may be a sign you're not
 sleeping enough at night"가 원문("개운함이 떨어질 수 있어요"/"밤잠 자체가 부족하다는
 신호일 수 있어요")보다 단정 강도가 세게 읽히는지 우선 확인 — **아직 미검수**.
 
+### 신규 추가 (미검수) — 기상 루틴 3화면(wake-sequence, `wake-sequence` 브랜치)
+
+기상 체크리스트가 후기 설문 화면 안 체크박스 4개에서, 해제 직후 순차 진입하는 개별
+화면 3개(`/wake-stretch` → `/wake-light` → `/wake-water`)로 바뀌면서 각 화면에
+"이 행동이 왜 도움이 되는지"를 한 줄로 설명하는 `effect` 문구가 새로 생겼다. 수면
+호르몬·카페인과 비슷하게 생리학적 근거를 직접 언급하는 문장이라 2순위로 분류.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `wakeRoutine.stretch.effect` | Loosens stiff muscles and gets blood flowing to shift your body into active mode | "shift your body into active mode"가 과도하게 단정적인 생리학 주장으로 읽히는지 — **아직 미검수** |
+| `wakeRoutine.light.effect` | Light exposure stops sleep hormones and signals your brain it's time to wake up | "stops sleep hormones"가 원문 "수면 호르몬이 멈추고"보다 의학적으로 단정적인 인상을 주는지 — **아직 미검수** |
+| `wakeRoutine.water.effect` | Replenishes fluids lost during sleep, easing grogginess and brain fog | "brain fog"가 informal/의학 용어처럼 읽혀 불필요한 인상을 주는지 — **아직 미검수** |
+| `wakeRoutine.stretch.instruction` / `.light.instruction` / `.water.instruction` / `.slideLabel` | (지시문·슬라이드 라벨 6개) | 명령형 문장 톤이 알람 화면(`alarm.slideLabel` 등)과 일관되는지 — **아직 미검수** |
+
 ## 3순위 — 동의/개인정보 관련 문구 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |

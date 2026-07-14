@@ -46,14 +46,14 @@ export function surveySummary(survey: NapSurvey): string {
 }
 
 const WAKE_CHECKLIST_LABEL: { key: keyof WakeChecklist; labelKey: string }[] = [
-  { key: 'immediate', labelKey: 'history:wakeChecklist.immediate' },
   { key: 'stretch', labelKey: 'history:wakeChecklist.stretch' },
   { key: 'light', labelKey: 'history:wakeChecklist.light' },
   { key: 'water', labelKey: 'history:wakeChecklist.water' },
 ];
 
-// 체크된 항목만 라벨을 이어붙인다 — appendNapRecord가 전부 미체크면 필드를 생략하므로
-// 여기 도달했다면 최소 1개는 체크된 상태.
+// 체크된 항목만 라벨을 이어붙인다. 신규 레코드는 markWakeChecklistItem을 거쳐 최소
+// 1개는 체크된 상태로만 저장되지만, 구 레코드(immediate 포함 4필드)가 immediate만
+// 체크된 채 남아있으면 빈 문자열이 나올 수 있다 — 호출부(detailRows)가 그 경우를 걸러낸다.
 export function wakeChecklistSummary(checklist: WakeChecklist): string {
   return WAKE_CHECKLIST_LABEL.filter((item) => checklist[item.key])
     .map((item) => i18n.t(item.labelKey))
@@ -136,8 +136,11 @@ export function detailRows(item: NapRecord): DetailRow[] {
     rows.push({ label: i18n.t('history:detailRow.memo'), value: item.memo });
   }
 
-  if (item.wakeChecklist) {
-    rows.push({ label: i18n.t('history:detailRow.wakeRoutine'), value: wakeChecklistSummary(item.wakeChecklist) });
+  // 구 레코드(immediate 포함 4필드)가 immediate만 체크된 채 남아있으면 summary가 빈
+  // 문자열이 될 수 있다 — 그 경우 빈 값 행을 만들지 않는다.
+  const wakeSummary = item.wakeChecklist ? wakeChecklistSummary(item.wakeChecklist) : '';
+  if (wakeSummary) {
+    rows.push({ label: i18n.t('history:detailRow.wakeRoutine'), value: wakeSummary });
   }
 
   return rows;

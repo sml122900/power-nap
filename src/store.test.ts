@@ -16,17 +16,21 @@ import {
   getCachedAnalysisDetail,
   getCachedAnalysisList,
   getNapRecords,
+  getPendingFeedback,
   getSettings,
   markAlarmDismissed,
+  markWakeChecklistItem,
   MIN_RECORDS_FOR_ANALYSIS,
   periodSinceMs,
   resolveAnalysisDetail,
   resolveAnalysisList,
   saveActiveNap,
+  savePendingFeedback,
   setAiConsent,
   setCachedAnalysisDetail,
   setCachedAnalysisList,
   setMissionEnabled,
+  setWakeRoutineEnabled,
   type ActiveNap,
   type NapRecord,
   type Settings,
@@ -85,6 +89,7 @@ describe('getSettings migration', () => {
       caffeineOnset: 30,
       totalNaps: 3,
       missionEnabled: false, // 저장된 v3 객체에 없던 필드 — 기본값 false로 채워짐
+      wakeRoutineEnabled: true, // 저장된 v3 객체에 없던 필드 — 기본값 true로 채워짐
     });
     expect((settings as unknown as { converged?: unknown }).converged).toBeUndefined();
   });
@@ -105,6 +110,7 @@ describe('getSettings migration', () => {
       caffeineOnset: 30,
       totalNaps: 3,
       missionEnabled: true,
+      wakeRoutineEnabled: false,
     };
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(original));
 
@@ -435,22 +441,22 @@ describe('computeSuggestionApplication — AI 리포트 "설정에 반영하기"
   });
 });
 
-describe('wake-up routine checklist', () => {
-  it('round-trips a checklist with at least one checked item', async () => {
+describe('wake-up routine checklist (3-field, wake-sequence)', () => {
+  it('round-trips a 3-field checklist on a NapRecord', async () => {
     await appendNapRecord({
       completedAt: 1_700_000_000_005,
       mode: 'fast',
       offsetMinutes: 20,
       survey: null,
-      wakeChecklist: { immediate: true, stretch: false, light: true, water: false },
+      wakeChecklist: { stretch: false, light: true, water: false },
     });
 
     const records = await getNapRecords();
     const record = records[records.length - 1];
-    expect(record.wakeChecklist).toEqual({ immediate: true, stretch: false, light: true, water: false });
+    expect(record.wakeChecklist).toEqual({ stretch: false, light: true, water: false });
   });
 
-  it('omits the field entirely when nothing is checked', async () => {
+  it('omits the field entirely when undefined (wake routine was off)', async () => {
     await appendNapRecord({
       completedAt: 1_700_000_000_006,
       mode: 'fast',
@@ -463,6 +469,59 @@ describe('wake-up routine checklist', () => {
     const record = records[records.length - 1];
     expect(record.wakeChecklist).toBeUndefined();
     expect('wakeChecklist' in record).toBe(false);
+  });
+
+  it('reads a legacy 4-field record (immediate included) without crashing, ignoring immediate', async () => {
+    // 구형 저장 형태(마이그레이션 없이 그대로 남아있는 실제 상황) — JSON.parse는 타입에
+    // 없는 여분 필드도 그대로 돌려준다. wakeChecklistSummary(app/history.tsx)가 이 값을
+    // 읽을 때 immediate를 그냥 무시하는지는 history.test.ts에서 검증한다.
+    await AsyncStorage.setItem(
+      'powernap:napRecords',
+      JSON.stringify([
+        {
+          completedAt: 1_700_000_000_007,
+          mode: 'fast',
+          offsetMinutes: 20,
+          survey: null,
+          wakeChecklist: { immediate: true, stretch: false, light: false, water: true },
+        },
+      ])
+    );
+
+    const records = await getNapRecords();
+    expect(records[0].wakeChecklist).toEqual({ immediate: true, stretch: false, light: false, water: true });
+  });
+});
+
+describe('markWakeChecklistItem', () => {
+  it('is a no-op when there is no pending feedback', async () => {
+    await markWakeChecklistItem('stretch');
+    expect(await getPendingFeedback()).toBeNull();
+  });
+
+  it('merges one item at a time into pendingFeedback.wakeChecklist, defaulting the rest to false', async () => {
+    await savePendingFeedback({ mode: 'fast', offsetMinutes: 20 });
+
+    await markWakeChecklistItem('stretch');
+    expect((await getPendingFeedback())?.wakeChecklist).toEqual({ stretch: true, light: false, water: false });
+
+    await markWakeChecklistItem('water');
+    expect((await getPendingFeedback())?.wakeChecklist).toEqual({ stretch: true, light: false, water: true });
+  });
+});
+
+describe('setWakeRoutineEnabled', () => {
+  it('defaults to true and round-trips a toggle without touching other fields', async () => {
+    expect((await getSettings()).wakeRoutineEnabled).toBe(true);
+
+    await setWakeRoutineEnabled(false);
+    const settings = await getSettings();
+    expect(settings.wakeRoutineEnabled).toBe(false);
+    expect(settings.latency).toEqual({ fast: 0, slow: 10 });
+    expect(settings.caffeineOnset).toBe(25);
+
+    await setWakeRoutineEnabled(true);
+    expect((await getSettings()).wakeRoutineEnabled).toBe(true);
   });
 });
 

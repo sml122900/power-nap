@@ -24,6 +24,7 @@ import {
   LATENCY_MIN,
   setAiConsent,
   setMissionEnabled,
+  setWakeRoutineEnabled,
   TARGET_SLEEP_MIN,
   type NapMode,
   type Settings,
@@ -87,6 +88,15 @@ export default function SettingsScreen() {
     const next = !settings.missionEnabled;
     await setMissionEnabled(next);
     setSettings({ ...settings, missionEnabled: next });
+  };
+
+  // 기상 루틴(스트레치·빛·물) 토글 — 기본 true, 명언 미션과는 독립적으로 켜고 끈다.
+  const onToggleWakeRoutine = async () => {
+    if (!settings) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = !settings.wakeRoutineEnabled;
+    await setWakeRoutineEnabled(next);
+    setSettings({ ...settings, wakeRoutineEnabled: next });
   };
 
   // 개인정보처리방침 "서버 데이터 삭제" — 2단계 확인(안내 → 최종 확인) 후 실행.
@@ -204,6 +214,20 @@ export default function SettingsScreen() {
               <Text style={styles.missionQuotesLinkBtnText}>{t('missionQuotesLink')}</Text>
             </Pressable>
           )}
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('wakeRoutineSectionLabel')}</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataRowText}>
+              {settings.wakeRoutineEnabled ? t('wakeRoutineOnDescription') : t('wakeRoutineOffDescription')}
+            </Text>
+            <Pressable onPress={onToggleWakeRoutine} style={styles.dataToggleBtn}>
+              <Text style={styles.dataToggleBtnText}>
+                {settings.wakeRoutineEnabled ? t('wakeRoutineToggleOff') : t('wakeRoutineToggleOn')}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.list}>

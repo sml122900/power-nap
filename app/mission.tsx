@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { finishNap } from '@/finishNap';
 import i18n from '@/i18n';
 import { getMissionQuotes, isMissionInputCorrect, pickRandomQuote, pickShorterQuote, type MissionQuote } from '@/missionQuotes';
-import { getActiveNap, type ActiveNap } from '@/store';
+import { getActiveNap, getSettings, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useAlarmPlayback } from '@/useAlarmPlayback';
 import { useNapWatchdog } from '@/useNapWatchdog';
@@ -34,6 +34,8 @@ export default function MissionScreen() {
 
   const locale = i18n.language === 'ko' ? 'ko' : 'en';
   const [nap, setNap] = useState<ActiveNap | null>(null);
+  // finishNap의 목적지 판정(wake-sequence 브랜치)에 그대로 전달한다.
+  const [wakeRoutineEnabled, setWakeRoutineEnabled] = useState(true);
   const [quotes, setQuotes] = useState<MissionQuote[] | null>(null);
   const [quote, setQuote] = useState<MissionQuote | null>(null);
   const [input, setInput] = useState('');
@@ -51,9 +53,14 @@ export default function MissionScreen() {
   useEffect(() => {
     let stopped = false;
     (async () => {
-      const [loadedNap, loadedQuotes] = await Promise.all([getActiveNap(), getMissionQuotes(locale)]);
+      const [loadedNap, settings, loadedQuotes] = await Promise.all([
+        getActiveNap(),
+        getSettings(),
+        getMissionQuotes(locale),
+      ]);
       if (stopped) return;
       setNap(loadedNap);
+      setWakeRoutineEnabled(settings.wakeRoutineEnabled);
       setQuotes(loadedQuotes);
       setQuote(pickRandomQuote(loadedQuotes));
     })();
@@ -69,7 +76,7 @@ export default function MissionScreen() {
       dismissedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const active = nap ?? (await getActiveNap());
-      const destination = await finishNap(player, active);
+      const destination = await finishNap(player, active, wakeRoutineEnabled);
       router.replace(destination);
       return;
     }

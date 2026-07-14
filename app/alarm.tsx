@@ -49,6 +49,9 @@ export default function AlarmScreen() {
   // 미션이 켜져 있으면 이 화면의 해제는 알람을 끄는 게 아니라 다음 단계(명언 입력)로
   // 넘어가는 것뿐이라 문구도 그렇게 안내해야 한다.
   const [missionEnabled, setMissionEnabled] = useState(false);
+  // finishNap의 목적지 판정(wake-sequence 브랜치)에 그대로 전달 — 이 화면 자체는
+  // 기상 루틴 여부로 문구가 갈리지 않는다(미션과 달리 alarm.tsx는 항상 "끄기" 문구).
+  const [wakeRoutineEnabled, setWakeRoutineEnabled] = useState(true);
   const dismissedRef = useRef(false);
   // useAudioPlayer(코드상 이 함수보다 먼저 호출됨)의 내부 정리(release)는 React가
   // 언마운트 시 이펙트 클린업을 "등록 순서대로"(역순 아님) 실행하기 때문에 우리
@@ -72,6 +75,7 @@ export default function AlarmScreen() {
       if (stopped) return;
       setNap(loadedNap);
       setMissionEnabled(settings.missionEnabled);
+      setWakeRoutineEnabled(settings.wakeRoutineEnabled);
     })();
     return () => {
       stopped = true;
@@ -95,7 +99,7 @@ export default function AlarmScreen() {
     }
 
     const active = nap ?? (await getActiveNap());
-    const destination = await finishNap(player, active);
+    const destination = await finishNap(player, active, wakeRoutineEnabled);
     router.replace(destination);
   };
 

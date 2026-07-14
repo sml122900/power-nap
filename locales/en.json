@@ -114,13 +114,6 @@
     "manualInputA11y": "Enter minutes directly ({{min}}–{{max}})",
     "manualUnit": "min",
     "manualApply": "Apply",
-    "tipCaption": "Ways to wake up refreshed — check off what you did",
-    "checklist": {
-      "immediate": "Got up right away (no snoozing)",
-      "stretch": "Stretched",
-      "light": "Got some bright light",
-      "water": "Drank a glass of water"
-    },
     "toastRecorded": "Saved.",
     "toastManualAdjust": "'{{modeName}}' {{label}} set to {{minutes}} min for next time.",
     "manualLabelCaffeine": "caffeine onset time",
@@ -153,7 +146,6 @@
     },
     "manualAdjustValue": "{{label}} ({{before}}→{{after}} min)",
     "wakeChecklist": {
-      "immediate": "Got up right away",
       "stretch": "Stretched",
       "light": "Light",
       "water": "Water"
@@ -216,7 +208,12 @@
     "missionOffDescription": "Off — dismiss right away by sliding or long-pressing",
     "missionToggleOn": "Turn on",
     "missionToggleOff": "Turn off",
-    "missionQuotesLink": "Edit quotes"
+    "missionQuotesLink": "Edit quotes",
+    "wakeRoutineSectionLabel": "Wake Routine",
+    "wakeRoutineOnDescription": "On — dismissing the alarm leads through stretch, light, and water steps before the survey",
+    "wakeRoutineOffDescription": "Off — dismissing the alarm goes straight to the survey",
+    "wakeRoutineToggleOn": "Turn on",
+    "wakeRoutineToggleOff": "Turn off"
   },
   "missionQuotes": {
     "title": "Edit quotes",
@@ -234,6 +231,25 @@
     "quoteSwapped": "Switched to a different sentence",
     "a11yInput": "Mission input",
     "quoteAuthor": "— {{author}}"
+  },
+  "wakeRoutine": {
+    "stretch": {
+      "instruction": "Stretch your body",
+      "slideLabel": "I stretched",
+      "effect": "Loosens stiff muscles and gets blood flowing to shift your body into active mode"
+    },
+    "light": {
+      "instruction": "Look at some bright light",
+      "slideLabel": "I saw bright light",
+      "effect": "Light exposure stops sleep hormones and signals your brain it's time to wake up"
+    },
+    "water": {
+      "instruction": "Drink a glass of water",
+      "slideLabel": "I drank water",
+      "effect": "Replenishes fluids lost during sleep, easing grogginess and brain fog"
+    },
+    "a11ySlideLabel": "Slide to continue",
+    "a11yDismissAction": "Continue"
   },
   "analysisConsent": {
     "title": "About AI Analysis",

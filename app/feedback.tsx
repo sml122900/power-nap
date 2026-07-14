@@ -59,26 +59,15 @@ const DEFAULT_SURVEY: NapSurvey = { posture: 'mid', noise: 'mid', light: 'mid', 
 
 const MANUAL_STEP = 1;
 
-const DEFAULT_WAKE_CHECKLIST: WakeChecklist = { immediate: false, stretch: false, light: false, water: false };
-
-const WAKE_CHECKLIST_ITEMS: { key: keyof WakeChecklist; labelKey: string }[] = [
-  { key: 'immediate', labelKey: 'checklist.immediate' },
-  { key: 'stretch', labelKey: 'checklist.stretch' },
-  { key: 'light', labelKey: 'checklist.light' },
-  { key: 'water', labelKey: 'checklist.water' },
-];
-
-// 전부 미체크면 undefined를 반환해 기존 레코드와 동일한 형태(필드 생략)를 유지한다.
-function toWakeChecklistRecord(checklist: WakeChecklist): WakeChecklist | undefined {
-  return Object.values(checklist).some(Boolean) ? checklist : undefined;
-}
-
 interface FeedbackContext {
   mode: NapMode;
   offsetMinutes: number; // 이번 낮잠에 실제 사용된 총 시간(분) — NapRecord용
   baseValue: number; // latency[mode] 또는 caffeineOnset — 매뉴얼 스테퍼 시작값
   latency: Settings['latency']; // 학습 상태 캡션용
   caffeineOnset: number; // 학습 상태 캡션용
+  // 기상 루틴 3화면(/wake-stretch 등)에서 이미 채워 넘어온 값 — 이 화면은 그대로
+  // NapRecord에 실어보내기만 한다(체크박스 UI 없음, wake-sequence 변경 이후).
+  wakeChecklist?: WakeChecklist;
 }
 
 export default function FeedbackScreen() {
@@ -86,7 +75,6 @@ export default function FeedbackScreen() {
   const { t } = useTranslation('feedback');
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [answers, setAnswers] = useState<NapSurvey>(DEFAULT_SURVEY);
-  const [wakeChecklist, setWakeChecklist] = useState<WakeChecklist>(DEFAULT_WAKE_CHECKLIST);
   const [memoOpen, setMemoOpen] = useState(false);
   const [memoText, setMemoText] = useState('');
   const [manualOpen, setManualOpen] = useState(false);
@@ -111,6 +99,7 @@ export default function FeedbackScreen() {
         baseValue,
         latency: settings.latency,
         caffeineOnset: settings.caffeineOnset,
+        wakeChecklist: pending.wakeChecklist,
       });
     });
   }, [router]);
@@ -136,7 +125,7 @@ export default function FeedbackScreen() {
       offsetMinutes: ctx.offsetMinutes,
       survey: answers,
       memo: memoText.trim() || undefined,
-      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
+      wakeChecklist: ctx.wakeChecklist,
     });
     await clearPendingFeedback();
     router.replace({ pathname: '/', params: { toast: t('toastRecorded') } });
@@ -152,7 +141,7 @@ export default function FeedbackScreen() {
       mode: ctx.mode,
       offsetMinutes: ctx.offsetMinutes,
       survey: null,
-      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
+      wakeChecklist: ctx.wakeChecklist,
     });
     await clearPendingFeedback();
     router.replace('/');
@@ -206,7 +195,7 @@ export default function FeedbackScreen() {
       mode: ctx.mode,
       offsetMinutes: ctx.offsetMinutes,
       manualAdjust: { source: 'feedback', beforeMinutes: ctx.baseValue, afterMinutes: finalValue },
-      wakeChecklist: toWakeChecklistRecord(wakeChecklist),
+      wakeChecklist: ctx.wakeChecklist,
     });
     await clearPendingFeedback();
 
@@ -334,31 +323,6 @@ export default function FeedbackScreen() {
               </Pressable>
             </View>
           )}
-
-          <View style={styles.tipCard}>
-            <Text style={styles.tipCaption}>{t('tipCaption')}</Text>
-            <View style={styles.checklist}>
-              {WAKE_CHECKLIST_ITEMS.map((item) => {
-                const checked = wakeChecklist[item.key];
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setWakeChecklist((c) => ({ ...c, [item.key]: !c[item.key] }));
-                    }}
-                    style={styles.checklistRow}
-                    accessibilityRole="checkbox"
-                    accessibilityLabel={t(item.labelKey)}
-                    accessibilityState={{ checked }}
-                  >
-                    <View style={[styles.checkbox, checked && styles.checkboxChecked]} />
-                    <Text style={styles.checklistLabel}>{t(item.labelKey)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -552,42 +516,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontFamily.bold,
     color: colors.surface,
-  },
-  tipCard: {
-    marginTop: 24,
-    padding: 18,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg,
-  },
-  tipCaption: {
-    fontSize: 13,
-    fontFamily: fontFamily.semibold,
-    color: colors.inkFaint,
-  },
-  checklist: {
-    marginTop: 12,
-    gap: 4,
-  },
-  checklistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 44,
-    gap: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.ink,
-    borderColor: colors.ink,
-  },
-  checklistLabel: {
-    fontSize: 14.5,
-    fontFamily: fontFamily.regular,
-    color: colors.ink,
   },
 });

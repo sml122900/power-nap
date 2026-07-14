@@ -114,13 +114,6 @@
     "manualInputA11y": "분 직접 입력 ({{min}}~{{max}})",
     "manualUnit": "분",
     "manualApply": "적용",
-    "tipCaption": "개운하게 깨는 법 — 한 것만 체크해보세요",
-    "checklist": {
-      "immediate": "바로 일어났어요 (스누즈 없이)",
-      "stretch": "기지개를 켰어요",
-      "light": "밝은 빛을 쬐었어요",
-      "water": "물 한 잔 마셨어요"
-    },
     "toastRecorded": "기록했어요.",
     "toastManualAdjust": "다음 {{modeName}}은 {{label}} {{minutes}}분으로 맞춰둘게요.",
     "manualLabelCaffeine": "카페인 발현시간",
@@ -153,7 +146,6 @@
     },
     "manualAdjustValue": "{{label}} ({{before}}→{{after}}분)",
     "wakeChecklist": {
-      "immediate": "즉시 기상",
       "stretch": "기지개",
       "light": "빛",
       "water": "물"
@@ -216,7 +208,12 @@
     "missionOffDescription": "꺼짐 — 슬라이드하거나 길게 눌러 바로 해제해요",
     "missionToggleOn": "켜기",
     "missionToggleOff": "끄기",
-    "missionQuotesLink": "명언 수정"
+    "missionQuotesLink": "명언 수정",
+    "wakeRoutineSectionLabel": "기상 루틴",
+    "wakeRoutineOnDescription": "켜짐 — 알람을 끄면 기지개·빛·물 세 단계를 거쳐 설문으로 넘어가요",
+    "wakeRoutineOffDescription": "꺼짐 — 알람을 끄면 바로 설문으로 넘어가요",
+    "wakeRoutineToggleOn": "켜기",
+    "wakeRoutineToggleOff": "끄기"
   },
   "missionQuotes": {
     "title": "명언 수정",
@@ -234,6 +231,25 @@
     "quoteSwapped": "다른 문장으로 바꿨어요",
     "a11yInput": "명언 입력",
     "quoteAuthor": "— {{author}}"
+  },
+  "wakeRoutine": {
+    "stretch": {
+      "instruction": "기지개를 펴세요",
+      "slideLabel": "기지개를 폈어요",
+      "effect": "굳은 근육과 혈류를 풀어 몸을 활동 모드로 깨워요"
+    },
+    "light": {
+      "instruction": "밝은 빛을 보세요",
+      "slideLabel": "밝은 빛을 봤어요",
+      "effect": "빛을 받으면 수면 호르몬이 멈추고 뇌가 깨어날 시간임을 인식해요"
+    },
+    "water": {
+      "instruction": "물 한 잔을 마시세요",
+      "slideLabel": "물 한 잔을 마셨어요",
+      "effect": "자는 동안 빠진 수분을 채워 나른함과 멍한 느낌을 줄여요"
+    },
+    "a11ySlideLabel": "밀어서 다음으로",
+    "a11yDismissAction": "다음으로"
   },
   "analysisConsent": {
     "title": "AI 분석 안내",
