@@ -116,6 +116,7 @@
     "manualApply": "Apply",
     "toastRecorded": "Saved.",
     "toastManualAdjust": "'{{modeName}}' {{label}} set to {{minutes}} min for next time.",
+    "toastManualAdjustTestSkipped": "This was a test nap, so nothing was actually changed.",
     "manualLabelCaffeine": "caffeine onset time",
     "manualLabelLatency": "wait time"
   },

@@ -6,20 +6,17 @@ import { Platform } from 'react-native';
 import { type AudioPlayer } from 'expo-audio';
 
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from './notifications';
-import { appendNapRecord, clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
+import { clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
 
-export type FinishNapDestination = '/' | '/feedback' | '/wake-stretch';
+export type FinishNapDestination = '/feedback' | '/wake-stretch';
 
 // 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
-// 같은 패턴). 기상 루틴이 켜져 있으면 테스트 낮잠도 /wake-stretch(→ light → water)를 거친다
-// (미션과 마찬가지로 이 화면들은 학습에 영향이 없는 순수 UI/데이터 수집이라 실제 알람과
-// 동일하게 보여줘야 도그푸딩이 된다 — 사용자 지시). 다만 설문 화면(/feedback)의 "직접
-// 조정하기"는 학습값을 직접 바꾸는 유일한 경로라 테스트 낮잠은 여전히 거기 도달하지 않는다
-// (CLAUDE.md 지뢰 목록 "테스트 낮잠이 latency를 오염시킨" 사고 재발 방지) — wake-water
-// 화면이 그 대신 기록만 남기고 홈으로 보낸다(WakeRoutineScreen 참고). 기상 루틴이 꺼져
-// 있으면 보여줄 화면이 없으니 테스트 낮잠은 기존과 동일하게 곧장 홈으로.
-export function resolveFinishNapDestination(active: ActiveNap | null, wakeRoutineEnabled: boolean): FinishNapDestination {
-  if (active?.isTest && !wakeRoutineEnabled) return '/';
+// 같은 패턴). 테스트 낮잠도 실제 알람과 완전히 동일한 경로를 탄다(사용자 지시 — "모든 기능이
+// 테스트와 동일했으면"). 학습값 오염/AI 분석 데이터 오염은 라우팅이 아니라 각 지점에서 막는다:
+// app/feedback.tsx의 "직접 조정하기"는 isTest면 applyManualAdjustment를 건너뛰고 사용자에게
+// "반영되지 않았다"고 알린다, appendNapRecord는 항상 isTest를 실어 보내 AI 분석
+// (filterAnalyzableRecords)에서 제외되게 한다.
+export function resolveFinishNapDestination(wakeRoutineEnabled: boolean): FinishNapDestination {
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
 }
 
@@ -37,7 +34,7 @@ export async function finishNap(
   await stopNativeAlarmSoundAsync();
   await cancelAlarmNotificationAsync(active?.notificationId ?? null);
 
-  const destination = resolveFinishNapDestination(active, wakeRoutineEnabled);
+  const destination = resolveFinishNapDestination(wakeRoutineEnabled);
 
   if (!active) {
     await clearActiveNap();
@@ -49,22 +46,6 @@ export async function finishNap(
   const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
   const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
 
-  if (active.isTest && !wakeRoutineEnabled) {
-    // 테스트 낮잠(홈 화면 단축 버튼) + 기상 루틴 꺼짐: 보여줄 화면이 없으니 후기 없이
-    // 기록만 남기고 홈으로(기존 동작 그대로).
-    await appendNapRecord({
-      completedAt: Date.now(),
-      mode: active.mode,
-      offsetMinutes,
-      result: 'test',
-      isTest: true,
-    });
-    await clearActiveNap();
-    return destination;
-  }
-
-  // 테스트 낮잠 + 기상 루틴 켜짐: pendingFeedback에 isTest를 실어 보내 wake-stretch 등이
-  // getPendingFeedback() 가드를 통과하게 하고, 최종 기록은 water 화면이 남긴다(위 주석 참고).
   await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.

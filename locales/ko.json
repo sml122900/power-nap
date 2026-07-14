@@ -116,6 +116,7 @@
     "manualApply": "적용",
     "toastRecorded": "기록했어요.",
     "toastManualAdjust": "다음 {{modeName}}은 {{label}} {{minutes}}분으로 맞춰둘게요.",
+    "toastManualAdjustTestSkipped": "테스트 낮잠이라 실제로 반영되지는 않았어요.",
     "manualLabelCaffeine": "카페인 발현시간",
     "manualLabelLatency": "대기시간"
   },
