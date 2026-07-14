@@ -184,22 +184,22 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.topRow}>
-            <Text style={styles.nowLabel}>{t('nowLabel')}</Text>
             <Text style={[styles.nowTime, tabularNums]}>{formatTime(now)}</Text>
           </View>
 
           <View style={styles.topLinksRow}>
-            <Pressable onPress={() => router.push('/mypage')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>{t('mypageLink')}</Text>
-            </Pressable>
-            <Text style={styles.topLinksSeparator}>·</Text>
-            <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>{t('settingsLink')}</Text>
-            </Pressable>
-            <Text style={styles.topLinksSeparator}>·</Text>
             <Pressable onPress={() => router.push('/about')} hitSlop={12}>
               <Text style={styles.historyLinkText}>{t('aboutLink')}</Text>
             </Pressable>
+            <View style={styles.topLinksRightGroup}>
+              <Pressable onPress={() => router.push('/mypage')} hitSlop={12}>
+                <Text style={styles.historyLinkText}>{t('mypageLink')}</Text>
+              </Pressable>
+              <Text style={styles.topLinksSeparator}>·</Text>
+              <Pressable onPress={() => router.push('/settings')} hitSlop={12}>
+                <Text style={styles.historyLinkText}>{t('settingsLink')}</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.head}>
@@ -337,13 +337,7 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  nowLabel: {
-    fontSize: 13,
-    fontFamily: fontFamily.semibold,
-    color: colors.inkFaint,
+    justifyContent: 'center',
   },
   nowTime: {
     fontSize: 15,
@@ -352,10 +346,13 @@ const styles = StyleSheet.create({
   },
   topLinksRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
+  },
+  topLinksRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   topLinksSeparator: {
