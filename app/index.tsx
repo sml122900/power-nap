@@ -189,7 +189,7 @@ export default function HomeScreen() {
 
           <View style={styles.topLinksRow}>
             <Pressable onPress={() => router.push('/about')} hitSlop={12}>
-              <Text style={styles.historyLinkText}>{t('aboutLink')}</Text>
+              <Text style={styles.aboutLinkText}>{t('aboutLink')}</Text>
             </Pressable>
             <View style={styles.topLinksRightGroup}>
               <Pressable onPress={() => router.push('/mypage')} hitSlop={12}>
@@ -364,6 +364,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fontFamily.semibold,
     color: colors.inkFaint,
+    textDecorationLine: 'underline',
+  },
+  aboutLinkText: {
+    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
     textDecorationLine: 'underline',
   },
   head: {
