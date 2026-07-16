@@ -100,6 +100,21 @@ radius:     lg 24 / md 16
     보낸다(권한과 무관하게 항상 동작 — 코드 확인 완료).
 - 진동: 네이티브 레이어 자체 진동(연속) + JS `Haptics` 인터벌(양쪽 플랫폼 공통, `alarm.tsx`)이
   중복으로 울릴 수 있음 — 실사용에서 거슬리면 Android 쪽 JS 햅틱 인터벌을 끄는 것을 검토.
+- **SCHEDULE_EXACT_ALARM / USE_FULL_SCREEN_INTENT 거부 시나리오 코드 확인 + 최종 APK
+  매니페스트(`aapt dump`) 검증 완료**:
+
+  | 권한 | 코드상 동작 | 실기기 결과 |
+  |---|---|---|
+  | `SCHEDULE_EXACT_ALARM` | `expo-alarm-module`의 `Helper.scheduleAlarm`이 `canScheduleExactAlarms()` 체크 없이 바로 `AlarmManager.setExactAndAllowWhileIdle`을 호출한다 — 권한이 꺼져 있으면 `SecurityException`이 던져진다. 이 예외는 이제 `app/index.tsx`의 낮잠 시작 경로(try/catch)가 잡아 "알람을 설정하지 못했어요" 안내 + Android는 설정 딥링크(`REQUEST_SCHEDULE_EXACT_ALARM`)까지 보여준다(수정 전에는 조용히 삼켜져 버튼을 눌러도 화면이 그대로였음). | 재현 여부와 무관하게 구조적 결함(실패가 조용히 삼켜짐)으로 판단해 수정 — 최종 APK가 `minSdkVersion 24`(Android 12/12L 포함)를 지원해 이 권한이 실사용자에게 실재하는 경로임을 확인 |
+  | `USE_FULL_SCREEN_INTENT` | `plugins/withFullScreenAlarmIntent.js`가 주입한 패치가 `canUseFullScreenIntent()`를 체크하지만 결과와 무관하게 로그만 남기고 진행한다 — 거부돼도 크래시 없이 시스템이 일반 헤드업 알림으로 자동 대체(코드상 안전 확인됨) | 실기기 확인 대상은 "화면이 실제로 켜지는지" 뿐, 크래시 위험은 코드로 배제됨 |
+
+  최종 릴리즈 APK(`aapt dump badging/permissions`)로 직접 확인: `minSdkVersion=24`,
+  `targetSdkVersion=36`. `SCHEDULE_EXACT_ALARM`에 `maxSdkVersion="32"`를 붙이고
+  `USE_EXACT_ALARM`을 33+ 전용으로 분리하는 표준 패턴이 **아니고**, 두 권한 모두
+  SDK 조건 없이 무조건 선언돼 있다 — 런타임 동작에는 문제 없음(OS가 자기 API
+  레벨에 안 맞는 권한은 알아서 무시), 다만 `USE_EXACT_ALARM`은 Play가 "알람이
+  핵심 기능인 앱"으로 제한하는 민감 권한이라 Play Console 등록 시 소명이 필요함
+  (릴리즈 체크리스트 항목, STATUS.md 참고).
 
 **iOS — 기존 3중 레이어 그대로 유지** (네이티브 알람 대응 라이브러리가 무음스위치 우회를
 못 주므로 변경 없음):

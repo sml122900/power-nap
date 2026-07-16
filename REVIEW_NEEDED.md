@@ -63,6 +63,20 @@
 | `missionQuotes.add` | + Add quote | 표준적 표현 — **아직 미검수** |
 | `mission.quoteAuthor` | — {{author}} | 인용 표기 관례(em dash)가 두 언어 모두에서 자연스러운지 — **아직 미검수** |
 
+### 신규 추가 (미검수) — 알람 예약 실패 안내(SCHEDULE_EXACT_ALARM 거부 시나리오)
+
+네이티브 알람 예약(`scheduleAlarm`)이 실패할 수 있다는 사실이 실기기 검증 지시로 코드
+확인됨(`Helper.java`가 `canScheduleExactAlarms()` 체크 없이 바로 `setExactAndAllowWhileIdle`
+호출) — 실패해도 화면이 그대로라 사용자가 앱이 멈춘 것으로 오인하던 문제를 고쳤다.
+낮잠을 실제로 시작 못 시키는 경로라 1순위로 분류.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `home.scheduleFailedTitle` | Couldn't set the alarm | 표준적 표현 — **아직 미검수** |
+| `home.scheduleFailedBodyAndroid` | If "Alarms & reminders" permission is off in your phone settings, the alarm can't be scheduled. Please check the permission in Settings. | 원인을 정확히 짚어주는 문장인지, 설정 버튼 라벨과 자연스럽게 이어지는지 — **아직 미검수** |
+| `home.scheduleFailedBodyIos` | The alarm couldn't be scheduled due to an unknown issue. Please try again in a moment. | iOS는 원인 특정이 안 되는 케이스라 일부러 뭉뚱그렸다 — 너무 성의 없어 보이지 않는지 — **아직 미검수** |
+| `home.scheduleFailedOpenSettings` | Open Settings | 표준적 표현 — **아직 미검수** |
+
 ## 2순위 — 의학 관련 고지문 — 검수 완료, 수정 불필요
 
 | 키 | 영어 | 검수 결과 |

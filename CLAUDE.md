@@ -218,6 +218,14 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   조용히 빈 배열만 돌아온다(에러도 안 남 — "상품을 못 찾았다"는 결과만 보고 코드가
   잘못됐다고 오판하기 쉬움). 소모성 상품은 항상
   `PRODUCT_CATEGORY.NON_SUBSCRIPTION`을 명시할 것(src/purchases.ts 참고).
+- 알람 예약은 실패할 수 있다 — 호출부에 try/catch 없으면 낮잠이 조용히 시작 안 되고
+  사용자는 앱이 멈춘 것으로 인식한다. `expo-alarm-module`의 `Helper.scheduleAlarm`은
+  `SCHEDULE_EXACT_ALARM` 권한이 꺼져 있으면(Android 12/12L에서 사용자가 끌 수 있음,
+  minSdkVersion 24라 이 OS 버전도 지원 대상) `canScheduleExactAlarms()` 체크 없이
+  바로 `SecurityException`을 던진다. `app/index.tsx`의 낮잠 시작 경로가 이걸
+  try/catch로 잡아 안내 다이얼로그(+ Android는 설정 딥링크)를 보여주게 고쳤다 —
+  네이티브 예약 호출을 추가하거나 바꿀 땐 항상 실패 경로를 사용자에게 드러낼 것
+  (POST_NOTIFICATIONS 때와 같은 유형의 함정).
 
 코드 규칙
 
