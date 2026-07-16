@@ -10,6 +10,7 @@ import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 
 import { SlideToConfirm } from './SlideToConfirm';
@@ -51,19 +52,22 @@ export function WakeRoutineScreen({ stage }: { stage: WakeStage }) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.content}>
-        <Text style={styles.instruction}>{t(`${stage}.instruction`)}</Text>
-        <Text style={styles.effect}>{t(`${stage}.effect`)}</Text>
-      </View>
+    <>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.content}>
+          <Text style={styles.instruction}>{t(`${stage}.instruction`)}</Text>
+          <Text style={styles.effect}>{t(`${stage}.effect`)}</Text>
+        </View>
 
-      <SlideToConfirm
-        label={t(`${stage}.slideLabel`)}
-        a11yLabel={t('a11ySlideLabel')}
-        a11yActionLabel={t('a11yDismissAction')}
-        onConfirm={onConfirm}
-      />
-    </SafeAreaView>
+        <SlideToConfirm
+          label={t(`${stage}.slideLabel`)}
+          a11yLabel={t('a11ySlideLabel')}
+          a11yActionLabel={t('a11yDismissAction')}
+          onConfirm={onConfirm}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 

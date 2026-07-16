@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Alert,
@@ -30,7 +30,8 @@ import {
   type NapMode,
   type Settings,
 } from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
 const DEFAULT_LATENCY: Settings['latency'] = { fast: 0, slow: 10 };
@@ -42,6 +43,8 @@ const CHIP_ANIM_MS = 150;
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation('home');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   useNapWatchdog('/');
   const { toast } = useLocalSearchParams<{ toast?: string }>();
 
@@ -375,7 +378,8 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,

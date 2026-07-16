@@ -710,6 +710,12 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - `payments`: AI 분석 Phase D(결제) 작업 중, `main` 기준 분기, 아직 미병합 —
   RevenueCat 연동 코드/webhook 서버는 완료(Test Store 키로 파이프라인 전체 검증
   가능한 구조), 실결제(Play) 검증은 Play Console DUNS 대기 중.
+- `dark-mode`: 화면 테마(기기 설정 따름/라이트/다크) 구현, `main` 기준 분기, 아직
+  미병합 — 코드 완료(설정 3지선다 UI, `src/theme.ts`의 `darkColors` 팔레트,
+  `src/ThemeContext.tsx` Provider/훅, 12개 화면 전환), 4종 검증(tsc/jest/expo-doctor/
+  expo export) 통과. 수면/알람/미션/기상루틴 화면은 테마와 무관하게 항상 같은 색
+  고정(DESIGN_HANDOFF.md "화면 테마" 참고). **실기기 검증 + 재빌드는 아직 안 함**
+  (사용자 지시로 재빌드는 별도 진행 예정).
 
 ## 지금 단계
 

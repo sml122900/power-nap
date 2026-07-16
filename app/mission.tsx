@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 
 import { finishNap } from '@/finishNap';
@@ -97,11 +98,18 @@ export default function MissionScreen() {
   };
 
   if (!quotes || !quote) {
-    return <SafeAreaView style={styles.container} edges={['top', 'bottom']} />;
+    return (
+      <>
+        <StatusBar style="light" />
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']} />
+      </>
+    );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.content}>
           <Text style={styles.title}>{t('title')}</Text>
@@ -134,7 +142,8 @@ export default function MissionScreen() {
           <Text style={styles.submitBtnText}>{t('submitButton')}</Text>
         </Pressable>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 

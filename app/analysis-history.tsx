@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,11 +6,14 @@ import { useTranslation } from 'react-i18next';
 
 import { listAnalyses } from '@/aiAnalysis';
 import { formatAnalysisListLabels } from '@/analysisDisplay';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 export default function AnalysisHistoryScreen() {
   const router = useRouter();
   const { t } = useTranslation('analysisHistory');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [labels, setLabels] = useState<ReturnType<typeof formatAnalysisListLabels>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +60,8 @@ export default function AnalysisHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
