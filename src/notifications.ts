@@ -142,3 +142,22 @@ export async function openNotificationSettingsAsync(): Promise<void> {
   }
   await Linking.openSettings();
 }
+
+// 알람 예약(scheduleAlarm) 실패 시 홈 화면의 안내 다이얼로그에서 호출한다. Android 12+의
+// "알람 및 리마인더" 특수 권한 화면으로 직행 — REQUEST_SCHEDULE_EXACT_ALARM은 data URI로
+// 패키지를 지정해야 한다(extra 방식인 APP_NOTIFICATION_SETTINGS와 다름). 실패하면 일반
+// 앱 설정 화면으로 폴백.
+export async function openExactAlarmSettingsAsync(): Promise<void> {
+  const packageName = Constants.expoConfig?.android?.package;
+  if (packageName) {
+    try {
+      await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.REQUEST_SCHEDULE_EXACT_ALARM, {
+        data: `package:${packageName}`,
+      });
+      return;
+    } catch {
+      // 아래 폴백으로 진행.
+    }
+  }
+  await Linking.openSettings();
+}

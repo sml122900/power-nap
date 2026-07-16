@@ -43,7 +43,11 @@
     "devTest1min": "Test: 1 min nap",
     "devTest10sec": "Test: 10 sec",
     "devSeedDummyRecords": "5 dummy records",
-    "toastDummyRecordsSeeded": "Created 5 dummy nap records"
+    "toastDummyRecordsSeeded": "Created 5 dummy nap records",
+    "scheduleFailedTitle": "Couldn't set the alarm",
+    "scheduleFailedBodyAndroid": "If \"Alarms & reminders\" permission is off in your phone settings, the alarm can't be scheduled. Please check the permission in Settings.",
+    "scheduleFailedBodyIos": "The alarm couldn't be scheduled due to an unknown issue. Please try again in a moment.",
+    "scheduleFailedOpenSettings": "Open Settings"
   },
   "about": {
     "title": "About PowerNap",

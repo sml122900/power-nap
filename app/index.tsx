@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,7 +19,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatTime } from '@/format';
-import { scheduleAlarmNotificationAsync } from '@/notifications';
+import { openExactAlarmSettingsAsync, scheduleAlarmNotificationAsync } from '@/notifications';
 import {
   appendNapRecord,
   computeCoffeeAlarmAt,
@@ -94,6 +95,21 @@ export default function HomeScreen() {
     return () => clearTimeout(id);
   }, [toastMessage]);
 
+  // expo-alarm-module의 네이티브 예약(scheduleAlarm)은 SCHEDULE_EXACT_ALARM 권한이 꺼진
+  // 상태에서 SecurityException을 던질 수 있다(코드 확인됨, canScheduleExactAlarms 체크
+  // 없음). 이 예외를 못 잡으면 버튼을 눌러도 화면이 그대로라 사용자가 앱 먹통으로
+  // 인식한다 — 반드시 사용자에게 알리고, Android면 설정 딥링크까지 제공한다.
+  const showScheduleFailedAlert = () => {
+    if (Platform.OS === 'android') {
+      Alert.alert(t('scheduleFailedTitle'), t('scheduleFailedBodyAndroid'), [
+        { text: t('common:cancel'), style: 'cancel' },
+        { text: t('scheduleFailedOpenSettings'), onPress: () => openExactAlarmSettingsAsync() },
+      ]);
+    } else {
+      Alert.alert(t('scheduleFailedTitle'), t('scheduleFailedBodyIos'), [{ text: t('common:close') }]);
+    }
+  };
+
   const startFastSlow = async (mode: 'fast' | 'slow', overrideMs?: number) => {
     if (startingRef.current) return;
     startingRef.current = true;
@@ -104,7 +120,14 @@ export default function HomeScreen() {
       const durationMs = overrideMs ?? (TARGET_SLEEP_MIN + latency[mode]) * 60_000;
       const alarmAt = startedAt + durationMs;
       // 알림 권한 요청은 여기(첫 낮잠 시작 시점)에서만 이루어진다 — 거부돼도 낮잠은 진행한다.
-      const { notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt);
+      let notificationId: string | null;
+      let permissionGranted: boolean;
+      try {
+        ({ notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt));
+      } catch {
+        showScheduleFailedAlert();
+        return;
+      }
       const nap: ActiveNap = {
         mode,
         startedAt,
@@ -129,7 +152,14 @@ export default function HomeScreen() {
       const startedAt = Date.now();
       const coffeeDrankAt = startedAt - minutesAgo * 60_000;
       const { alarmAt } = computeCoffeeAlarmAt(coffeeDrankAt, caffeineOnset, startedAt);
-      const { notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt);
+      let notificationId: string | null;
+      let permissionGranted: boolean;
+      try {
+        ({ notificationId, permissionGranted } = await scheduleAlarmNotificationAsync(alarmAt));
+      } catch {
+        showScheduleFailedAlert();
+        return;
+      }
       const nap: ActiveNap = {
         mode: 'coffee',
         startedAt,
