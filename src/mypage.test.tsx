@@ -13,10 +13,21 @@ jest.mock('react-native-safe-area-context', () =>
 import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import MyPageScreen from '../app/mypage';
+import { ThemeProvider } from './ThemeContext';
+
+// MyPageScreen이 useThemeColors()를 쓰므로 ThemeProvider 밖에서는 렌더 자체가 던진다 —
+// settings.test.tsx와 동일한 이유로 여기서 직접 감싼다.
+function ThemedMyPageScreen() {
+  return (
+    <ThemeProvider initialPreference="system">
+      <MyPageScreen />
+    </ThemeProvider>
+  );
+}
 
 describe('MyPageScreen', () => {
   it('renders the credit notice, sleep-timing section, and all four nav links', async () => {
-    renderRouter({ mypage: MyPageScreen }, { initialUrl: '/mypage' });
+    renderRouter({ mypage: ThemedMyPageScreen }, { initialUrl: '/mypage' });
 
     await waitFor(() => expect(screen.getByText('낮잠 타이밍 조정')).toBeTruthy());
 
