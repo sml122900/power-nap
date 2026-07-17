@@ -5,12 +5,13 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
+  ESCAPE_PHRASE,
   getMissionQuotes,
   isMissionInputCorrect,
   MISSION_QUOTES,
   normalizeMissionInput,
   pickRandomQuote,
-  pickShorterQuote,
+  resolveMissionAttempt,
   setMissionQuotes,
   type MissionQuote,
 } from './missionQuotes';
@@ -112,19 +113,48 @@ describe('normalizeMissionInput / isMissionInputCorrect — 고전 인용의 구
   });
 });
 
-describe('pickShorterQuote', () => {
-  it('always returns a quote strictly shorter than the current one when shorter ones exist', () => {
-    const current = MISSION_QUOTES.en.reduce((a, b) => (b.text.length > a.text.length ? b : a)); // longest quote
-    for (let i = 0; i < 20; i++) {
-      const picked = pickShorterQuote(MISSION_QUOTES.en, current, () => i / 20);
-      expect(picked.text.length).toBeLessThan(current.text.length);
-    }
+describe('resolveMissionAttempt', () => {
+  const quote: MissionQuote = { text: 'Rise and shine', author: 'Claude' };
+  const escapePhrase = ESCAPE_PHRASE.en;
+  const maxAttempts = 3;
+
+  it('passes immediately on a correct quote input, state unchanged', () => {
+    const state = { failCount: 0, escapeMode: false };
+    const result = resolveMissionAttempt('rise AND shine', quote, escapePhrase, state, maxAttempts);
+    expect(result.passed).toBe(true);
+    expect(result.nextState).toEqual(state);
   });
 
-  it('falls back to any other quote when the current one is already the shortest', () => {
-    const shortest = MISSION_QUOTES.en.reduce((a, b) => (b.text.length < a.text.length ? b : a));
-    const picked = pickShorterQuote(MISSION_QUOTES.en, shortest, () => 0);
-    expect(picked.text).not.toBe(shortest.text);
+  it('increments failCount on a wrong quote input without reaching the threshold', () => {
+    const result = resolveMissionAttempt('wrong', quote, escapePhrase, { failCount: 0, escapeMode: false }, maxAttempts);
+    expect(result.passed).toBe(false);
+    expect(result.nextState).toEqual({ failCount: 1, escapeMode: false });
+  });
+
+  it('switches to escape mode exactly on the 3rd consecutive failure', () => {
+    const result = resolveMissionAttempt('wrong', quote, escapePhrase, { failCount: 2, escapeMode: false }, maxAttempts);
+    expect(result.passed).toBe(false);
+    expect(result.nextState).toEqual({ failCount: 0, escapeMode: true });
+  });
+
+  it('passes when the escape phrase is typed correctly in escape mode', () => {
+    const state = { failCount: 0, escapeMode: true };
+    const result = resolveMissionAttempt('I AM AWAKE', quote, escapePhrase, state, maxAttempts);
+    expect(result.passed).toBe(true);
+    expect(result.nextState).toEqual(state);
+  });
+
+  it('keeps retrying with no further fallback if the escape phrase itself is mistyped', () => {
+    const state = { failCount: 0, escapeMode: true };
+    const result = resolveMissionAttempt('i am awak', quote, escapePhrase, state, maxAttempts);
+    expect(result.passed).toBe(false);
+    expect(result.nextState).toEqual({ failCount: 0, escapeMode: true }); // failCount는 더 이상 의미 없음, escapeMode 유지
+  });
+
+  it('typing the original quote text no longer passes once in escape mode', () => {
+    const state = { failCount: 0, escapeMode: true };
+    const result = resolveMissionAttempt(quote.text, quote, escapePhrase, state, maxAttempts);
+    expect(result.passed).toBe(false);
   });
 });
 

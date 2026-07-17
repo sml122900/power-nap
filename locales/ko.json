@@ -268,7 +268,7 @@
     "inputPlaceholder": "여기에 입력하세요",
     "submitButton": "확인",
     "retryHint": "정확히 입력해주세요",
-    "quoteSwapped": "다른 문장으로 바꿨어요",
+    "escapeNotice": "'{{phrase}}'를 입력하면 넘어갈 수 있어요",
     "a11yInput": "명언 입력",
     "quoteAuthor": "— {{author}}"
   },

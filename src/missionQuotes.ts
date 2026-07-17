@@ -6,8 +6,8 @@
 // ko/en은 서로 직역이 아니라 각 언어에서 통용되는 독립 문구다(짧고 자연스러운 게
 // 우선 — UI 문자열처럼 1:1 대응을 요구하는 i18n 키가 아니라 자유롭게 작성).
 //
-// 배열 순서는 의미 없다 — "3회 실패 시 더 짧은 명언 제시"(pickShorterQuote)는 매번
-// 길이로 다시 필터링해서 고르므로 미리 정렬해둘 필요가 없다.
+// 배열 순서는 의미 없다 — pickRandomQuote가 매번 인덱스를 무작위로 뽑으므로 미리
+// 정렬해둘 필요가 없다.
 //
 // AsyncStorage는 이 파일 최상단에서 정적으로 import한다(i18n.ts/supabase.ts의 지연
 // import 패턴과 다름) — 이 파일의 유일한 테스트 파일(missionQuotes.test.ts)이 이미
@@ -98,25 +98,54 @@ export function isMissionInputCorrect(input: string, quote: MissionQuote): boole
   return normalizeMissionInput(input) === normalizeMissionInput(quote.text);
 }
 
-// "3회 실패 시 다른(더 짧은) 명언 제시" — 실패한 문구보다 짧은 것들 중에서 무작위로
-// 고른다(같은 문구가 다시 나오지 않게, 더 짧아졌다는 걸 보장). 짧은 쪽에 후보가
-// 없으면(이미 가장 짧은 문구였던 경우) 전체에서 현재 문구만 제외하고 고른다.
-// quotes는 호출부(app/mission.tsx)가 getMissionQuotes()로 미리 로드해 넘긴다 — 사용자가
-// 설정에서 커스텀한 목록일 수도, 기본 MISSION_QUOTES일 수도 있어 이 함수는 어느 쪽인지
-// 몰라도 된다(순수 함수 유지).
-export function pickShorterQuote(
-  quotes: MissionQuote[],
-  currentQuote: MissionQuote,
-  random: () => number = Math.random
-): MissionQuote {
-  const shorter = quotes.filter((q) => q.text.length < currentQuote.text.length);
-  const pool = shorter.length > 0 ? shorter : quotes.filter((q) => q.text !== currentQuote.text);
-  if (pool.length === 0) return currentQuote;
-  return pool[Math.floor(random() * pool.length)];
-}
+// 3회 연속 실패 시 최종 탈출구(사용자 확정 문구) — 명언 대신 이 고정 문구를 요구한다.
+// 더 이상의 폴백은 없다(이 문구도 틀리면 계속 재시도). MissionQuote가 아니라 순수
+// 문자열인 이유: author가 없고(사람이 한 말이 아님), 목록에서 무작위로 뽑는 대상도
+// 아니라서 MISSION_QUOTES와 같은 배열 구조가 필요 없다.
+export const ESCAPE_PHRASE: Record<'ko' | 'en', string> = {
+  ko: '기상 완료',
+  en: 'I am awake',
+};
 
 export function pickRandomQuote(quotes: MissionQuote[], random: () => number = Math.random): MissionQuote {
   return quotes[Math.floor(random() * quotes.length)];
+}
+
+export interface MissionAttemptState {
+  failCount: number;
+  escapeMode: boolean;
+}
+
+export interface MissionAttemptResult {
+  passed: boolean;
+  nextState: MissionAttemptState;
+}
+
+// 명언(또는 탈출 문구) 타이핑 시도 1회의 판정 — app/mission.tsx의 onSubmit이 상태 갱신
+// 없이 이 함수에만 위임한다. useNapWatchdog.resolveNapRoute와 같은 이유로 순수 함수로
+// 뺐다: BackHandler/useAudioPlayer 등 네이티브 의존성 때문에 이 화면 전체를 렌더
+// 테스트하기 어렵고(sleep.tsx의 reanimated 목 부재와 같은 종류의 인프라 갭), 상태
+// 전이 로직 자체는 렌더와 무관하게 검증 가능하다.
+export function resolveMissionAttempt(
+  input: string,
+  quote: MissionQuote,
+  escapePhrase: string,
+  state: MissionAttemptState,
+  maxAttemptsBeforeEscape: number
+): MissionAttemptResult {
+  const target: MissionQuote = state.escapeMode ? { text: escapePhrase, author: '' } : quote;
+  if (isMissionInputCorrect(input, target)) {
+    return { passed: true, nextState: state };
+  }
+  // 탈출 문구 단계에서는 더 이상의 폴백이 없다 — 계속 재시도만 한다(failCount 갱신 불필요).
+  if (state.escapeMode) {
+    return { passed: false, nextState: state };
+  }
+  const nextFailCount = state.failCount + 1;
+  if (nextFailCount >= maxAttemptsBeforeEscape) {
+    return { passed: false, nextState: { failCount: 0, escapeMode: true } };
+  }
+  return { passed: false, nextState: { failCount: nextFailCount, escapeMode: false } };
 }
 
 // 설정 화면에서 편집한 커스텀 명언 목록 — 언어별로 저장, 값이 없으면 MISSION_QUOTES

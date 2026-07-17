@@ -40,8 +40,17 @@
 |---|---|---|
 | `mission.instruction` | Type the sentence below exactly | "exactly"가 과하게 엄격한 인상을 주는지(실제로는 대소문자·구두점·공백 관대) — **아직 미검수** |
 | `mission.retryHint` | Please type it exactly | 위와 같은 이유로 사용자가 "정말 토씨 하나까지"로 오해할 수 있는지 — **아직 미검수** |
-| `mission.quoteSwapped` | Switched to a different sentence | 실패로 인한 전환이라는 뉘앙스가 부정적으로 느껴지지 않는지(중립적 안내 톤 유지 확인) — **아직 미검수** |
 | `settings.missionOnDescription` | On — when the alarm rings, you must type a sentence to dismiss it | "you must"의 단정 강도가 원문 "해제할 수 있어요"보다 강압적으로 읽히는지 — **아직 미검수** |
+
+#### 신규 추가 (미검수) — 3회 실패 시 탈출 문구로 전환(`quotes-classical` 브랜치)
+
+"더 짧은 명언으로 교체"(`mission.quoteSwapped`, 이제 폐기된 키) 대신 3회 연속
+실패하면 고정 탈출 문구(`ESCAPE_PHRASE`)를 요구하는 방식으로 바꿨다 — 이게 최종
+탈출구라 안내 문구가 실제로 이해되는지가 더 중요해져 1순위로 분류.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `mission.escapeNotice` | Type "{{phrase}}" to continue | 3회 실패 뒤에야 뜨는 문구라 사용자가 왜 갑자기 다른 문장이 나왔는지 이해할 수 있는지, "continue"가 "미션을 건너뛴다"는 오해를 주지 않는지(실제로는 알람 해제 그 자체) — **아직 미검수** |
 
 #### 신규 추가 (미검수) — 순서 변경(슬라이드 먼저 → 명언 나중) + 설정 명언 목록 편집
 
