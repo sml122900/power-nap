@@ -15,13 +15,13 @@ import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import MyPageScreen from '../app/mypage';
 
 describe('MyPageScreen', () => {
-  it('renders the credit notice, sleep-timing section, and all four nav links', async () => {
+  it('renders the credit notice and all five nav links', async () => {
     renderRouter({ mypage: MyPageScreen }, { initialUrl: '/mypage' });
 
-    await waitFor(() => expect(screen.getByText('낮잠 타이밍 조정')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('알람 시간 조정')).toBeTruthy());
 
     expect(screen.getByText('AI 분석에 동의하면 남은 이용권을 확인할 수 있어요')).toBeTruthy();
-    expect(screen.getByText('낮잠 기록')).toBeTruthy();
+    expect(screen.getByText('낮잠 기록 · AI 분석')).toBeTruthy();
     expect(screen.getByText('AI 분석 기록')).toBeTruthy();
     expect(screen.getByText('결제 내역')).toBeTruthy();
     expect(screen.getByText('명언 수정')).toBeTruthy();
