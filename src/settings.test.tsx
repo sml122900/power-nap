@@ -29,10 +29,22 @@ jest.mock('@/i18n', () => ({
 import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import SettingsScreen from '../app/settings';
+import { ThemeProvider } from './ThemeContext';
+
+// SettingsScreen이 useThemeColors()를 쓰므로 ThemeProvider 밖에서는 렌더 자체가 던진다 —
+// 실제 앱은 app/_layout.tsx가 항상 감싸주지만, 이 테스트는 화면만 단독 렌더하는
+// renderRouter 패턴이라 여기서 직접 감싼다.
+function ThemedSettingsScreen() {
+  return (
+    <ThemeProvider initialPreference="system">
+      <SettingsScreen />
+    </ThemeProvider>
+  );
+}
 
 describe('SettingsScreen', () => {
   it('renders all six sections, and no longer the items moved to mypage', async () => {
-    renderRouter({ settings: SettingsScreen }, { initialUrl: '/settings' });
+    renderRouter({ settings: ThemedSettingsScreen }, { initialUrl: '/settings' });
 
     // 초기 렌더는 getSettings() 비동기 로드 전이라 빈 View — 로드 완료를 기다린다.
     await waitFor(() => expect(screen.getByText('언어')).toBeTruthy());

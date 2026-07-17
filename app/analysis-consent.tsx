@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,11 +7,14 @@ import { useTranslation } from 'react-i18next';
 
 import { PRIVACY_POLICY_URL } from '@/config';
 import { setAiConsent } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 export default function AnalysisConsentScreen() {
   const router = useRouter();
   const { t } = useTranslation('analysisConsent');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const onAccept = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -51,7 +55,8 @@ export default function AnalysisConsentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

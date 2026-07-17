@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,7 +21,8 @@ import {
   type SurveyRating,
   type WakeChecklist,
 } from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 import { useFreeResetStatus } from '@/useFreeResetStatus';
 
 // 아래 순수 함수(modeName/resultLabel/surveySummary/wakeChecklistSummary/detailText/detailRows)는
@@ -150,6 +151,8 @@ export function detailRows(item: NapRecord): DetailRow[] {
 export default function HistoryScreen() {
   const router = useRouter();
   const { t } = useTranslation('history');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [records, setRecords] = useState<NapRecord[]>([]);
   // 한 번에 하나만 펼친다(아코디언) — completedAt이 유니크 키.
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -288,7 +291,8 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
   aiAnalysisText: {
     fontSize: 15,
     fontFamily: fontFamily.bold,
-    color: colors.brand,
+    color: colors.brandOnSurface,
   },
   aiAnalysisTextDisabled: {
     color: colors.inkFaint,

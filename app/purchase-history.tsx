@@ -2,7 +2,7 @@
 // 미완료(Play Console DUNS 발급 대기)라 itemized 구매 목록을 서버에서 끌어오는 API가
 // 없다 — 지금은 빈 상태 문구 + "구매 복원"(설정 화면에서 이동)만 제공한다. 실제 구매
 // 목록 조회는 이 Phase가 끝난 뒤 별도 작업.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,11 +10,14 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { restorePurchases } from '@/purchases';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 export default function PurchaseHistoryScreen() {
   const router = useRouter();
   const { t } = useTranslation('purchaseHistory');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [restoring, setRestoring] = useState(false);
 
   // "구매 복원" — AI_ANALYSIS.md §7 Phase D. 기기 변경/재설치 시 RevenueCat에 남아있는
@@ -52,7 +55,8 @@ export default function PurchaseHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

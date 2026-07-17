@@ -2,7 +2,7 @@
 // 모은다(사용자 지시로 설정 화면에서 분리 — 설정은 이제 동작 토글만 다룬다). 알람 시간
 // 조정 스테퍼는 세로 공간을 너무 많이 차지해 별도 화면(/alarm-timing)으로 분리했다
 // (사용자 지시) — 여기서는 진입 링크 한 줄만 남는다.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,11 +12,14 @@ import { useTranslation } from 'react-i18next';
 import { getCreditBalance } from '@/aiAnalysis';
 import { purchaseExtraAnalysis } from '@/purchases';
 import { getAiConsent } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 export default function MyPageScreen() {
   const router = useRouter();
   const { t } = useTranslation('mypage');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [aiConsent, setAiConsent] = useState<boolean | null>(null);
   // null = 아직 조회 전(또는 미동의라 조회 자체를 안 함), number = 조회된 잔량.
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
@@ -127,7 +130,8 @@ export default function MyPageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
