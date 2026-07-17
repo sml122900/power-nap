@@ -2,8 +2,9 @@
  * @jest-environment node
  */
 // Phase B `analyze` Edge Function 통합 테스트 — 배포된 실제 함수를 HTTPS로 호출한다.
-// 매 실행마다 진짜 Claude API 호출 2회(분석 1회 + 후속질문 1회)가 발생해 소액 비용이
-// 든다(sonnet-5, max_tokens 캡 있음) — 리포트 텍스트 자체는 매번 달라지므로 값이 아니라
+// 매 실행마다 진짜 Claude API 호출이 여러 번(분석·후속질문 각각, 턴 상한 테스트는 리포트
+// 1회 + 후속질문 10회) 발생해 소액 비용이 든다(sonnet-5, max_tokens 캡 있음 — 원가 실측은
+// STATUS.md/AI_ANALYSIS.md §8 참고) — 리포트 텍스트 자체는 매번 달라지므로 값이 아니라
 // 스키마/상태코드만 검증한다.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -102,7 +103,7 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       expect(Array.isArray(firstBody.report.advice)).toBe(true);
       expect(firstBody.report.advice.length).toBeGreaterThan(0);
       expect(['high', 'low']).toContain(firstBody.report.confidence);
-      expect(firstBody.turnsRemaining).toBe(3);
+      expect(firstBody.turnsRemaining).toBe(10);
       expect(firstBody.recordsUsed).toBe(6);
 
       const followup = await callAnalyze(jwt, {
@@ -114,7 +115,7 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       expect(typeof followupBody.answer).toBe('string');
       expect(followupBody.answer.length).toBeGreaterThan(0);
       expect(followupBody.turnsUsed).toBe(1);
-      expect(followupBody.turnsRemaining).toBe(2);
+      expect(followupBody.turnsRemaining).toBe(9);
 
       const second = await callAnalyze(jwt, { records: napRecords(6), settings: SETTINGS });
       expect(second.status).toBe(402); // 이번 주 무료 이미 소진, 잔액 0
@@ -122,6 +123,30 @@ describeIfConfigured('Phase B analyze Edge Function — 실 배포 통합 테스
       await deleteTestUser(userId);
     }
   }, 60_000);
+
+  it('후속 질문 10턴까지 정상, 11번째는 409 turn_limit_reached', async () => {
+    const { jwt, userId } = await createAnonUser();
+    try {
+      const report = await callAnalyze(jwt, { records: napRecords(6), settings: SETTINGS });
+      expect(report.status).toBe(200);
+      const { analysisId } = await report.json();
+
+      for (let turn = 1; turn <= 10; turn++) {
+        const res = await callAnalyze(jwt, { analysisId, question: `${turn}번째 질문입니다` });
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        expect(body.turnsUsed).toBe(turn);
+        expect(body.turnsRemaining).toBe(10 - turn);
+      }
+
+      const eleventh = await callAnalyze(jwt, { analysisId, question: '11번째 질문입니다' });
+      expect(eleventh.status).toBe(409);
+      const eleventhBody = await eleventh.json();
+      expect(eleventhBody.error).toBe('turn_limit_reached');
+    } finally {
+      await deleteTestUser(userId);
+    }
+  }, 180_000);
 
   it('60개를 보내도 서버가 최신순 50개로 컷한다(토큰 비용 방어선)', async () => {
     const { jwt, userId } = await createAnonUser();

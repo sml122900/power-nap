@@ -226,6 +226,16 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   try/catch로 잡아 안내 다이얼로그(+ Android는 설정 딥링크)를 보여주게 고쳤다 —
   네이티브 예약 호출을 추가하거나 바꿀 땐 항상 실패 경로를 사용자에게 드러낼 것
   (POST_NOTIFICATIONS 때와 같은 유형의 함정).
+- Postgres에서 같은 상한값이 두 곳에 독립적으로 박혀있을 수 있다 — 하나만 고치면
+  다른 하나가 계속 막는다. `analyses.followup_turns_used`가 실제 사례: 컬럼 자체의
+  `check (between 0 and 3)`(migrations/0001)와 `append_followup_turn` 함수 WHERE절의
+  `< 3`(migrations/0002)가 같은 숫자를 따로 강제하고 있었다. 함수만 10으로 바꾸고
+  배포했더니 4턴째부터 계속 409(`23514 check constraint violates`)가 났다 — 원인이
+  RPC WHERE절인 줄 알고 거기만 고친 게 문제였다(migrations/0005). 컬럼 제약을
+  놓쳤다는 걸 알기까지 직접 REST API로 RPC를 호출해 에러 코드를 봐야 했다
+  (migrations/0006). 테이블 컬럼에 상한을 바꿀 땐 `\d+ 테이블명`이나 마이그레이션
+  파일 전체를 grep해서 CHECK 제약까지 같이 찾을 것 — 함수 로직만 보고 "여기가
+  유일한 강제 지점"이라고 단정하지 말 것.
 - Edge Function(`supabase/functions/*`) 변경은 APK 재빌드로 반영되지 않는다 — 앱
   번들에는 서버 코드가 포함되지 않고, 실행은 항상 Supabase에 이미 배포된 버전을
   탄다. `supabase functions deploy <함수명>`을 별도로 실행해야만 반영된다(코드 수정
@@ -234,6 +244,13 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   실기기에서 재현된 사례(`analyze` 함수가 커밋 이후 8일간 미배포 상태였음)로 확정된
   규칙. 서버·앱 변경이 섞인 작업을 마칠 때는 서버 쪽 배포 여부를 보고에 반드시
   명시할 것 — "코드 수정 완료"와 "실제로 반영됨"은 다른 말이다.
+- Edge Function/마이그레이션은 브랜치와 무관하게 서버 하나를 덮어쓴다. 미병합
+  브랜치에서 deploy하면 다른 브랜치의 서버 수정이 조용히 원복될 수 있다 —
+  실제로 mypage-polish에서 고친 후속질문 JSON 유출 수정이, `main` 기준으로 분기한
+  followup-10turns에서 `supabase functions deploy`를 실행하는 순간 사라질 뻔했다
+  (2026-07-17, 병합 전 소스 검토로 확정). **서버 배포는 main에서만 한다.** 기능
+  브랜치에서 검증차 임시 배포했다면, 병합 후 반드시 main에서 다시 배포해 최종
+  상태를 맞출 것.
 
 코드 규칙
 

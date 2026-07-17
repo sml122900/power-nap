@@ -355,7 +355,7 @@ export default function AnalysisScreen() {
                 <Text style={styles.exchangeAnswer}>{ex.answer}</Text>
               </View>
             ))}
-            {turnsRemaining > 0 && (
+            {turnsRemaining > 0 ? (
               <View style={styles.askRow}>
                 <TextInput
                   style={styles.askInput}
@@ -370,6 +370,8 @@ export default function AnalysisScreen() {
                   <Text style={styles.askBtnText}>{asking ? t('askButtonSending') : t('askButton')}</Text>
                 </Pressable>
               </View>
+            ) : (
+              <Text style={styles.followupExhaustedText}>{t('followupExhausted')}</Text>
             )}
           </View>
         </ScrollView>
@@ -583,6 +585,11 @@ const createStyles = (colors: ThemeColors) =>
     lineHeight: 20,
     fontFamily: fontFamily.regular,
     color: colors.inkSoft,
+  },
+  followupExhaustedText: {
+    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    color: colors.inkFaint,
   },
   askRow: {
     flexDirection: 'row',
