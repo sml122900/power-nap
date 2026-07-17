@@ -698,9 +698,11 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
   알림 권한 안내 개선 + 서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면 +
   다크모드(설정 "화면 테마" 3지선다, `src/theme.ts` `darkColors` 팔레트,
   `src/ThemeContext.tsx` Provider/훅, 화면 전환) + 마이페이지/알람 시간 조정 화면 분리 +
-  AI 분석 후속 질문 JSON 유출 버그 수정(`buildFollowupSystemPrompt`) 전부 병합 완료.
+  AI 분석 후속 질문 JSON 유출 버그 수정 + 후속 질문 상한 10턴 상향 전부 병합 완료.
   **다국어 이후 신규 기능(권한 안내/서버 데이터 삭제/미션/정보 화면/다크모드/
-  마이페이지 개편) 전부 실기기 검증 대기**, 그 이전 기능은 실기기 검증 완료.
+  마이페이지 개편/후속 질문 10턴) 전부 실기기 검증 대기**, 그 이전 기능은 실기기
+  검증 완료. `analyze` Edge Function은 `main` 기준으로 재배포 완료(version 10,
+  2026-07-18) — 실서버 통합 테스트로 JSON 유출 없음 + 10턴 정상/11턴째 409 재확인.
 - `ai-analysis-app` / `i18n`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음(정리
   대상, 삭제는 사용자 지시 시).
 - `mission-alarm` / `about-powernap`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음
@@ -728,20 +730,23 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
   반영 안 됨을 실증** — 커밋 이후 `supabase functions deploy`를 안 해 실서버가 8일간
   구버전이었다(CLAUDE.md 지뢰 목록에 "Edge Function 변경은 APK 재빌드로 반영 안 됨"
   규칙 추가).
-- `followup-10turns`: `main` 기준 분기, 아직 미병합. 후속 질문 유료 연장(1,000원/3턴)은
-  원가 실측 결과(3턴 ≈ 18~26원) 근거로 만들지 않기로 결정 — 대신 무료 턴 상한을
-  3→10으로 상향. `append_followup_turn` 함수 WHERE절뿐 아니라
-  `analyses.followup_turns_used` 컬럼 자체의 CHECK 제약(migrations/0001)도 3으로
-  박혀 있었던 걸 처음엔 놓쳐 4턴째부터 계속 409가 났다 — 두 지점 모두 10으로 올리는
-  마이그레이션(0005 함수, 0006 컬럼 제약)을 추가 배포해 해결(CLAUDE.md 지뢰 목록에
-  기록). 답변 전송 중 버튼 문구 "전송 중" → "답변중"(ko)/"Sending" → "Answering"(en),
-  턴 소진 시 "새 분석을 시작해주세요" 안내 추가. 검증 4종 통과.
-  **⚠️ 이 브랜치가 `main` 기준으로 분기해 `mypage-polish`의 JSON 유출 수정이 없는
-  상태에서 `supabase functions deploy`를 실행 — 배포된 `analyze`(version 9)가
-  JSON 유출 버그를 되살렸었다(2026-07-17, 병합 전 소스 검토로 확정, 라이브 호출
-  1회는 우연히 정상 응답이 나와 착시를 일으킴). `main`에 두 브랜치를 모두 병합한
-  뒤 `main`에서 재배포로 해결(아래 "지금 단계" 참고) — CLAUDE.md 지뢰 목록에
-  "서버 배포는 main에서만" 규칙 추가.**
+- `followup-10turns`: `main`에 병합 완료(2026-07-18) — 더 이상 별도로 갈 일 없음
+  (정리 대상, 삭제는 사용자 지시 시). 후속 질문 유료 연장(1,000원/3턴)은 원가 실측
+  결과(3턴 ≈ 18~26원) 근거로 만들지 않기로 결정 — 대신 무료 턴 상한을 3→10으로
+  상향. `append_followup_turn` 함수 WHERE절뿐 아니라 `analyses.followup_turns_used`
+  컬럼 자체의 CHECK 제약(migrations/0001)도 3으로 박혀 있었던 걸 처음엔 놓쳐
+  4턴째부터 계속 409가 났다 — 두 지점 모두 10으로 올리는 마이그레이션(0005 함수,
+  0006 컬럼 제약)으로 해결(CLAUDE.md 지뢰 목록에 기록). 답변 전송 중 버튼 문구
+  "전송 중" → "답변중"(ko)/"Sending" → "Answering"(en), 턴 소진 시 "새 분석을
+  시작해주세요" 안내 추가.
+  **⚠️ 배포 충돌 사례**: 이 브랜치가 `main` 기준으로 분기해 `mypage-polish`의 JSON
+  유출 수정이 없는 상태에서 `supabase functions deploy`를 실행 — 배포된
+  `analyze`(version 9)가 JSON 유출 버그를 되살렸었다(2026-07-17, 병합 전 소스
+  검토로 확정, 라이브 호출 1회는 우연히 정상 응답이 나와 착시를 일으킴). `main`에
+  `mypage-polish` → `followup-10turns` 순서로 병합한 뒤 `main`에서 재배포(version
+  10)로 해결. 실서버 통합 테스트(7개 전부 통과, 10턴 정상 + 11턴째 409) + 자유
+  텍스트 응답 3건 수동 확인(JSON 형태 아님)으로 최종 확인. CLAUDE.md 지뢰 목록에
+  "서버 배포는 main에서만" 규칙 추가.
 
 ## 지금 단계
 
