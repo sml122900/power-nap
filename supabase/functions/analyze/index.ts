@@ -16,7 +16,15 @@ import Anthropic from 'npm:@anthropic-ai/sdk@^0.110.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@^0.110.0/helpers/zod';
 import { createClient } from 'npm:@supabase/supabase-js@^2.110.1';
 
-import { AnalysisReportSchema, buildAnalysisUserMessage, buildSystemPrompt, EFFORT, MAX_TOKENS, MODEL } from './prompts/analysis-v2.ts';
+import {
+  AnalysisReportSchema,
+  buildAnalysisUserMessage,
+  buildFollowupSystemPrompt,
+  buildSystemPrompt,
+  EFFORT,
+  MAX_TOKENS,
+  MODEL,
+} from './prompts/analysis-v2.ts';
 
 const MIN_RECORDS = 5;
 const MAX_FOLLOWUP_TURNS = 3;
@@ -224,7 +232,7 @@ async function handleFollowup(userId: string, analysisId: number, req: Request):
       model: MODEL,
       max_tokens: FOLLOWUP_MAX_TOKENS,
       output_config: { effort: EFFORT },
-      system: buildSystemPrompt(locale),
+      system: buildFollowupSystemPrompt(locale),
       messages,
     });
   } catch (err) {

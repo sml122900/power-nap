@@ -84,6 +84,17 @@
 | `analysisReport.disclaimer` | This report is general sleep hygiene information, not a medical diagnosis or advice. If symptoms persist, please consult a professional. | 검수 완료 — 수정 불필요. "의학적 조언이 아니다"는 단정 강도가 원문과 동등하게 유지됨 |
 | `alarm.subtitle` | 5 more minutes will only leave you groggier from sleep inertia.\nGetting up right now feels best. | 검수 완료 — 수정 불필요. "sleep inertia"가 과장된 의학적 단정으로 읽히지 않음(일반 수면위생 용어 수준) |
 
+### 신규 추가 (미검수) — 홈 화면 안내 문구 개편(`mypage-polish` 브랜치)
+
+`home.learnNote`가 "문헌 근거로 정한 기본값" 수준의 뭉뚱그린 문구에서 "수면 전문의들의
+권장 낮잠 시간"·"권장드립니다" 등 더 단정적인 구체적 수치 문구로 바뀌었다 — 의료 조언처럼
+읽힐 리스크가 이전보다 커져 이 카테고리로 분류(BACKLOG.md에도 Play 심사 리스크 인지를
+기록해둠). 4줄 구조를 그대로 직역했다.
+
+| 키 | 영어 | 검수 포인트 |
+|---|---|---|
+| `home.learnNote` | Sleep specialists recommend napping for 15–20 minutes.\nIt typically takes 10–20 minutes to fall asleep.\nSo we recommend a 25–40 minute alarm.\nYou can adjust your alarm timing in My Page, based on AI and your stats. | "Sleep specialists recommend"이 원문 "수면 전문의들의 권장"과 같은 단정 강도로 읽히는지, "recommend"가 4줄 중 2번 반복돼 어색하지 않은지 — **아직 미검수** |
+
 ### 신규 추가 (미검수) — "파워냅이란?" 정보 화면(`about-powernap` 브랜치)
 
 `app/about.tsx` 5개 섹션 본문 — 문헌 근거를 요약한 건강 정보 문구라 이 카테고리로

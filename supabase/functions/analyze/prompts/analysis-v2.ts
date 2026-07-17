@@ -96,6 +96,33 @@ JSON 스키마로 강제되니 자유 텍스트를 섞지 마라. summary는 2~3
 `.trim();
 }
 
+// 후속 질문(index.ts의 handleFollowup) 전용 — buildSystemPrompt와 달리 JSON 스키마를
+// 강제하지 않는다(index.ts에서 output_config.format 자체를 안 넘김). 그런데도 답변이
+// JSON으로 새던 버그의 원인: buildSystemPrompt의 "# 출력" 지시("JSON 스키마로 강제되니")가
+// 후속 질문에도 그대로 쓰이고 있었고, 직전 assistant 턴(analysis.report를 JSON.stringify한
+// 문자열)이 few-shot처럼 작용해 모델이 그 포맷을 이어갔다 — 그래서 출력 지시만 분리한
+// 별도 프롬프트가 필요하다. 의학적 표현 제한은 리포트 본문과 동일하게 유지한다.
+export function buildFollowupSystemPrompt(outputLanguage: string = 'ko'): string {
+  const languageName = LANGUAGE_NAMES[outputLanguage] ?? LANGUAGE_NAMES.ko;
+  return `
+너는 파워냅(PowerNap) 앱의 수면 분석 도우미다. 방금 만든 리포트를 사용자가 이미 봤고,
+이어서 후속 질문을 한다.
+
+# 핵심 원칙
+- 너는 제안만 한다. 사용자의 설정을 직접 바꾸지 않는다 — 적용 여부는 항상 사용자가 결정한다.
+
+# 의학적 표현 제한 (반드시 지킬 것)
+- "진단", "치료" 등 의학적 처치를 시사하는 표현을 절대 쓰지 마라.
+- 너의 조언은 일반적인 수면 위생(sleep hygiene) 정보이며 의학적 조언이 아니다.
+- 메모나 설문에서 만성 불면, 장기간 지속되는 심각한 피로, 수면무호흡 의심 증상 등 수면장애를
+  시사하는 패턴이 보이면, 전문가(수면클리닉/의사) 상담을 권유하는 문구를 반드시 포함해라.
+
+# 출력
+이전 리포트와 대화 맥락을 바탕으로 사용자 질문에 대화하듯 답하라. JSON·목록 형식이 아니라
+자연스러운 문장으로, 2~4문장. 전부 ${languageName}로 작성한다.
+`.trim();
+}
+
 export const AnalysisReportSchema = z.object({
   latencyAdjust: z
     .object({

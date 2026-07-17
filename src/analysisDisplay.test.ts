@@ -74,6 +74,18 @@ describe('turnsToExchanges', () => {
     ];
     expect(turnsToExchanges(turns)).toEqual([{ question: 'q1', answer: 'a1' }]);
   });
+
+  it('answer가 JSON처럼 생겼어도 파싱하지 않고 문자열 그대로 넘긴다(후속 질문은 스키마 강제가 없다)', () => {
+    const jsonLookingAnswer = '{"advice":["카페인은 오후 3시 이전에 드세요"]}';
+    const turns = [
+      { role: 'user' as const, content: '카페인은 언제 마셔야 하나요?' },
+      { role: 'assistant' as const, content: jsonLookingAnswer },
+    ];
+    const exchanges = turnsToExchanges(turns);
+    expect(exchanges).toHaveLength(1);
+    expect(typeof exchanges[0].answer).toBe('string');
+    expect(exchanges[0].answer).toBe(jsonLookingAnswer);
+  });
 });
 
 describe('formatFreeResetCountdown', () => {
