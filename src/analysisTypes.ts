@@ -29,6 +29,7 @@ export interface AnalysisDetail extends AnalysisListItem {
   recordsUsed: number;
 }
 
-// 분석 1회 = 리포트 1개 + 후속 질문 3턴(AI_ANALYSIS.md §2). Edge Function 쪽 상수와
-// 값만 일치시켜 둔다(Deno/Node 경계라 실제 공유는 못 함).
-export const MAX_FOLLOWUP_TURNS = 3;
+// 분석 1회 = 리포트 1개 + 후속 질문 10턴(AI_ANALYSIS.md §2, 2026-07-17 원가 실측으로
+// 3→10 상향). Edge Function 쪽 상수와 값만 일치시켜 둔다(Deno/Node 경계라 실제 공유는
+// 못 함).
+export const MAX_FOLLOWUP_TURNS = 10;

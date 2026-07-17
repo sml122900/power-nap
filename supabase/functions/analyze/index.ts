@@ -19,7 +19,12 @@ import { createClient } from 'npm:@supabase/supabase-js@^2.110.1';
 import { AnalysisReportSchema, buildAnalysisUserMessage, buildSystemPrompt, EFFORT, MAX_TOKENS, MODEL } from './prompts/analysis-v2.ts';
 
 const MIN_RECORDS = 5;
-const MAX_FOLLOWUP_TURNS = 3;
+// 3→10 상향(2026-07-17 원가 실측 근거, AI_ANALYSIS.md §8) — 후속 질문 콜은
+// records_snapshot을 재전송하지 않아 턴당 원가가 낮다는 게 확인돼 방어적으로 잡아뒀던
+// 3턴 상한을 완화. migrations/0005의 append_followup_turn WHERE절(`< 10`)과 반드시
+// 같은 값이어야 한다 — 여기서만 올리면 서버 응답(turnsRemaining)과 실제 DB 강제 상한이
+// 어긋난다.
+const MAX_FOLLOWUP_TURNS = 10;
 const FOLLOWUP_MAX_TOKENS = 1024;
 // 토큰 비용 방어선 — records_snapshot이 프롬프트에 통째로 들어가므로 무한정 커지는 걸
 // 막는다. 클라이언트가 이미 기간 필터(AI_ANALYSIS.md §2)로 줄여서 보내는 게 정상 경로라
