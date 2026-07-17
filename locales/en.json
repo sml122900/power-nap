@@ -38,7 +38,7 @@
     "coffeeNotice": "Caffeine is already kicking in — we'll set the minimum wait time",
     "coffeePreview": "Alarm at {{time}} (in {{minutes}} min)",
     "coffeeConfirm": "Start with this time",
-    "learnNote": "These are literature-based defaults. If they feel off, you can adjust them in feedback or settings",
+    "learnNote": "Sleep specialists recommend napping for 15–20 minutes.\nIt typically takes 10–20 minutes to fall asleep.\nSo we recommend a 25–40 minute alarm.\nYou can adjust your alarm timing in My Page, based on AI and your stats.",
     "learnNoteBold": "Current times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
     "devTest1min": "Test: 1 min nap",
     "devTest10sec": "Test: 10 sec",
@@ -225,7 +225,15 @@
     "title": "My Page",
     "creditBalance": "{{count}} credit(s) remaining",
     "creditBalanceConsentNotice": "Consent to AI analysis to see your remaining credits",
-    "sleepTimingSectionLabel": "Nap Timing",
+    "alarmTimingLink": "Alarm Timing",
+    "napHistoryLink": "Nap History · AI Analysis",
+    "aiAnalysisHistoryLink": "AI Analysis History",
+    "purchaseHistoryLink": "Purchase History",
+    "missionQuotesLink": "Edit quotes",
+    "deviceDataNotice": "Nap records are stored on this device only. If you switch devices, you won't be able to bring your records over. Purchased credits can be recovered with \"Restore purchases\" on the same Google account."
+  },
+  "alarmTiming": {
+    "title": "Alarm Timing",
     "rowLabel": {
       "fast": "Sleep latency — I'll fall asleep fast",
       "slow": "Sleep latency — I might toss and turn",
@@ -236,12 +244,7 @@
     "stepDecreaseA11y": "Decrease by {{step}} minute(s)",
     "stepIncreaseA11y": "Increase by {{step}} minute(s)",
     "inputA11y": "Enter minutes directly for {{label}} ({{min}}–{{max}})",
-    "unit": "min",
-    "napHistoryLink": "Nap History",
-    "aiAnalysisHistoryLink": "AI Analysis History",
-    "purchaseHistoryLink": "Purchase History",
-    "missionQuotesLink": "Edit quotes",
-    "deviceDataNotice": "Nap records are stored on this device only. If you switch devices, you won't be able to bring your records over. Purchased credits can be recovered with \"Restore purchases\" on the same Google account."
+    "unit": "min"
   },
   "purchaseHistory": {
     "title": "Purchase History",
