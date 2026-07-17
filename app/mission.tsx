@@ -14,16 +14,16 @@ import { useTranslation } from 'react-i18next';
 
 import { finishNap } from '@/finishNap';
 import i18n from '@/i18n';
-import { getMissionQuotes, isMissionInputCorrect, pickRandomQuote, pickShorterQuote, type MissionQuote } from '@/missionQuotes';
+import { ESCAPE_PHRASE, getMissionQuotes, pickRandomQuote, resolveMissionAttempt, type MissionQuote } from '@/missionQuotes';
 import { getActiveNap, getSettings, type ActiveNap } from '@/store';
 import { colors, fontFamily, radius } from '@/theme';
 import { useAlarmPlayback } from '@/useAlarmPlayback';
 import { useNapWatchdog } from '@/useNapWatchdog';
 
 const ALARM_SOUND = require('../assets/sounds/alarm.wav');
-// "3회 실패 시 다른(더 짧은) 명언 제시" — 현재 문구에서 연속 실패 횟수가 이 값에
-// 도달하면 더 짧은 문구로 바꾸고 실패 횟수를 초기화한다.
-const MAX_ATTEMPTS_BEFORE_SWAP = 3;
+// 현재 명언에서 연속 실패 횟수가 이 값에 도달하면 명언 대신 고정 탈출 문구
+// (ESCAPE_PHRASE)를 요구한다 — 더 이상의 폴백은 없다(이 문구도 틀리면 계속 재시도).
+const MAX_ATTEMPTS_BEFORE_ESCAPE = 3;
 
 export default function MissionScreen() {
   const router = useRouter();
@@ -41,9 +41,10 @@ export default function MissionScreen() {
   const [quote, setQuote] = useState<MissionQuote | null>(null);
   const [input, setInput] = useState('');
   const [failCount, setFailCount] = useState(0);
+  const [escapeMode, setEscapeMode] = useState(false);
   const [showRetryHint, setShowRetryHint] = useState(false);
-  const [showSwapNotice, setShowSwapNotice] = useState(false);
   const dismissedRef = useRef(false);
+  const escapePhrase = ESCAPE_PHRASE[locale];
 
   // 미션 화면도 알람 화면과 동일하게 하드웨어 뒤로가기를 막는다(§6.3) — 건너뛰기 없음.
   useEffect(() => {
@@ -73,7 +74,15 @@ export default function MissionScreen() {
   const onSubmit = async () => {
     if (dismissedRef.current || !quotes || !quote) return;
 
-    if (isMissionInputCorrect(input, quote)) {
+    const { passed, nextState } = resolveMissionAttempt(
+      input,
+      quote,
+      escapePhrase,
+      { failCount, escapeMode },
+      MAX_ATTEMPTS_BEFORE_ESCAPE
+    );
+
+    if (passed) {
       dismissedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const active = nap ?? (await getActiveNap());
@@ -85,16 +94,8 @@ export default function MissionScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     setInput('');
     setShowRetryHint(true);
-
-    const nextFailCount = failCount + 1;
-    if (nextFailCount >= MAX_ATTEMPTS_BEFORE_SWAP) {
-      setQuote(pickShorterQuote(quotes, quote));
-      setFailCount(0);
-      setShowSwapNotice(true);
-    } else {
-      setFailCount(nextFailCount);
-      setShowSwapNotice(false);
-    }
+    setFailCount(nextState.failCount);
+    setEscapeMode(nextState.escapeMode);
   };
 
   if (!quotes || !quote) {
@@ -116,8 +117,10 @@ export default function MissionScreen() {
           <Text style={styles.instruction}>{t('instruction')}</Text>
 
           <View style={styles.quoteCard}>
-            <Text style={styles.quoteText}>{quote.text}</Text>
-            {quote.author ? <Text style={styles.quoteAuthor}>{t('quoteAuthor', { author: quote.author })}</Text> : null}
+            <Text style={styles.quoteText}>{escapeMode ? escapePhrase : quote.text}</Text>
+            {!escapeMode && quote.author ? (
+              <Text style={styles.quoteAuthor}>{t('quoteAuthor', { author: quote.author })}</Text>
+            ) : null}
           </View>
 
           <TextInput
@@ -135,7 +138,7 @@ export default function MissionScreen() {
           />
 
           {showRetryHint && <Text style={styles.retryHint}>{t('retryHint')}</Text>}
-          {showSwapNotice && <Text style={styles.swapNotice}>{t('quoteSwapped')}</Text>}
+          {escapeMode && <Text style={styles.escapeNotice}>{t('escapeNotice', { phrase: escapePhrase })}</Text>}
         </View>
 
         <Pressable onPress={onSubmit} style={({ pressed }) => [styles.submitBtn, pressed && styles.submitBtnPressed]}>
@@ -212,7 +215,7 @@ const styles = StyleSheet.create({
     color: colors.amber,
     textAlign: 'center',
   },
-  swapNotice: {
+  escapeNotice: {
     fontSize: 13,
     fontFamily: fontFamily.semibold,
     color: colors.onDarkMuted,
