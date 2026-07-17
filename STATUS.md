@@ -695,9 +695,11 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - `main`: 네이티브 알람 + 학습 모델 v2 + 커피냅 3모드 + A그룹 + B그룹(풀스크린 인텐트) +
   Phase 4-3(학습 로직 단순화 + 설문 후기 + 히스토리 상세 보기) + 기상 직후 체크리스트 +
   AI 분석(Phase A~C, 무료 리셋 카운트다운, analysis-v2 프롬프트) + 다국어(한/영) +
-  알림 권한 안내 개선 + 서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면
-  전부 병합 완료. **다국어 이후 신규 기능(권한 안내/서버 데이터 삭제/미션/정보 화면)
-  전부 실기기 검증 대기**, 그 이전 기능은 실기기 검증 완료.
+  알림 권한 안내 개선 + 서버 데이터 삭제 + 알람 해제 미션 + "파워냅이란?" 정보 화면 +
+  다크모드(설정 "화면 테마" 3지선다, `src/theme.ts` `darkColors` 팔레트,
+  `src/ThemeContext.tsx` Provider/훅, 화면 전환) 전부 병합 완료. **다국어 이후 신규
+  기능(권한 안내/서버 데이터 삭제/미션/정보 화면/다크모드) 전부 실기기 검증 대기**,
+  그 이전 기능은 실기기 검증 완료.
 - `ai-analysis-app` / `i18n`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음(정리
   대상, 삭제는 사용자 지시 시).
 - `mission-alarm` / `about-powernap`: `main`에 병합 완료 — 더 이상 별도로 갈 일 없음
@@ -710,12 +712,22 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - `payments`: AI 분석 Phase D(결제) 작업 중, `main` 기준 분기, 아직 미병합 —
   RevenueCat 연동 코드/webhook 서버는 완료(Test Store 키로 파이프라인 전체 검증
   가능한 구조), 실결제(Play) 검증은 Play Console DUNS 대기 중.
-- `dark-mode`: 화면 테마(기기 설정 따름/라이트/다크) 구현, `main` 기준 분기, 아직
-  미병합 — 코드 완료(설정 3지선다 UI, `src/theme.ts`의 `darkColors` 팔레트,
-  `src/ThemeContext.tsx` Provider/훅, 12개 화면 전환), 4종 검증(tsc/jest/expo-doctor/
-  expo export) 통과. 수면/알람/미션/기상루틴 화면은 테마와 무관하게 항상 같은 색
-  고정(DESIGN_HANDOFF.md "화면 테마" 참고). **실기기 검증 + 재빌드는 아직 안 함**
-  (사용자 지시로 재빌드는 별도 진행 예정).
+- `dark-mode`: `main`에 병합 완료(2026-07-17) — 더 이상 별도로 갈 일 없음(정리 대상,
+  삭제는 사용자 지시 시). 수면/알람/미션/기상루틴 화면은 테마와 무관하게 항상 같은 색
+  고정(DESIGN_HANDOFF.md "화면 테마" 참고). **실기기 검증 + 재빌드는 아직 안 함**.
+- `mypage-polish`: `main` 기준 분기, 아직 미병합 — 마이페이지/알람시간 조정 화면 분리,
+  후속 질문 JSON 버그 수정(+배포 완료), expo-doctor 패치 드리프트 정리. 상세는 해당
+  브랜치 작업 시점 기록 참고.
+- `followup-10turns`: `main` 기준 분기, 아직 미병합. 후속 질문 유료 연장(1,000원/3턴)은
+  원가 실측 결과(3턴 ≈ 18~26원) 근거로 만들지 않기로 결정 — 대신 무료 턴 상한을
+  3→10으로 상향. `append_followup_turn` 함수 WHERE절뿐 아니라
+  `analyses.followup_turns_used` 컬럼 자체의 CHECK 제약(migrations/0001)도 3으로
+  박혀 있었던 걸 처음엔 놓쳐 4턴째부터 계속 409가 났다 — 두 지점 모두 10으로 올리는
+  마이그레이션(0005 함수, 0006 컬럼 제약)을 추가 배포해 해결(CLAUDE.md 지뢰 목록에
+  기록). Edge Function(`analyze`, version 9)과 DB 마이그레이션 0005/0006 전부 배포
+  완료 및 실서버 통합 테스트(10턴 정상 + 11턴째 409)로 확인. 답변 전송 중 버튼 문구
+  "전송 중" → "답변중"(ko)/"Sending" → "Answering"(en), 턴 소진 시 "새 분석을
+  시작해주세요" 안내 추가. 검증 4종 통과.
 
 ## 지금 단계
 
