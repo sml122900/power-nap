@@ -710,6 +710,18 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 - `payments`: AI 분석 Phase D(결제) 작업 중, `main` 기준 분기, 아직 미병합 —
   RevenueCat 연동 코드/webhook 서버는 완료(Test Store 키로 파이프라인 전체 검증
   가능한 구조), 실결제(Play) 검증은 Play Console DUNS 대기 중.
+- `dark-mode`: 다크모드(설정 "화면 테마" 3지선다, 라이트/다크 토큰, 상태바 전환) 작업
+  완료, `main` 기준 분기, 아직 미병합. 수면/알람/미션/기상루틴 화면은 테마 무관 항상
+  다크 유지(theme-invariant). 검증 4종 통과.
+- `mypage-polish`: `main` 기준 분기, 아직 미병합. (1) AI 분석 후속 질문이 JSON으로
+  출력되던 버그 수정 — `handleFollowup`이 리포트용 `buildSystemPrompt`(JSON 스키마
+  강제 지시 포함)를 그대로 재사용하고 있었던 게 원인, 후속 질문 전용
+  `buildFollowupSystemPrompt`(자유 텍스트 2~4문장 지시)로 분리. (2) 마이페이지 진입점
+  문구 "낮잠 기록" → "낮잠 기록 · AI 분석". (3) 마이페이지의 알람 시간 조정 스테퍼
+  3행을 별도 화면(`/alarm-timing`)으로 분리, 마이페이지엔 진입 링크 한 줄만 남김
+  (조정 로직·저장 경로는 그대로 이동, 알람 계산에 반영되는 저장소 동일). (4) 홈 화면
+  안내 문구를 문헌 수치 기반 4줄 문구로 교체(BACKLOG.md "홈 안내 문구" 섹션에 Play
+  심사 리스크 인지 기록). 검증 4종 통과.
 
 ## 지금 단계
 
