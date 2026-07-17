@@ -3,18 +3,22 @@
 // 단일 출처로 삼아 썼다 — 이 화면 문구를 고칠 땐 그 섹션과 어긋나지 않는지 함께 확인
 // (BACKLOG.md "이 화면의 내용은 문헌 근거 섹션과 동기화 유지" 참고). 장기 건강효과·
 // 진단/치료 표현은 넣지 않는다(analysis-v2.ts 프롬프트의 "제외할 것"과 동일 기준).
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 const SECTION_KEYS = ['section1', 'section2', 'section3', 'section4', 'section5'] as const;
 
 export default function AboutScreen() {
   const router = useRouter();
   const { t } = useTranslation('about');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -39,7 +43,8 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

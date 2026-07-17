@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,7 +25,8 @@ import {
   TARGET_SLEEP_MIN,
   type Settings,
 } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 import { useFreeResetStatus } from '@/useFreeResetStatus';
 
 type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
@@ -33,6 +34,8 @@ type Phase = 'loading' | 'report' | 'insufficient_credit' | 'error';
 export default function AnalysisScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation('analysisReport');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ id?: string; since?: string }>();
   const requestKey = params.id ? `history:${params.id}` : `fresh:${params.since ?? ''}`;
 
@@ -377,6 +380,8 @@ export default function AnalysisScreen() {
 
 function SuggestionRow({ label, applied, onApply }: { label: string; applied: boolean; onApply: () => void }) {
   const { t } = useTranslation('analysisReport');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.suggestionRow}>
       <Text style={styles.suggestionLabel}>{label}</Text>
@@ -389,7 +394,8 @@ function SuggestionRow({ label, applied, onApply }: { label: string; applied: bo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,

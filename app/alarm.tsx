@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -165,7 +166,9 @@ export default function AlarmScreen() {
   const ring3 = useRingPulse(1000);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.center}>
         <View style={styles.ringWrap}>
           <Animated.View style={[styles.ring, ring1]} />
@@ -211,7 +214,8 @@ export default function AlarmScreen() {
           </Text>
         </View>
       </GestureDetector>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 

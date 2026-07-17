@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,15 +14,20 @@ import {
   type LanguagePreference,
 } from '@/i18n';
 import { clearAiLocalData, getAiConsent, getSettings, setAiConsent, setMissionEnabled, setWakeRoutineEnabled, type Settings } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors, useThemeScheme, type ThemePreference } from '@/ThemeContext';
 
 const LANGUAGE_PREFERENCES: LanguagePreference[] = ['system', ...SUPPORTED_LANGUAGES];
+const THEME_PREFERENCES: ThemePreference[] = ['system', 'light', 'dark'];
 
 // 설정 화면은 동작(behavior) 토글·계정 관리만 다룬다 — 낮잠 타이밍 조정/명언 수정/
 // 구매 복원은 마이페이지(/mypage)로 이동했다(사용자 지시로 "허브"/"동작" 역할 분리).
 export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useTranslation('settings');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { preference: themePref, setPreference: setThemePref } = useThemeScheme();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [aiConsent, setAiConsentState] = useState<boolean | null>(null);
   const [languagePref, setLanguagePref] = useState<LanguagePreference | null>(null);
@@ -37,6 +42,11 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await setLanguagePreference(pref);
     setLanguagePref(pref);
+  };
+
+  const onSelectTheme = (pref: ThemePreference) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setThemePref(pref);
   };
 
   // AI_ANALYSIS.md §6 "동의 철회" — 히스토리 화면의 "AI 분석" 진입 시 동의 화면과 별개로
@@ -141,6 +151,29 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('themeSectionLabel')}</Text>
+          <View style={styles.themeOptionList}>
+            {THEME_PREFERENCES.map((pref) => {
+              const selected = themePref === pref;
+              return (
+                <Pressable
+                  key={pref}
+                  onPress={() => onSelectTheme(pref)}
+                  style={[styles.themeOptionRow, selected && styles.themeOptionRowSelected]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(`themeOption.${pref}`)}
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.themeOptionText, selected && styles.themeOptionTextSelected]}>
+                    {t(`themeOption.${pref}`)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.dataSection}>
           <Text style={styles.dataSectionLabel}>{t('missionSectionLabel')}</Text>
           <View style={styles.dataRow}>
             <Text style={styles.dataRowText}>
@@ -200,7 +233,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -315,4 +349,30 @@ const styles = StyleSheet.create({
   languageOptionTextSelected: {
     color: colors.surface,
   },
-});
+  themeOptionList: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  themeOptionRow: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  themeOptionRowSelected: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  themeOptionText: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.bold,
+    color: colors.ink,
+  },
+  themeOptionTextSelected: {
+    color: colors.surface,
+  },
+  });

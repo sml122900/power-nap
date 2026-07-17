@@ -204,6 +204,12 @@
       "ko": "한국어",
       "en": "English"
     },
+    "themeSectionLabel": "Appearance",
+    "themeOption": {
+      "system": "Follow system setting",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "missionSectionLabel": "Dismiss Mission",
     "missionOnDescription": "On — when the alarm rings, you must type a sentence to dismiss it",
     "missionOffDescription": "Off — dismiss right away by sliding or long-pressing",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   KeyboardAvoidingView,
@@ -32,7 +32,8 @@ import {
   type SurveyRating,
   type WakeChecklist,
 } from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 function modeName(mode: NapMode): string {
   return i18n.t(`common:napMode.${mode}`);
@@ -78,6 +79,8 @@ interface FeedbackContext {
 export default function FeedbackScreen() {
   const router = useRouter();
   const { t } = useTranslation('feedback');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [ctx, setCtx] = useState<FeedbackContext | null>(null);
   const [answers, setAnswers] = useState<NapSurvey>(DEFAULT_SURVEY);
   const [memoOpen, setMemoOpen] = useState(false);
@@ -343,7 +346,8 @@ export default function FeedbackScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.surface,

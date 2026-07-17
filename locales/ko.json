@@ -204,6 +204,12 @@
       "ko": "한국어",
       "en": "English"
     },
+    "themeSectionLabel": "화면 테마",
+    "themeOption": {
+      "system": "기기 설정 따름",
+      "light": "라이트",
+      "dark": "다크"
+    },
     "missionSectionLabel": "알람 해제 미션",
     "missionOnDescription": "켜짐 — 알람이 울리면 명언을 따라 입력해야 해제할 수 있어요",
     "missionOffDescription": "꺼짐 — 슬라이드하거나 길게 눌러 바로 해제해요",

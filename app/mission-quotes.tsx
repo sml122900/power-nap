@@ -2,7 +2,7 @@
 // 명언마다 텍스트/말한 사람을 행 단위로 추가·수정·삭제한다(BACKLOG.md "알람 해제 미션" 참고).
 // 원래 설정 화면 안에 인라인으로 있었는데, 설정 화면이 너무 길어진다는 사용자 피드백으로
 // 별도 화면으로 분리했다.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,11 +10,14 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { getMissionQuotes, setMissionQuotes, type MissionQuote } from '@/missionQuotes';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 export default function MissionQuotesScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation('missionQuotes');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // app/mission.tsx가 실제로 뽑는 언어(i18n.language)와 항상 같은 목록을 보여준다.
   const locale: 'ko' | 'en' = i18n.language === 'ko' ? 'ko' : 'en';
   const [quotes, setQuotesState] = useState<MissionQuote[]>([]);
@@ -96,7 +99,8 @@ export default function MissionQuotesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -176,6 +180,6 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 14,
     fontFamily: fontFamily.bold,
-    color: colors.brand,
+    color: colors.brandOnSurface,
   },
 });

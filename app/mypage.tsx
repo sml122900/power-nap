@@ -2,7 +2,7 @@
 // 모은다(사용자 지시로 설정 화면에서 분리 — 설정은 이제 동작 토글만 다룬다). 낮잠 타이밍
 // 조정 스테퍼는 원래 설정 화면에 있던 걸 그대로 옮겨왔다("수면설정시간 조정 — 설정에서
 // 이동").
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,7 +24,8 @@ import {
   type NapMode,
   type Settings,
 } from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 const STEP = 1;
 
@@ -43,6 +44,8 @@ function valueFor(settings: Settings, mode: NapMode): number {
 export default function MyPageScreen() {
   const router = useRouter();
   const { t } = useTranslation('mypage');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [settings, setSettings] = useState<Settings | null>(null);
   // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
   // (feedback.tsx/settings.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
@@ -249,7 +252,8 @@ export default function MyPageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

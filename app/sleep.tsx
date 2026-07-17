@@ -3,6 +3,7 @@ import { AccessibilityInfo, AppState, Platform, Pressable, StyleSheet, Text, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import Animated, {
   Easing,
@@ -112,7 +113,12 @@ export default function SleepScreen() {
   };
 
   if (!nap) {
-    return <View style={styles.container} />;
+    return (
+      <>
+        <StatusBar style="light" />
+        <View style={styles.container} />
+      </>
+    );
   }
 
   const remainingMs = Math.max(0, nap.alarmAt - Date.now());
@@ -127,7 +133,9 @@ export default function SleepScreen() {
       : t('wakeAtDefault', { time: formatTime(new Date(nap.alarmAt)) });
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.center}>
         <Animated.View style={[styles.breathDot, breathStyle]} />
         <Text style={styles.label}>{t('countdownLabel')}</Text>
@@ -169,7 +177,8 @@ export default function SleepScreen() {
       <Pressable onPress={onCancel} style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostBtnPressed]}>
         <Text style={styles.ghostBtnText}>{t('cancelButton')}</Text>
       </Pressable>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,7 +14,8 @@ import {
   type AnalysisPeriod,
   type NapRecord,
 } from '@/store';
-import { colors, fontFamily, radius } from '@/theme';
+import { fontFamily, radius, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 const PERIODS: { value: AnalysisPeriod; labelKey: string }[] = [
   { value: '1w', labelKey: 'period.1w' },
@@ -26,6 +27,8 @@ const PERIODS: { value: AnalysisPeriod; labelKey: string }[] = [
 export default function AnalysisPeriodScreen() {
   const router = useRouter();
   const { t } = useTranslation('analysisPeriod');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [records, setRecords] = useState<NapRecord[]>([]);
   const [period, setPeriod] = useState<AnalysisPeriod>('2w');
 
@@ -91,7 +94,8 @@ export default function AnalysisPeriodScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
