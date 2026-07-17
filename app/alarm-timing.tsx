@@ -2,7 +2,10 @@
 // 마이페이지의 세로 공간을 너무 많이 차지하던 스테퍼 3행을 별도 화면으로 이동).
 // 조정 로직·저장은 원래 마이페이지에 있던 것 그대로 옮겨왔다 — applyManualAdjustment가
 // 여전히 latency/caffeineOnset을 바꾸는 유일한 경로라 홈 화면 알람 계산에 그대로 반영된다.
-import { useEffect, useState } from 'react';
+// mypage-polish 브랜치가 dark-mode 병합 이전에 만들어진 화면이라, 병합 후 다른 화면과
+// 같은 반응형 테마 패턴(useThemeColors + createStyles)으로 맞췄다 — 정적 colors import를
+// 그대로 뒀으면 이 화면만 다크모드에서도 항상 라이트 색으로 남는다.
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,7 +24,8 @@ import {
   type NapMode,
   type Settings,
 } from '@/store';
-import { colors, fontFamily, radius, tabularNums } from '@/theme';
+import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
+import { useThemeColors } from '@/ThemeContext';
 
 const STEP = 1;
 
@@ -40,6 +44,8 @@ function valueFor(settings: Settings, mode: NapMode): number {
 export default function AlarmTimingScreen() {
   const router = useRouter();
   const { t } = useTranslation('alarmTiming');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [settings, setSettings] = useState<Settings | null>(null);
   // 입력창 원본 문자열 — 타이핑 중 clamp를 걸면 두 자리 수 입력이 불가능해진다
   // (feedback.tsx/mypage.tsx와 동일 패턴). 확정(blur/제출) 시에만 clamp해 저장한다.
@@ -157,7 +163,8 @@ export default function AlarmTimingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

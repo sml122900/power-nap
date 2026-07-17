@@ -15,6 +15,17 @@ import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-li
 
 import AlarmTimingScreen from '../app/alarm-timing';
 import { getSettings } from './store';
+import { ThemeProvider } from './ThemeContext';
+
+// AlarmTimingScreen이 useThemeColors()를 쓰므로 ThemeProvider 밖에서는 렌더 자체가 던진다 —
+// mypage.test.tsx/settings.test.tsx와 동일한 이유로 여기서 직접 감싼다.
+function ThemedAlarmTimingScreen() {
+  return (
+    <ThemeProvider initialPreference="system">
+      <AlarmTimingScreen />
+    </ThemeProvider>
+  );
+}
 
 // renderRouter는 호출마다 jest.useFakeTimers()를 다시 건다 — 같은 파일에서 두 번 호출하면
 // act() 경합이 난다(mypage.test.tsx/settings.test.tsx도 파일당 renderRouter 1회 관행).
@@ -24,7 +35,7 @@ describe('AlarmTimingScreen', () => {
     const before = await getSettings();
     expect(before.latency.fast).toBe(0); // 기본값
 
-    renderRouter({ 'alarm-timing': AlarmTimingScreen }, { initialUrl: '/alarm-timing' });
+    renderRouter({ 'alarm-timing': ThemedAlarmTimingScreen }, { initialUrl: '/alarm-timing' });
     await waitFor(() => expect(screen.getByText('알람 시간 조정')).toBeTruthy());
 
     expect(screen.getByText('수면 대기시간 — 바로 잠들 것 같아요')).toBeTruthy();
