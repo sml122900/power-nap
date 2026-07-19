@@ -37,16 +37,19 @@ export function resolveNapRoute(nap: ActiveNap | null, missionEnabled: boolean, 
 }
 
 // 알림 스와이프(setDeleteIntent, PROJECT.md §4)로 네이티브 알람만 꺼지고 ActiveNap은
-// JS에 그대로 남는 경로를 감지한다 — nowMs/alarmDismissed 조건은 resolveNapRoute가
-// '/alarm'을 낼 조건과 동일하게 다시 검사한다(호출부가 resolveNapRoute를 거치지 않고
-// 이 함수만 단독으로 써도 안전하도록, 그리고 jest에서 독립적으로 검증하기 위해).
-// nap이 없거나 이미 해제됐으면 네이티브 상태와 무관하게 항상 false — 정상 해제 직후
-// 겹치는 watchdog tick(ActiveNap이 이미 clear되었거나 alarmDismissed=true)에서
-// 오작동하지 않는 이유가 이 가드다.
+// JS에 그대로 남는 경로를 감지한다 — 알람이 발화했는데(alarmAt<=nowMs) 네이티브가 이미
+// 죽어있으면 무조건 orphan이다. alarmDismissed(=미션 대기 중, 명언 미완)는 더 이상
+// 예외로 두지 않는다 — 슬라이드로 알람 관문은 이미 통과했고 남은 건 명언 관문뿐인데,
+// 그 상태에서 네이티브가 죽었다는 건 "미션 화면까지 와서 알림을 스와이프했다"는
+// 뜻이라 똑같이 orphan 취급해 정리한다(명언은 건너뛰고 기상 루틴부터 재개 —
+// docs/decisions/swipe-ends-alarm-only.md). alarmDismissed:true인데 nap이 여전히
+// 존재하는 경우는 오직 이 미션-대기 상태뿐이다(미션을 실제로 통과하면 finishNap이
+// ActiveNap 자체를 지우므로 nap이 곧장 null이 된다) — 그래서 "이미 해제된 낮잠을
+// 잘못 정리"할 위험이 없다. nap이 아예 없으면(이미 clearActiveNap된 정상 해제 직후)
+// 여전히 항상 false.
 export function shouldTreatAsOrphaned(nap: ActiveNap | null, nativeActive: boolean, nowMs: number): boolean {
   if (!nap) return false;
   if (nap.alarmAt > nowMs) return false;
-  if (nap.alarmDismissed) return false;
   return !nativeActive;
 }
 
@@ -62,10 +65,14 @@ export function useNapWatchdog(currentRoute: NapRoute): () => void {
     if (redirectedRef.current) return;
     const target = resolveNapRoute(nap, settings.missionEnabled, Date.now());
 
-    // '/alarm'으로 가려는 경우에만(대부분의 tick은 여기 안 걸림) 네이티브가 실제로
-    // 아직 울리는지 확인한다 — getAlarmState()는 Android IPC 왕복이라 매 tick 무조건
-    // 부르지 않는다. nap은 target==='/alarm'이면 resolveNapRoute 정의상 항상 non-null.
-    if (target === '/alarm' && Platform.OS === 'android' && nap) {
+    // '/alarm' 또는 '/mission'으로 가려는 경우에만(대부분의 tick은 여기 안 걸림) 네이티브가
+    // 실제로 아직 울리는지 확인한다 — getAlarmState()는 Android IPC 왕복이라 매 tick
+    // 무조건 부르지 않는다. '/mission'도 포함하는 이유: 슬라이드로 알람 관문은 통과했지만
+    // 명언은 아직인 상태에서 알림을 스와이프하면 네이티브만 죽고 ActiveNap은 그대로라,
+    // 이 경우도 감지해서 명언을 건너뛰고 기상 루틴으로 보내야 한다(설계 논의 —
+    // docs/decisions/swipe-ends-alarm-only.md). nap은 target==='/alarm'|'/mission'이면
+    // resolveNapRoute 정의상 항상 non-null.
+    if ((target === '/alarm' || target === '/mission') && Platform.OS === 'android' && nap) {
       const nativeActive = await isNativeAlarmActiveAsync();
       // 이 await 도중 다른 tick(또는 정상 해제 경로)이 먼저 처리했을 수 있다 —
       // 재확인 후 바로(await 없이) 플래그를 세워야 두 tick이 동시에 finalizeNapCleanup을

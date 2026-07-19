@@ -68,11 +68,20 @@ describe('shouldTreatAsOrphaned', () => {
     expect(shouldTreatAsOrphaned(BASE_NAP, false, 999)).toBe(false);
   });
 
-  it('is false once the alarm has already been dismissed — this is the post-dismiss race guard: ' +
-    'a stray watchdog tick landing right after a normal slide-dismiss (ActiveNap already ' +
-    'marked alarmDismissed, or already cleared entirely as the null case above covers) must ' +
-    'never re-trigger cleanup, even though the native alarm is by then also stopped', () => {
-    const dismissed: ActiveNap = { ...BASE_NAP, alarmDismissed: true };
-    expect(shouldTreatAsOrphaned(dismissed, false, 1000)).toBe(false);
+  // alarmDismissed:true는 오직 "슬라이드는 넘겼지만 명언은 아직" 상태에서만 존재한다
+  // (명언을 실제로 통과하면 finishNap이 ActiveNap 자체를 지워 nap이 곧장 null이 된다) —
+  // 그래서 이 값이 true인데 nap이 남아있다는 건 항상 미션 대기 중이라는 뜻이고, 그 상태에서
+  // 네이티브가 죽었으면(스와이프) 명언 관문을 건너뛰고 정리해야 한다는 게 이번 설계
+  // 결정(docs/decisions/swipe-ends-alarm-only.md) — 예전엔 이 조합을 항상 false로 막는
+  // "정상 해제 직후 race guard"가 있었으나, 그 가드가 막던 게 바로 이 케이스였다는 게
+  // 드러나 제거했다(정상 해제로 오해할 수 있는 다른 조합은 없다).
+  it('is true when the mission is pending (slid past /alarm, quote not yet typed) and native has died — swipe during mission', () => {
+    const missionPending: ActiveNap = { ...BASE_NAP, alarmDismissed: true };
+    expect(shouldTreatAsOrphaned(missionPending, false, 1000)).toBe(true);
+  });
+
+  it('is false when the mission is pending but native is still ringing — the normal in-progress mission case', () => {
+    const missionPending: ActiveNap = { ...BASE_NAP, alarmDismissed: true };
+    expect(shouldTreatAsOrphaned(missionPending, true, 1000)).toBe(false);
   });
 });

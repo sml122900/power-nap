@@ -81,4 +81,15 @@ describe('finishNap — isPreview forwarding', () => {
     const pending = await getPendingFeedback();
     expect(pending?.isPreview).toBeUndefined();
   });
+
+  // 미션 대기 중(alarmDismissed:true) 스와이프 → useNapWatchdog의 orphan 정리가
+  // finalizeNapCleanup(nap, ...)을 그대로 호출하는 경로 — finalizeNapCleanup은
+  // alarmDismissed를 아예 안 보므로 이 조합에서도 isPreview가 깨지지 않아야 한다
+  // (docs/decisions/swipe-ends-alarm-only.md).
+  it('still forwards isPreview when the nap was orphaned mid-mission (alarmDismissed:true)', async () => {
+    const destination = await finalizeNapCleanup({ ...NAP, alarmDismissed: true }, false);
+    expect(destination).toBe('/feedback');
+    const pending = await getPendingFeedback();
+    expect(pending?.isPreview).toBe(true);
+  });
 });
