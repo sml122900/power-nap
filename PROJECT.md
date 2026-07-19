@@ -81,8 +81,14 @@ radius:     lg 24 / md 16
     것)이라 앱에서 우회할 수 없다. 알람음/진동은 이 경우에도 정상적으로 계속 재생된다
     (기존 STREAM_ALARM 레이어가 담당) — 실사용 낮잠 시나리오(화면 꺼짐/잠금 상태로
     자는 것)에서는 정상적으로 자동 점등된다.
-  - 알림을 스와이프로 지우면(`setDeleteIntent`) 우리 화면을 거치지 않고 소리가 꺼진다 —
-    라이브러리 동작이며 네이티브 패치 없이는 못 막는다.
+  - 알림을 스와이프로 지우면(`setDeleteIntent`) 우리 화면을 거치지 않고 네이티브 소리만
+    꺼진다 — 라이브러리 동작이라 그 자체는 못 막는다. 다만 이 경로가 `ActiveNap`을 안
+    건드려서(JS 코드가 전혀 안 탐) 재진입 시 `useNapWatchdog`이 죽은 알람 화면으로
+    되돌아가 진동만 남는 상태 불일치가 있었다 — `isNativeAlarmActiveAsync()`(내부적으로
+    `expo-alarm-module`의 `getAlarmState()` 재사용, 네이티브 패치 불필요)로 워치독이
+    `/alarm` 진입 직전에 네이티브가 실제로 아직 울리는지 확인해 죽어있으면
+    `finalizeNapCleanup`으로 정리 후 feedback/wake-stretch로 보내도록 수정
+    (`alarm-state-fix` 브랜치, `src/useNapWatchdog.ts`/`src/finishNap.ts`).
   - 커스텀 사운드(`assets/sounds/alarm.wav`) 미지원 — 라이브러리가 재생음을 `"default"`로
     하드코딩해서(`Manager.java`) 시스템 기본음이 나간다. 커스터마이즈하려면 네이티브 포크 필요.
   - **알림 권한(POST_NOTIFICATIONS) 거부 시나리오 실기기 검증 완료**:
@@ -140,6 +146,10 @@ radius:     lg 24 / md 16
 - 앱이 백그라운드에서 복귀했을 때 `alarmAt`이 지났으면 즉시 알람 화면으로 진입 (elapsed-time 체크, JS 타이머 신뢰 금지 — `Date.now()` 기준 절대시각 비교). Android 네이티브 알람 경로도 결국 `useNapWatchdog`의 같은 판정을 탄다.
 - **Phase 5 (MVP 이후, iOS만 남음)**: iOS 26 AlarmKit 네이티브 모듈 조사 후 도입.
   Android 풀스크린 인텐트/화면 자동점등은 구현·실기기 검증 완료(위 참고).
+- **최근앱 목록에서 앱을 스와이프해도 알람 소리는 안 꺼진다 — 의도된 동작**(버그 아님).
+  Android 네이티브 알람(`AlarmService`, foreground service)이 앱 프로세스와 별개로
+  돌기 때문 — 일반 알람 앱과 동일한 동작이며, 스와이프로 알람이 꺼지면 이 앱의 존재
+  이유(알람 신뢰성)와 모순된다. 고칠 계획 없음.
 
 ---
 
