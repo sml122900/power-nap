@@ -20,17 +20,18 @@ export function resolveFinishNapDestination(wakeRoutineEnabled: boolean): Finish
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
 }
 
-export async function finishNap(
-  player: AudioPlayer,
+// player(iOS expo-audio 정지)를 뺀 나머지 정리 로직 — src/useNapWatchdog.ts가 알림
+// 스와이프로 고아가 된 알람(ActiveNap)을 정리할 때도 이 함수를 그대로 쓴다. 그 경로엔
+// 화면에 마운트된 AudioPlayer가 없어(여러 화면이 공유하는 훅) player를 요구할 수 없다 —
+// 어차피 이 문제 자체가 Android 전용(iOS는 이 경로가 없음)이라 player.pause() 없이도
+// 안전하다.
+export async function finalizeNapCleanup(
   active: ActiveNap | null,
   wakeRoutineEnabled: boolean
 ): Promise<FinishNapDestination> {
-  // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈추고, iOS는 이
-  // 화면의 expo-audio 재생을 직접 멈춘다 — stopNativeAlarmSoundAsync는 Android에서만
-  // 동작하는 no-op 안전 래퍼다(src/notifications.ts 참고).
-  if (Platform.OS === 'ios') {
-    player.pause();
-  }
+  // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈춘다.
+  // stopNativeAlarmSoundAsync/cancelAlarmNotificationAsync는 이미 꺼져/취소된 상태에
+  // 다시 호출해도 안전한 no-op이라(src/notifications.ts) 중복 호출을 방어할 필요 없다.
   await stopNativeAlarmSoundAsync();
   await cancelAlarmNotificationAsync(active?.notificationId ?? null);
 
@@ -46,9 +47,24 @@ export async function finishNap(
   const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
   const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
 
+  // savePendingFeedback은 단일 키 덮어쓰기라 같은 active로 두 번 호출돼도(예: 정상 해제와
+  // 겹친 watchdog tick) 안전 — clearActiveNap도 removeItem이라 마찬가지로 멱등이다.
   await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
   await clearActiveNap();
   return destination;
+}
+
+export async function finishNap(
+  player: AudioPlayer,
+  active: ActiveNap | null,
+  wakeRoutineEnabled: boolean
+): Promise<FinishNapDestination> {
+  // iOS는 이 화면의 expo-audio 재생을 직접 멈춘다 — Android는 finalizeNapCleanup 안의
+  // stopNativeAlarmSoundAsync가 담당(그쪽은 no-op 안전 래퍼, src/notifications.ts 참고).
+  if (Platform.OS === 'ios') {
+    player.pause();
+  }
+  return finalizeNapCleanup(active, wakeRoutineEnabled);
 }
