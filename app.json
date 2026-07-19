@@ -42,6 +42,7 @@
       "expo-asset",
       "expo-alarm-module",
       "./plugins/withFullScreenAlarmIntent.js",
+      "./plugins/withAlarmStopVibrationFix.js",
       "expo-localization"
     ]
   }
