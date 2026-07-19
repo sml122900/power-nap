@@ -3,14 +3,15 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 // 실제 expo-alarm-module/expo-notifications는 jest 환경에 네이티브 모듈이 없어
-// "not linked" 에러를 던진다 — finalizeNapCleanup 테스트는 그 두 함수의 실제 네이티브
-// 호출이 아니라 저장소 정리 로직(멱등성 포함)이 관심사라 모듈 전체를 목으로 대체한다.
+// "not linked" 에러를 던진다 — finalizeNapCleanup/finishNap 테스트는 그 두 함수의 실제
+// 네이티브 호출이 아니라 저장소 정리 로직(멱등성 포함)과 isPreview 승계가 관심사라
+// 모듈 전체를 목으로 대체한다.
 jest.mock('./notifications', () => ({
   stopNativeAlarmSoundAsync: jest.fn().mockResolvedValue(undefined),
   cancelAlarmNotificationAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { finalizeNapCleanup, resolveFinishNapDestination } from './finishNap';
+import { finalizeNapCleanup, finishNap, resolveFinishNapDestination } from './finishNap';
 import { getActiveNap, getPendingFeedback, type ActiveNap } from './store';
 
 describe('resolveFinishNapDestination', () => {
@@ -53,5 +54,31 @@ describe('finalizeNapCleanup', () => {
     const destination = await finalizeNapCleanup(null, true);
     expect(destination).toBe('/wake-stretch');
     expect(await getActiveNap()).toBeNull();
+  });
+});
+
+describe('finishNap — isPreview forwarding', () => {
+  const NAP: ActiveNap = {
+    mode: 'fast',
+    startedAt: 0,
+    alarmAt: 1_200_000,
+    notificationId: 'powernap-alarm',
+    notificationPermissionGranted: true,
+    isPreview: true,
+  };
+  // Platform.OS==='ios' 분기(player.pause())만 player를 실제로 쓴다 — 이 테스트는
+  // 저장 로직만 보므로 빈 stub으로 충분하다.
+  const player = { pause: jest.fn() } as unknown as import('expo-audio').AudioPlayer;
+
+  it('carries ActiveNap.isPreview through to PendingFeedback', async () => {
+    await finishNap(player, NAP, false);
+    const pending = await getPendingFeedback();
+    expect(pending?.isPreview).toBe(true);
+  });
+
+  it('leaves isPreview unset for a normal nap', async () => {
+    await finishNap(player, { ...NAP, isPreview: undefined }, false);
+    const pending = await getPendingFeedback();
+    expect(pending?.isPreview).toBeUndefined();
   });
 });

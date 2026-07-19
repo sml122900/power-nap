@@ -41,6 +41,14 @@ describe('resolveNapRoute', () => {
     const dismissed: ActiveNap = { ...nap, alarmDismissed: true };
     expect(resolveNapRoute(dismissed, true, 1000)).toBe('/mission');
   });
+
+  it('routes preview naps through the exact same sequence as a real nap (isPreview is invisible to routing)', () => {
+    const nap: ActiveNap = { ...BASE_NAP, isPreview: true };
+    expect(resolveNapRoute(nap, false, 999)).toBe('/sleep');
+    expect(resolveNapRoute(nap, true, 1000)).toBe('/alarm');
+    const dismissed: ActiveNap = { ...nap, alarmDismissed: true };
+    expect(resolveNapRoute(dismissed, true, 1000)).toBe('/mission');
+  });
 });
 
 describe('shouldTreatAsOrphaned', () => {

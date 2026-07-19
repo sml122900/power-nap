@@ -23,9 +23,12 @@ export type NapRoute = '/' | '/sleep' | '/alarm' | '/mission';
 // 라우팅 판정만 떼어낸 순수 함수 — React/AsyncStorage 없이 jest로 직접 검증한다.
 // 순서: 슬라이드/롱프레스 해제(/alarm)가 항상 먼저다. 그 다음 missionEnabled가 켜져
 // 있으면 /mission으로 — 알람음/진동은 이 전환과 무관하게 계속 울린다(실제 정지·기록
-// 저장은 미션 통과 시점, src/finishNap.ts). 테스트 낮잠(isTest)도 이 라우팅은 동일하게
-// 탄다(사용자 명시 지시 — 테스트 버튼으로 미션 화면 자체를 확인하려는 목적,
-// BACKLOG.md "알람 해제 미션" 참고). 후기 화면 스킵은 이 라우팅과 무관한 별도 로직.
+// 저장은 미션 통과 시점, src/finishNap.ts). 테스트 낮잠(isTest)·체험 낮잠(isPreview) 둘 다
+// 이 라우팅은 동일하게 탄다 — ActiveNap.isTest/isPreview를 이 함수는 아예 들여다보지
+// 않는다(사용자 명시 지시 — 테스트 버튼으로 미션 화면 자체를 확인하려는 목적,
+// BACKLOG.md "알람 해제 미션" 참고; 체험 낮잠도 같은 이유로 전체 흐름을 동일하게 겪어야
+// 한다, docs/decisions/preview-mode-isTest-vs-isPreview.md). 후기 화면 스킵은 이 라우팅과
+// 무관한 별도 로직.
 export function resolveNapRoute(nap: ActiveNap | null, missionEnabled: boolean, nowMs: number): NapRoute {
   if (!nap) return '/';
   if (nap.alarmAt > nowMs) return '/sleep';

@@ -113,7 +113,10 @@ export default function HomeScreen() {
     }
   };
 
-  const startFastSlow = async (mode: 'fast' | 'slow', overrideMs?: number) => {
+  // isPreview는 홈 화면 "10초 알람 체험" 버튼 전용 — SHOW_TEST_BUTTONS와 무관하게 상시
+  // 노출되는 사용자 기능이라 QA용 isTest와 개념을 분리한다(둘 다 overrideMs를 쓰지만
+  // isTest는 isPreview가 아닐 때만 true — docs/decisions/preview-mode-isTest-vs-isPreview.md).
+  const startFastSlow = async (mode: 'fast' | 'slow', overrideMs?: number, isPreview?: boolean) => {
     if (startingRef.current) return;
     startingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -137,7 +140,8 @@ export default function HomeScreen() {
         alarmAt,
         notificationId,
         notificationPermissionGranted: permissionGranted,
-        isTest: overrideMs !== undefined,
+        isTest: overrideMs !== undefined && !isPreview,
+        isPreview: isPreview === true,
       };
       await saveActiveNap(nap);
       router.replace('/sleep');
@@ -365,6 +369,12 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             )}
+
+            {/* 체험 모드 — SHOW_TEST_BUTTONS와 무관하게 출시 빌드에도 상시 노출(사용자 지시).
+                기록·AI·통계에 안 남는 건 isPreview 가드가 처리한다(app/feedback.tsx). */}
+            <Pressable onPress={() => startFastSlow('fast', 10_000, true)} style={styles.previewLinkRow}>
+              <Text style={styles.previewLinkText}>{t('previewButton')}</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -628,6 +638,17 @@ const createStyles = (colors: ThemeColors) =>
     fontSize: 12,
     fontFamily: fontFamily.semibold,
     color: colors.inkFaint,
+  },
+  previewLinkRow: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  previewLinkText: {
+    fontSize: 13.5,
+    fontFamily: fontFamily.semibold,
+    color: colors.inkFaint,
+    textDecorationLine: 'underline',
   },
   toast: {
     position: 'absolute',

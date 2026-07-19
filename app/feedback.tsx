@@ -26,6 +26,7 @@ import {
   getSettings,
   LATENCY_MAX,
   LATENCY_MIN,
+  shouldRecordNap,
   type NapMode,
   type NapSurvey,
   type Settings,
@@ -74,6 +75,10 @@ interface FeedbackContext {
   // 도달하지만, "직접 조정하기"의 실제 저장(applyManualAdjustment)과 AI 분석 대상
   // 포함(filterAnalyzableRecords) 두 곳에서만 막는다 — 그 외 UI/동작은 완전히 동일.
   isTest?: boolean;
+  // 체험 낮잠(홈 화면 "10초 알람 체험" 버튼) 여부 — isTest와 달리 shouldRecordNap
+  // 가드가 appendNapRecord 자체를 건너뛰어 기록에 아예 안 남는다(docs/decisions/
+  // preview-mode-isTest-vs-isPreview.md). UI 흐름 자체는 동일하게 겪는다.
+  isPreview?: boolean;
 }
 
 export default function FeedbackScreen() {
@@ -109,6 +114,7 @@ export default function FeedbackScreen() {
         caffeineOnset: settings.caffeineOnset,
         wakeChecklist: pending.wakeChecklist,
         isTest: pending.isTest,
+        isPreview: pending.isPreview,
       });
     });
   }, [router]);
@@ -128,17 +134,19 @@ export default function FeedbackScreen() {
     submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    await appendNapRecord({
-      completedAt: Date.now(),
-      mode: ctx.mode,
-      offsetMinutes: ctx.offsetMinutes,
-      survey: answers,
-      memo: memoText.trim() || undefined,
-      wakeChecklist: ctx.wakeChecklist,
-      isTest: ctx.isTest,
-    });
+    if (shouldRecordNap(ctx)) {
+      await appendNapRecord({
+        completedAt: Date.now(),
+        mode: ctx.mode,
+        offsetMinutes: ctx.offsetMinutes,
+        survey: answers,
+        memo: memoText.trim() || undefined,
+        wakeChecklist: ctx.wakeChecklist,
+        isTest: ctx.isTest,
+      });
+    }
     await clearPendingFeedback();
-    router.replace({ pathname: '/', params: { toast: t('toastRecorded') } });
+    router.replace({ pathname: '/', params: { toast: ctx.isPreview ? t('toastPreviewNotSaved') : t('toastRecorded') } });
   };
 
   const onSkip = async () => {
@@ -146,15 +154,21 @@ export default function FeedbackScreen() {
     submittingRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    await appendNapRecord({
-      completedAt: Date.now(),
-      mode: ctx.mode,
-      offsetMinutes: ctx.offsetMinutes,
-      survey: null,
-      wakeChecklist: ctx.wakeChecklist,
-      isTest: ctx.isTest,
-    });
+    if (shouldRecordNap(ctx)) {
+      await appendNapRecord({
+        completedAt: Date.now(),
+        mode: ctx.mode,
+        offsetMinutes: ctx.offsetMinutes,
+        survey: null,
+        wakeChecklist: ctx.wakeChecklist,
+        isTest: ctx.isTest,
+      });
+    }
     await clearPendingFeedback();
+    if (ctx.isPreview) {
+      router.replace({ pathname: '/', params: { toast: t('toastPreviewNotSaved') } });
+      return;
+    }
     router.replace('/');
   };
 
@@ -202,24 +216,29 @@ export default function FeedbackScreen() {
     const finalValue = commitManualText();
     // 테스트 낮잠은 학습값을 실제로 바꾸지 않는다(CLAUDE.md 지뢰 목록 "테스트 낮잠이
     // latency를 오염시킨" 사고 재발 방지, 사용자 지시) — UI/기록은 실제 알람과 동일하게
-    // 남기되 applyManualAdjustment만 건너뛰고, 안 바뀌었다는 걸 토스트로 알린다.
-    if (!ctx.isTest) {
+    // 남기되 applyManualAdjustment만 건너뛰고, 안 바뀌었다는 걸 토스트로 알린다. 체험
+    // 낮잠도 같은 이유(설정값 오염 방지)로 건너뛴다.
+    if (!ctx.isTest && !ctx.isPreview) {
       await applyManualAdjustment(ctx.mode, finalValue);
     }
-    await appendNapRecord({
-      completedAt: Date.now(),
-      mode: ctx.mode,
-      offsetMinutes: ctx.offsetMinutes,
-      manualAdjust: { source: 'feedback', beforeMinutes: ctx.baseValue, afterMinutes: finalValue },
-      wakeChecklist: ctx.wakeChecklist,
-      isTest: ctx.isTest,
-    });
+    if (shouldRecordNap(ctx)) {
+      await appendNapRecord({
+        completedAt: Date.now(),
+        mode: ctx.mode,
+        offsetMinutes: ctx.offsetMinutes,
+        manualAdjust: { source: 'feedback', beforeMinutes: ctx.baseValue, afterMinutes: finalValue },
+        wakeChecklist: ctx.wakeChecklist,
+        isTest: ctx.isTest,
+      });
+    }
     await clearPendingFeedback();
 
     const label = t(ctx.mode === 'coffee' ? 'manualLabelCaffeine' : 'manualLabelLatency');
-    const toast = ctx.isTest
-      ? t('toastManualAdjustTestSkipped')
-      : t('toastManualAdjust', { modeName: modeName(ctx.mode), label, minutes: finalValue });
+    const toast = ctx.isPreview
+      ? t('toastPreviewNotSaved')
+      : ctx.isTest
+        ? t('toastManualAdjustTestSkipped')
+        : t('toastManualAdjust', { modeName: modeName(ctx.mode), label, minutes: finalValue });
     router.replace({ pathname: '/', params: { toast } });
   };
 

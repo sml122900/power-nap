@@ -32,6 +32,7 @@ import {
   setCachedAnalysisList,
   setMissionEnabled,
   setWakeRoutineEnabled,
+  shouldRecordNap,
   type ActiveNap,
   type NapRecord,
   type Settings,
@@ -349,6 +350,17 @@ describe('filterAnalyzableRecords — 분석 대상 기간/isTest 필터', () =>
   it('sinceMs 생략(전체)이면 기간 제한 없이 isTest만 뺀다', () => {
     const records = [base({ completedAt: 100 }), base({ completedAt: 999_999_999_999 })];
     expect(filterAnalyzableRecords(records)).toHaveLength(2);
+  });
+});
+
+describe('shouldRecordNap — 체험(isPreview) vs QA 테스트(isTest) 기록 여부', () => {
+  it('isPreview면 기록하지 않는다', () => {
+    expect(shouldRecordNap({ isPreview: true })).toBe(false);
+  });
+
+  it('isTest만 있으면(isPreview 아니면) 기록한다 — QA 테스트 낮잠은 계속 남아야 한다', () => {
+    expect(shouldRecordNap({ isPreview: false })).toBe(true);
+    expect(shouldRecordNap({})).toBe(true);
   });
 });
 

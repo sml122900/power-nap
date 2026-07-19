@@ -11,11 +11,14 @@ import { clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
 export type FinishNapDestination = '/feedback' | '/wake-stretch';
 
 // 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
-// 같은 패턴). 테스트 낮잠도 실제 알람과 완전히 동일한 경로를 탄다(사용자 지시 — "모든 기능이
-// 테스트와 동일했으면"). 학습값 오염/AI 분석 데이터 오염은 라우팅이 아니라 각 지점에서 막는다:
-// app/feedback.tsx의 "직접 조정하기"는 isTest면 applyManualAdjustment를 건너뛰고 사용자에게
-// "반영되지 않았다"고 알린다, appendNapRecord는 항상 isTest를 실어 보내 AI 분석
-// (filterAnalyzableRecords)에서 제외되게 한다.
+// 같은 패턴). 테스트 낮잠(isTest)·체험 낮잠(isPreview) 둘 다 이 함수에서는 전혀 안 보인다 —
+// 의도적이다. 실제 알람과 완전히 동일한 경로를 태우는 게 두 기능 공통의 요구사항이라
+// (isTest는 사용자 지시 "모든 기능이 테스트와 동일했으면", isPreview는 "전체 흐름은 동일하게
+// 겪되"), 라우팅 단계에서 분기하면 그 요구사항이 깨진다. 데이터 오염 방지는 라우팅이 아니라
+// 각 부작용 지점에서 막는다: app/feedback.tsx의 "직접 조정하기"는 isTest 또는 isPreview면
+// applyManualAdjustment를 건너뛰고, appendNapRecord는 isPreview면 아예 호출되지 않으며
+// (shouldRecordNap 가드) 그 외엔 isTest를 실어 보내 AI 분석(filterAnalyzableRecords)에서만
+// 제외되게 한다. docs/decisions/preview-mode-isTest-vs-isPreview.md 참고.
 export function resolveFinishNapDestination(wakeRoutineEnabled: boolean): FinishNapDestination {
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
 }
@@ -49,7 +52,7 @@ export async function finalizeNapCleanup(
 
   // savePendingFeedback은 단일 키 덮어쓰기라 같은 active로 두 번 호출돼도(예: 정상 해제와
   // 겹친 watchdog tick) 안전 — clearActiveNap도 removeItem이라 마찬가지로 멱등이다.
-  await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest });
+  await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest, isPreview: active.isPreview });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
   await clearActiveNap();
