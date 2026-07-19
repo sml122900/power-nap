@@ -6,9 +6,10 @@ import { Platform } from 'react-native';
 import { type AudioPlayer } from 'expo-audio';
 
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from './notifications';
-import { clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
+import { clearActiveNap, savePendingFeedback, type ActiveNap, type PendingFeedback } from './store';
 
 export type FinishNapDestination = '/feedback' | '/wake-stretch';
+export type WakeRoute = '/wake-stretch' | '/wake-light' | '/wake-water' | '/feedback';
 
 // 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
 // 같은 패턴). 테스트 낮잠(isTest)·체험 낮잠(isPreview) 둘 다 이 함수에서는 전혀 안 보인다 —
@@ -21,6 +22,24 @@ export type FinishNapDestination = '/feedback' | '/wake-stretch';
 // 제외되게 한다. docs/decisions/preview-mode-isTest-vs-isPreview.md 참고.
 export function resolveFinishNapDestination(wakeRoutineEnabled: boolean): FinishNapDestination {
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
+}
+
+// ActiveNap이 사라진 뒤(finalizeNapCleanup 완료 후) 기상 루틴/설문 도중 프로세스가
+// 죽었다가 재실행됐을 때, PendingFeedback.wakeChecklist를 보고 "어디부터 이어받을지"
+// 판정하는 순수 함수 — src/useNapWatchdog.ts가 nap이 없고 pending만 있을 때 이걸로
+// 콜드 스타트 복구 목적지를 정한다(docs/decisions/wake-routine-cold-start-resume.md).
+// wakeRoutineEnabled를 인자로 받는 이유: PendingFeedback엔 "이번 낮잠이 기상루틴을
+// 거쳤는지" 자체가 저장되지 않는다(resolveFinishNapDestination이 그 순간의 설정값으로
+// 딱 한 번 판정하고 흘려버림) — 복구 시점에도 현재 설정을 다시 읽어 같은 방식으로
+// 판정한다(finalizeNapCleanup과 동일 패턴, 낮잠 도중 설정이 바뀌는 엣지케이스는
+// 기존과 마찬가지로 특별 취급하지 않는다).
+export function resolveWakeRoute(pending: PendingFeedback, wakeRoutineEnabled: boolean): WakeRoute {
+  if (!wakeRoutineEnabled) return '/feedback';
+  const checklist = pending.wakeChecklist;
+  if (!checklist?.stretch) return '/wake-stretch';
+  if (!checklist?.light) return '/wake-light';
+  if (!checklist?.water) return '/wake-water';
+  return '/feedback';
 }
 
 // player(iOS expo-audio 정지)를 뺀 나머지 정리 로직 — src/useNapWatchdog.ts가 알림

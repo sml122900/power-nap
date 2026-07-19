@@ -11,8 +11,8 @@ jest.mock('./notifications', () => ({
   cancelAlarmNotificationAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { finalizeNapCleanup, finishNap, resolveFinishNapDestination } from './finishNap';
-import { getActiveNap, getPendingFeedback, type ActiveNap } from './store';
+import { finalizeNapCleanup, finishNap, resolveFinishNapDestination, resolveWakeRoute } from './finishNap';
+import { getActiveNap, getPendingFeedback, type ActiveNap, type PendingFeedback } from './store';
 
 describe('resolveFinishNapDestination', () => {
   it('goes to the wake routine first when it is enabled', () => {
@@ -21,6 +21,37 @@ describe('resolveFinishNapDestination', () => {
 
   it('skips straight to feedback when the wake routine is off', () => {
     expect(resolveFinishNapDestination(false)).toBe('/feedback');
+  });
+});
+
+describe('resolveWakeRoute — cold-start resume for the wake routine/survey phase', () => {
+  const PENDING: PendingFeedback = { mode: 'fast', offsetMinutes: 20 };
+
+  it('goes to feedback directly when the wake routine is off, regardless of wakeChecklist', () => {
+    expect(resolveWakeRoute(PENDING, false)).toBe('/feedback');
+    expect(resolveWakeRoute({ ...PENDING, wakeChecklist: { stretch: true, light: true, water: true } }, false)).toBe(
+      '/feedback'
+    );
+  });
+
+  it('resumes at the first incomplete stage when the wake routine is on', () => {
+    expect(resolveWakeRoute(PENDING, true)).toBe('/wake-stretch'); // no wakeChecklist at all yet
+    expect(resolveWakeRoute({ ...PENDING, wakeChecklist: { stretch: true, light: false, water: false } }, true)).toBe(
+      '/wake-light'
+    );
+    expect(resolveWakeRoute({ ...PENDING, wakeChecklist: { stretch: true, light: true, water: false } }, true)).toBe(
+      '/wake-water'
+    );
+  });
+
+  it('goes to feedback once all three wake-routine stages are done', () => {
+    const pending = { ...PENDING, wakeChecklist: { stretch: true, light: true, water: true } };
+    expect(resolveWakeRoute(pending, true)).toBe('/feedback');
+  });
+
+  it('is unaffected by isTest/isPreview — routing never looks at either flag', () => {
+    expect(resolveWakeRoute({ ...PENDING, isPreview: true }, true)).toBe('/wake-stretch');
+    expect(resolveWakeRoute({ ...PENDING, isTest: true }, true)).toBe('/wake-stretch');
   });
 });
 

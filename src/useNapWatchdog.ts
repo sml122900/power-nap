@@ -14,9 +14,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { finalizeNapCleanup } from './finishNap';
+import { finalizeNapCleanup, resolveWakeRoute } from './finishNap';
 import { isNativeAlarmActiveAsync } from './notifications';
-import { getActiveNap, getSettings, type ActiveNap } from './store';
+import { getActiveNap, getPendingFeedback, getSettings, type ActiveNap } from './store';
 
 export type NapRoute = '/' | '/sleep' | '/alarm' | '/mission';
 
@@ -61,8 +61,23 @@ export function useNapWatchdog(currentRoute: NapRoute): () => void {
 
   const check = useCallback(async () => {
     if (redirectedRef.current) return;
-    const [nap, settings] = await Promise.all([getActiveNap(), getSettings()]);
+    const [nap, pending, settings] = await Promise.all([getActiveNap(), getPendingFeedback(), getSettings()]);
     if (redirectedRef.current) return;
+
+    // ActiveNap이 없는데 PendingFeedback만 남아있으면(기상 루틴·설문 도중 프로세스가
+    // 죽은 뒤 재실행) 그 지점으로 복귀시킨다 — 콜드 스타트는 항상 '/'에서 시작하므로
+    // 이 분기는 사실상 홈 화면에서만 의미 있게 발동한다. /sleep·/alarm·/mission이
+    // 마운트돼 있다는 건 이미 nap이 있다는 뜻이라 여기 안 걸리고, /wake-stretch~
+    // /feedback은 애초에 이 훅을 안 써서(자체 마운트 가드만 있음) 정상 진행 중엔
+    // 이 코드가 실행될 일이 없다(docs/decisions/wake-routine-cold-start-resume.md).
+    if (!nap && pending) {
+      // routeRef.current(NapRoute: '/'|'/sleep'|'/alarm'|'/mission')는 wakeTarget과
+      // 타입상 겹칠 수 없다 — 이 훅을 호출하는 4개 화면 중 어디서 왔든 항상 리다이렉트.
+      redirectedRef.current = true;
+      router.replace(resolveWakeRoute(pending, settings.wakeRoutineEnabled));
+      return;
+    }
+
     const target = resolveNapRoute(nap, settings.missionEnabled, Date.now());
 
     // '/alarm' 또는 '/mission'으로 가려는 경우에만(대부분의 tick은 여기 안 걸림) 네이티브가

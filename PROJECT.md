@@ -96,6 +96,12 @@ radius:     lg 24 / md 16
     `finalizeNapCleanup` 자체는 기상 루틴/설문을 "완료 처리"하지 않는다 — `/wake-stretch`
     (또는 `/feedback`)로 정상 라우팅만 하고, 그 뒤 진행은 여느 정상 해제와 동일하게
     사용자가 직접 밟는다. 상세 근거는 `docs/decisions/swipe-ends-alarm-only.md`.
+  - **기상 루틴/설문 도중 프로세스가 죽어도(강제종료, 절전 최적화 등) 재실행 시 그
+    지점부터 복구된다** — `useNapWatchdog`이 `ActiveNap`뿐 아니라 `PendingFeedback`도
+    보고, 없으면(=콜드 스타트가 항상 떨어지는 홈 화면에서) `resolveWakeRoute`로
+    `wakeChecklist` 진행 상태를 읽어 알맞은 기상 루틴 화면(또는 `/feedback`)으로
+    보낸다(`docs/decisions/wake-routine-cold-start-resume.md`). 새 상태 없이
+    `PendingFeedback`에 이미 있던 정보로 해결됨.
   - 커스텀 사운드(`assets/sounds/alarm.wav`) 미지원 — 라이브러리가 재생음을 `"default"`로
     하드코딩해서(`Manager.java`) 시스템 기본음이 나간다. 커스터마이즈하려면 네이티브 포크 필요.
   - **알림 권한(POST_NOTIFICATIONS) 거부 시나리오 실기기 검증 완료**:
