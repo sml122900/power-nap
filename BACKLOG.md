@@ -281,6 +281,41 @@ PROJECT.md/STATUS.md 참조.
   대체. 체크리스트 A-2/C-2/D-3/F-3/F-4/G 전 항목 회귀 없음 확인 완료
   (docs/daily/2026-07-20.md 참조). H(커피냅/잠금화면 자동기상/무음모드)는
   저우선순위로 보류.
+- ⚠️ 아래 "미해결" 항목과의 관계: 이 크래시(프로세스 강제종료)와 애초
+  가설이었던 좁은 타이밍 레이스는 **서로 다른 코드 경로**임을 이후 코드
+  검토로 확인했다 — 자세한 내용은 바로 아래 항목 참조. 이 수정으로 레이스
+  가설이 같이 완화된 게 아니다.
+
+## 미해결 — 알람 fire 직후 자체취소 레이스 (구조적, 저심각도 — v1.1+ 검토)
+
+바로 위 P0 크래시를 고치면서 "이 크래시가 곧 레이스의 원인이었다"고
+합쳤었는데, 코드 레벨로 다시 확인한 결과 **별개 경로**라 되돌린다.
+
+- `withAlarmForegroundStartFix.js`는 `AlarmService.onStartCommand()` 맨 앞에
+  `startForeground()`를 최소 알림으로 선호출하는 지점만 추가했을 뿐,
+  `Storage.getAlarm()` → `Helper.getAlarmNotification()`(Bitmap 디코딩) →
+  `Manager.start()`(→ `activeAlarmUid` 세팅) 순서 자체는 건드리지 않았다
+  (`node_modules/expo-alarm-module/.../AlarmService.java` 확인). 즉
+  `Manager.start()`는 여전히 Bitmap 디코딩이 끝난 뒤에야 호출된다.
+- `src/notifications.ts`의 `isNativeAlarmActiveAsync()`는 네이티브
+  `getActiveAlarm()`(=`Manager.activeAlarmUid`)을 폴링해 "지금 진짜 울리는
+  중인지"를 판단한다 — 이 값은 위 순서상 Bitmap 디코딩이 끝나야 세팅된다.
+  즉 네이티브 알람이 fire해 서비스가 뜬 시점과 `activeAlarmUid`가 실제로
+  세팅되는 시점 사이에는 여전히 창(Bitmap 디코딩 소요 시간)이 남아있다 —
+  이번 패치로 줄지 않았다.
+- 이 창은 P0 크래시 조건(OS foreground-service 제한시간 초과, 주로 화면
+  잠금/Doze에서만 관측)보다 훨씬 짧고 항상 발생 가능하다는 점에서 별개다:
+  크래시는 "제한시간을 넘겨 프로세스가 죽는" 극단값이고, 레이스는 "짧은
+  지연 동안 `isNativeAlarmActiveAsync()`가 아직 false를 반환하는" 훨씬 좁고
+  일상적인 창이다. 크래시 수정이 이 창 자체를 없애지 않는다.
+- 지금 안 고치는 이유는 원래 항목과 동일: (1) 재시도/디바운스를 알람 fire
+  경로에 넣으면 방금 안정화한 크래시 수정 위에 새 타이밍 변수를 또 추가하는
+  리스크 (2) 재현이 어려워 수정해도 검증 난이도가 높음 (3) 저심각도(좁은
+  창, "안 울림"이 아님).
+- v1.1+ 검토안은 원래 항목과 동일: watchdog이 "alarmAt 직후 N초"는 orphan
+  판정 자체를 스킵, 또는 연속 N회 관측 시에만 orphan 판정. Play 사전출시
+  보고서·실사용 크래시 데이터에서 이 경로가 실제로 문제되는지 먼저 확인.
+- ⚠️ 이건 "완벽한 알람"을 위한 미세 개선이지 v1 블로커가 아니다.
 
 ## v1.1
 
