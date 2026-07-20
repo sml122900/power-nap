@@ -9,10 +9,12 @@
 import { Platform } from 'react-native';
 
 const mockScheduleAlarm = jest.fn().mockResolvedValue(undefined);
+const mockGetAlarmState = jest.fn();
 jest.mock('expo-alarm-module', () => ({
   scheduleAlarm: (...args: unknown[]) => mockScheduleAlarm(...args),
   removeAlarm: jest.fn(),
   stopAlarm: jest.fn(),
+  getAlarmState: (...args: unknown[]) => mockGetAlarmState(...args),
 }));
 
 const mockGetPermissionsAsync = jest.fn();
@@ -26,7 +28,7 @@ jest.mock('expo-notifications', () => ({
   SchedulableTriggerInputTypes: { DATE: 'date' },
 }));
 
-import { scheduleAlarmNotificationAsync } from './notifications';
+import { isNativeAlarmActiveAsync, scheduleAlarmNotificationAsync } from './notifications';
 
 const originalOS = Platform.OS;
 
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockScheduleAlarm.mockClear();
   mockGetPermissionsAsync.mockReset();
   mockRequestPermissionsAsync.mockReset();
+  mockGetAlarmState.mockReset();
 });
 
 afterAll(() => {
@@ -70,5 +73,19 @@ describe('scheduleAlarmNotificationAsync — Android', () => {
 
     expect(mockRequestPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(mockScheduleAlarm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isNativeAlarmActiveAsync — Android', () => {
+  // 알림 스와이프(setDeleteIntent)로 네이티브 알람만 꺼진 상황을 감지하는 함수의
+  // 핵심 계약: Manager.getActiveAlarm()이 우리 고정 UID를 돌려줄 때만 true.
+  it('알림이 우리 알람 UID를 돌려주면 true (아직 울리는 중)', async () => {
+    mockGetAlarmState.mockResolvedValue('powernap-alarm');
+    expect(await isNativeAlarmActiveAsync()).toBe(true);
+  });
+
+  it('null이면 false (네이티브가 이미 멈춤 — 알림 스와이프 등)', async () => {
+    mockGetAlarmState.mockResolvedValue(null);
+    expect(await isNativeAlarmActiveAsync()).toBe(false);
   });
 });

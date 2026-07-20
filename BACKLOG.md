@@ -249,6 +249,74 @@ PROJECT.md/STATUS.md 참조.
   짖는 상태(해제 트랙과 분리), 해제 성공=웃는 상태 + 완료 메시지, 이후
   기존 체크리스트/설문 흐름
 
+## 해결됨 — 알람 fire 시 화면 잠금 상태에서 프로세스 크래시 (P0, 2026-07-19)
+
+처음엔 "watchdog이 네이티브 상태를 오판해 자체취소하는 좁은 타이밍 레이스"로
+저심각도 추정했으나, logcat 전체 스택을 확인한 결과 **진짜 크래시**였음이 드러나
+정정한다.
+
+- 실제 원인: `AlarmReceiver.onReceive()`가 `startForegroundService()`를 부르는
+  순간 OS의 foreground-service 시작 제한시간 타이머가 시작되는데,
+  `AlarmService.onStartCommand()`(expo-alarm-module)는 `Storage.getAlarm()` →
+  `Helper.getAlarmNotification()`(Bitmap 디코딩 포함) → `Manager.start()`를 다
+  마친 뒤에야 `startForeground()`를 불렀다. 화면 잠금/Doze 상태에서 브로드캐스트·
+  서비스 디스패치 자체가 늦춰지는 것과 겹치면 제한시간을 넘겨
+  `ForegroundServiceDidNotStartInTimeException`으로 **앱 프로세스 전체가
+  FATAL EXCEPTION으로 죽는다.** 크래시 후 자동 재시작 없이 죽은 채로 남음(재현
+  세션에서 51초간 무응답, 수동 재실행 전까지). watchdog의 orphan 정리가 실행된 건
+  결과였을 뿐 원인이 아니었다 — 프로세스가 죽어 네이티브 알람이 진짜로 사라졌으니
+  다음 실행 시 정상적으로 orphan 판정한 것.
+- 재현: 화면 잠금 상태로 알람 fire 대기 1건에서 재현, 화면 켜둔 채 테스트한
+  나머지 모든 낮잠에서는 크래시 없음 — 화면 꺼짐 상태에서만 지연이 제한시간을
+  넘기는 것으로 보임(실사용 핵심 시나리오 — 낮잠 자는 동안 화면은 항상 꺼져있음).
+- 수정: `plugins/withAlarmForegroundStartFix.js` 신규(`AlarmService.java`
+  세 번째 anchor 패치, `withAlarmStopVibrationFix.js`와 같은 패턴). `startForeground()`를
+  Bitmap 디코딩 없는 최소 알림으로 즉시 먼저 호출해 제한시간 안에 반드시 걸리게
+  하고, 실제 알람 알림은 그 다음 만들어 같은 id(1)로 갱신(표준 Android 패턴).
+  app.json plugins 배열에 `withAlarmStopVibrationFix.js` 다음 순서로 등록.
+- 검증: 실기기 재빌드 후 동일 시나리오(화면 잠금 상태로 알람 fire) 재현 —
+  logcat에 `ForegroundServiceDidNotStartInTimeException`/FATAL EXCEPTION
+  없음, `ps`로 프로세스 생존 확인. 알람 화면 자체의 시각적 확인은 기기의
+  보안 잠금(PIN/패턴)이 adb 우회를 막아 못 함 — 로그/프로세스 레벨 증거로
+  대체. 체크리스트 A-2/C-2/D-3/F-3/F-4/G 전 항목 회귀 없음 확인 완료
+  (docs/daily/2026-07-20.md 참조). H(커피냅/잠금화면 자동기상/무음모드)는
+  저우선순위로 보류.
+- ⚠️ 아래 "미해결" 항목과의 관계: 이 크래시(프로세스 강제종료)와 애초
+  가설이었던 좁은 타이밍 레이스는 **서로 다른 코드 경로**임을 이후 코드
+  검토로 확인했다 — 자세한 내용은 바로 아래 항목 참조. 이 수정으로 레이스
+  가설이 같이 완화된 게 아니다.
+
+## 미해결 — 알람 fire 직후 자체취소 레이스 (구조적, 저심각도 — v1.1+ 검토)
+
+바로 위 P0 크래시를 고치면서 "이 크래시가 곧 레이스의 원인이었다"고
+합쳤었는데, 코드 레벨로 다시 확인한 결과 **별개 경로**라 되돌린다.
+
+- `withAlarmForegroundStartFix.js`는 `AlarmService.onStartCommand()` 맨 앞에
+  `startForeground()`를 최소 알림으로 선호출하는 지점만 추가했을 뿐,
+  `Storage.getAlarm()` → `Helper.getAlarmNotification()`(Bitmap 디코딩) →
+  `Manager.start()`(→ `activeAlarmUid` 세팅) 순서 자체는 건드리지 않았다
+  (`node_modules/expo-alarm-module/.../AlarmService.java` 확인). 즉
+  `Manager.start()`는 여전히 Bitmap 디코딩이 끝난 뒤에야 호출된다.
+- `src/notifications.ts`의 `isNativeAlarmActiveAsync()`는 네이티브
+  `getActiveAlarm()`(=`Manager.activeAlarmUid`)을 폴링해 "지금 진짜 울리는
+  중인지"를 판단한다 — 이 값은 위 순서상 Bitmap 디코딩이 끝나야 세팅된다.
+  즉 네이티브 알람이 fire해 서비스가 뜬 시점과 `activeAlarmUid`가 실제로
+  세팅되는 시점 사이에는 여전히 창(Bitmap 디코딩 소요 시간)이 남아있다 —
+  이번 패치로 줄지 않았다.
+- 이 창은 P0 크래시 조건(OS foreground-service 제한시간 초과, 주로 화면
+  잠금/Doze에서만 관측)보다 훨씬 짧고 항상 발생 가능하다는 점에서 별개다:
+  크래시는 "제한시간을 넘겨 프로세스가 죽는" 극단값이고, 레이스는 "짧은
+  지연 동안 `isNativeAlarmActiveAsync()`가 아직 false를 반환하는" 훨씬 좁고
+  일상적인 창이다. 크래시 수정이 이 창 자체를 없애지 않는다.
+- 지금 안 고치는 이유는 원래 항목과 동일: (1) 재시도/디바운스를 알람 fire
+  경로에 넣으면 방금 안정화한 크래시 수정 위에 새 타이밍 변수를 또 추가하는
+  리스크 (2) 재현이 어려워 수정해도 검증 난이도가 높음 (3) 저심각도(좁은
+  창, "안 울림"이 아님).
+- v1.1+ 검토안은 원래 항목과 동일: watchdog이 "alarmAt 직후 N초"는 orphan
+  판정 자체를 스킵, 또는 연속 N회 관측 시에만 orphan 판정. Play 사전출시
+  보고서·실사용 크래시 데이터에서 이 경로가 실제로 문제되는지 먼저 확인.
+- ⚠️ 이건 "완벽한 알람"을 위한 미세 개선이지 v1 블로커가 아니다.
+
 ## v1.1
 
 - ~~낮잠 히스토리 화면: 지난 낮잠 기록 열람~~ — 사용자 요청으로 코드 동결 중 선구현(STATUS.md 참조).
@@ -266,6 +334,10 @@ PROJECT.md/STATUS.md 참조.
   하며 강제해서는 안 된다** — 로그인 없이도 앱의 핵심 기능(낮잠 알람)은 지금처럼
   완전히 동작해야 하고, 로그인은 "기기 변경 시 이전"이라는 부가 가치를 원하는
   사용자만 선택하는 경로로 설계한다.
+- 미션 명언 override는 편집 시 전체 스냅샷으로 고정(fork) — 한 번 편집하면 이후 앱
+  업데이트의 새 기본 명언을 못 봄. 현재는 의도된 동작으로 간주(사용자가 고른 목록
+  유지). v1.1+에서 기본 명언을 추가/변경할 때 "기본 목록과 병합" 로직 필요 여부
+  재검토. 지금 고치지 않음.
 
 ## v1.1 — 즉시 수면 진입점 (홈 위젯 / 퀵 세팅 타일)
 - 목적: "졸린 순간 3초" 철학의 극단 — 앱을 열고 버튼을 찾는 마찰마저 제거

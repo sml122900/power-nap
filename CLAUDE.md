@@ -251,6 +251,25 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   (2026-07-17, 병합 전 소스 검토로 확정). **서버 배포는 main에서만 한다.** 기능
   브랜치에서 검증차 임시 배포했다면, 병합 후 반드시 main에서 다시 배포해 최종
   상태를 맞출 것.
+- `useNapWatchdog`의 orphan 정리(`shouldTreatAsOrphaned`/`finalizeNapCleanup`,
+  알림 스와이프로 네이티브 알람만 죽고 `ActiveNap`은 JS에 남는 경로 감지)는
+  **"알람 단계"(소리·진동·`/alarm`·`/mission` 명언 관문)까지만 정리 범위다 — 기상
+  루틴(`/wake-stretch`~`/wake-water`)·설문(`/feedback`)은 절대 여기서 손대지 않는다.**
+  `finalizeNapCleanup`은 `ActiveNap`을 `PendingFeedback`으로 옮기고 그 다음 화면으로
+  라우팅만 할 뿐, 기상 루틴/설문을 "완료 처리"하는 게 아니다 — 그 이후 진행은 항상
+  사용자가 직접 밟는다. 새 정리 로직을 추가할 때 이 범위를 넘어서 `PendingFeedback`이나
+  `wakeChecklist`까지 건드리면 안 됨(`docs/decisions/swipe-ends-alarm-only.md`).
+- `AlarmService.onStartCommand()`(expo-alarm-module)의 `Helper.getAlarmNotification()`이
+  하는 Bitmap 디코딩은 `startForeground()` 호출을 지연시킨다 — 화면 잠금/Doze로
+  브로드캐스트·서비스 디스패치까지 늦춰지는 상황과 겹치면 OS의 foreground-service
+  시작 제한시간을 넘겨 `ForegroundServiceDidNotStartInTimeException`으로 앱
+  프로세스 전체가 죽는다(실기기 재현, 2026-07-19). `plugins/withAlarmForegroundStartFix.js`가
+  `startForeground()`만 최소 알림으로 앞당겨 이 크래시는 막았지만, 같은 Bitmap
+  디코딩 지연 뒤에야 호출되는 `Manager.start()`(→ `activeAlarmUid` 세팅, JS의
+  `isNativeAlarmActiveAsync()`가 폴링하는 값)의 순서는 그대로다 — "네이티브 알람은
+  fire했는데 `activeAlarmUid`는 아직 안 세팅된" 좁은 창은 이 패치로 줄지 않았다
+  (BACKLOG.md "미해결 — 알람 fire 직후 자체취소 레이스" 참고). 이 영역을 다시 만질
+  땐 크래시와 레이스를 같은 원인으로 섣불리 합치지 말 것 — 코드 경로가 다르다.
 
 코드 규칙
 

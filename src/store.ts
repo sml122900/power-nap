@@ -41,6 +41,13 @@ export interface ActiveNap {
   // Android에서 항상 notificationId가 채워지게 되며 더 이상 유효하지 않음).
   notificationPermissionGranted: boolean;
   isTest?: boolean; // 홈 화면 단축 테스트 버튼(10초/1분)으로 시작된 낮잠 — 학습에 반영하지 않는다.
+  // 홈 화면 "10초 알람 체험" 버튼으로 시작된 낮잠 — SHOW_TEST_BUTTONS와 무관하게 출시
+  // 빌드에도 상시 노출되는 사용자 기능이라 isTest와 개념·플래그를 분리했다(QA용 isTest는
+  // 손대지 않음, docs/decisions/preview-mode-isTest-vs-isPreview.md 참고). isTest처럼
+  // 기록에 남기되 표시만 다르게 하는 게 아니라, appendNapRecord 자체를 스킵해 기록·AI
+  // 분석·설정값(latency/caffeineOnset/totalNaps) 어디에도 흔적을 남기지 않는다
+  // (app/feedback.tsx의 shouldRecordNap 가드).
+  isPreview?: boolean;
   // 알람 화면의 슬라이드/롱프레스를 이번 낮잠에서 이미 통과했는지 — 미션이 켜져 있으면
   // 이 이후에 /mission으로 넘어가고(§순서: 슬라이드 먼저, 명언 나중), 알람음/진동은
   // 미션까지 계속 울린다(실제 정지·기록 저장은 미션 통과 시점 — src/finishNap.ts).
@@ -66,6 +73,9 @@ export interface PendingFeedback {
   // 테스트 낮잠(ActiveNap.isTest 승계) — true면 wake-water 화면이 /feedback 대신
   // 여기서 기록을 마무리하고 홈으로 보낸다(src/finishNap.ts 참고, 학습 오염 방지).
   isTest?: boolean;
+  // 체험 낮잠(ActiveNap.isPreview 승계) — /feedback까지 그대로 도달해 UI는 동일하게
+  // 겪지만, shouldRecordNap 가드가 appendNapRecord/applyManualAdjustment 둘 다 건너뛴다.
+  isPreview?: boolean;
 }
 
 // 후기 화면 4문항 설문(Phase 4-3) — 상/중/하 3단계, latency/caffeineOnset에 영향 없음
@@ -99,6 +109,9 @@ export interface NapRecord {
   mode: NapMode;
   offsetMinutes: number; // 이번 낮잠에 사용된 총 시간(분)
   isTest?: boolean; // 테스트 낮잠(ActiveNap.isTest 승계) — 히스토리에 표시만, 학습 반영 없음.
+  // isPreview 필드는 의도적으로 없다 — 체험 낮잠은 shouldRecordNap 가드가 appendNapRecord
+  // 호출 자체를 건너뛰므로 NapRecord가 만들어지지 않는다(즉 여기 도달하는 레코드는 전부
+  // isPreview:false와 동치). filterAnalyzableRecords도 그래서 isPreview를 볼 필요가 없다.
 
   // v1(레거시, Phase 4-2 이전 3버튼 후기/직접조정) — 신규 레코드는 설정하지 않는다.
   result?: NapRecordResult;
@@ -142,6 +155,15 @@ export function canRunAnalysis(recordCount: number): boolean {
 // 뺀다), sinceMs가 있으면 그 시각 이후 기록만. sinceMs 생략(전체 프리셋)이면 기간 제한 없음.
 export function filterAnalyzableRecords(records: NapRecord[], sinceMs?: number): NapRecord[] {
   return records.filter((r) => !r.isTest && (sinceMs === undefined || r.completedAt >= sinceMs));
+}
+
+// 체험 낮잠(isPreview)은 기록·학습값 어디에도 흔적을 남기지 않는다 — QA 테스트 낮잠
+// (isTest)은 기록엔 남고 AI 분석에서만 빠지는 것과 다르다(docs/decisions/
+// preview-mode-isTest-vs-isPreview.md). app/feedback.tsx의 제출/건너뛰기/직접조정
+// 3경로 모두 이 함수로 appendNapRecord 호출 여부를 판단하고, 직접조정은 추가로
+// applyManualAdjustment(설정값 변경)도 같은 조건으로 건너뛴다.
+export function shouldRecordNap(ctx: { isPreview?: boolean }): boolean {
+  return !ctx.isPreview;
 }
 
 export type AnalysisPeriod = '1w' | '2w' | '1m' | 'all';

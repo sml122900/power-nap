@@ -6,31 +6,54 @@ import { Platform } from 'react-native';
 import { type AudioPlayer } from 'expo-audio';
 
 import { cancelAlarmNotificationAsync, stopNativeAlarmSoundAsync } from './notifications';
-import { clearActiveNap, savePendingFeedback, type ActiveNap } from './store';
+import { clearActiveNap, savePendingFeedback, type ActiveNap, type PendingFeedback } from './store';
 
 export type FinishNapDestination = '/feedback' | '/wake-stretch';
+export type WakeRoute = '/wake-stretch' | '/wake-light' | '/wake-water' | '/feedback';
 
 // 라우팅 판정만 떼어낸 순수 함수 — 오디오/스토리지 없이 jest로 직접 검증한다(resolveNapRoute와
-// 같은 패턴). 테스트 낮잠도 실제 알람과 완전히 동일한 경로를 탄다(사용자 지시 — "모든 기능이
-// 테스트와 동일했으면"). 학습값 오염/AI 분석 데이터 오염은 라우팅이 아니라 각 지점에서 막는다:
-// app/feedback.tsx의 "직접 조정하기"는 isTest면 applyManualAdjustment를 건너뛰고 사용자에게
-// "반영되지 않았다"고 알린다, appendNapRecord는 항상 isTest를 실어 보내 AI 분석
-// (filterAnalyzableRecords)에서 제외되게 한다.
+// 같은 패턴). 테스트 낮잠(isTest)·체험 낮잠(isPreview) 둘 다 이 함수에서는 전혀 안 보인다 —
+// 의도적이다. 실제 알람과 완전히 동일한 경로를 태우는 게 두 기능 공통의 요구사항이라
+// (isTest는 사용자 지시 "모든 기능이 테스트와 동일했으면", isPreview는 "전체 흐름은 동일하게
+// 겪되"), 라우팅 단계에서 분기하면 그 요구사항이 깨진다. 데이터 오염 방지는 라우팅이 아니라
+// 각 부작용 지점에서 막는다: app/feedback.tsx의 "직접 조정하기"는 isTest 또는 isPreview면
+// applyManualAdjustment를 건너뛰고, appendNapRecord는 isPreview면 아예 호출되지 않으며
+// (shouldRecordNap 가드) 그 외엔 isTest를 실어 보내 AI 분석(filterAnalyzableRecords)에서만
+// 제외되게 한다. docs/decisions/preview-mode-isTest-vs-isPreview.md 참고.
 export function resolveFinishNapDestination(wakeRoutineEnabled: boolean): FinishNapDestination {
   return wakeRoutineEnabled ? '/wake-stretch' : '/feedback';
 }
 
-export async function finishNap(
-  player: AudioPlayer,
+// ActiveNap이 사라진 뒤(finalizeNapCleanup 완료 후) 기상 루틴/설문 도중 프로세스가
+// 죽었다가 재실행됐을 때, PendingFeedback.wakeChecklist를 보고 "어디부터 이어받을지"
+// 판정하는 순수 함수 — src/useNapWatchdog.ts가 nap이 없고 pending만 있을 때 이걸로
+// 콜드 스타트 복구 목적지를 정한다(docs/decisions/wake-routine-cold-start-resume.md).
+// wakeRoutineEnabled를 인자로 받는 이유: PendingFeedback엔 "이번 낮잠이 기상루틴을
+// 거쳤는지" 자체가 저장되지 않는다(resolveFinishNapDestination이 그 순간의 설정값으로
+// 딱 한 번 판정하고 흘려버림) — 복구 시점에도 현재 설정을 다시 읽어 같은 방식으로
+// 판정한다(finalizeNapCleanup과 동일 패턴, 낮잠 도중 설정이 바뀌는 엣지케이스는
+// 기존과 마찬가지로 특별 취급하지 않는다).
+export function resolveWakeRoute(pending: PendingFeedback, wakeRoutineEnabled: boolean): WakeRoute {
+  if (!wakeRoutineEnabled) return '/feedback';
+  const checklist = pending.wakeChecklist;
+  if (!checklist?.stretch) return '/wake-stretch';
+  if (!checklist?.light) return '/wake-light';
+  if (!checklist?.water) return '/wake-water';
+  return '/feedback';
+}
+
+// player(iOS expo-audio 정지)를 뺀 나머지 정리 로직 — src/useNapWatchdog.ts가 알림
+// 스와이프로 고아가 된 알람(ActiveNap)을 정리할 때도 이 함수를 그대로 쓴다. 그 경로엔
+// 화면에 마운트된 AudioPlayer가 없어(여러 화면이 공유하는 훅) player를 요구할 수 없다 —
+// 어차피 이 문제 자체가 Android 전용(iOS는 이 경로가 없음)이라 player.pause() 없이도
+// 안전하다.
+export async function finalizeNapCleanup(
   active: ActiveNap | null,
   wakeRoutineEnabled: boolean
 ): Promise<FinishNapDestination> {
-  // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈추고, iOS는 이
-  // 화면의 expo-audio 재생을 직접 멈춘다 — stopNativeAlarmSoundAsync는 Android에서만
-  // 동작하는 no-op 안전 래퍼다(src/notifications.ts 참고).
-  if (Platform.OS === 'ios') {
-    player.pause();
-  }
+  // Android는 네이티브 알람(stopAlarm)이 소리를 전담하므로 그쪽을 멈춘다.
+  // stopNativeAlarmSoundAsync/cancelAlarmNotificationAsync는 이미 꺼져/취소된 상태에
+  // 다시 호출해도 안전한 no-op이라(src/notifications.ts) 중복 호출을 방어할 필요 없다.
   await stopNativeAlarmSoundAsync();
   await cancelAlarmNotificationAsync(active?.notificationId ?? null);
 
@@ -46,9 +69,24 @@ export async function finishNap(
   const basisAt = active.mode === 'coffee' ? (active.coffeeDrankAt ?? active.startedAt) : active.startedAt;
   const offsetMinutes = Math.round((active.alarmAt - basisAt) / 60_000);
 
-  await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest });
+  // savePendingFeedback은 단일 키 덮어쓰기라 같은 active로 두 번 호출돼도(예: 정상 해제와
+  // 겹친 watchdog tick) 안전 — clearActiveNap도 removeItem이라 마찬가지로 멱등이다.
+  await savePendingFeedback({ mode: active.mode, offsetMinutes, isTest: active.isTest, isPreview: active.isPreview });
   // ActiveNap을 먼저 지워야 후기 화면에서 강제 종료돼도 재실행 시 알람으로
   // 되돌아가지 않는다(§6.4) — mode는 위에서 이미 pendingFeedback에 옮겨 담았다.
   await clearActiveNap();
   return destination;
+}
+
+export async function finishNap(
+  player: AudioPlayer,
+  active: ActiveNap | null,
+  wakeRoutineEnabled: boolean
+): Promise<FinishNapDestination> {
+  // iOS는 이 화면의 expo-audio 재생을 직접 멈춘다 — Android는 finalizeNapCleanup 안의
+  // stopNativeAlarmSoundAsync가 담당(그쪽은 no-op 안전 래퍼, src/notifications.ts 참고).
+  if (Platform.OS === 'ios') {
+    player.pause();
+  }
+  return finalizeNapCleanup(active, wakeRoutineEnabled);
 }

@@ -19,7 +19,7 @@ import { Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Notifications from 'expo-notifications';
-import { removeAlarm, scheduleAlarm, stopAlarm } from 'expo-alarm-module';
+import { getAlarmState, removeAlarm, scheduleAlarm, stopAlarm } from 'expo-alarm-module';
 
 import i18n from './i18n';
 
@@ -112,6 +112,18 @@ export async function cancelAlarmNotificationAsync(notificationId: string | null
 export async function stopNativeAlarmSoundAsync(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await stopAlarm();
+}
+
+// 알림 스와이프(setDeleteIntent, PROJECT.md §4)로 우리 화면을 거치지 않고 네이티브
+// 알람만 꺼지는 경로가 있다 — 그 경우 ActiveNap이 JS에 남아 useNapWatchdog이 죽은
+// 알람 화면으로 되돌아간다(진동만 남는 버그). expo-alarm-module의 Manager.activeAlarmUid는
+// 앱 메인 프로세스에서만 도는 static 필드(AlarmService가 android:process 미지정)라
+// getAlarmState()로 "지금 진짜 울리는 중인지"를 물어보면 이 경로를 감지할 수 있다.
+// iOS는 이 문제 자체가 없어(3중 레이어 구조가 다름) 항상 true로 기존 동작을 유지한다.
+export async function isNativeAlarmActiveAsync(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  const activeUid = await getAlarmState();
+  return activeUid === ANDROID_ALARM_UID;
 }
 
 // 수면 화면 "권한 허용하기" 버튼에서 호출. 지금 시점의 실제 권한 상태를 다시 조회한다
