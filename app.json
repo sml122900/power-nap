@@ -43,6 +43,7 @@
       "expo-alarm-module",
       "./plugins/withFullScreenAlarmIntent.js",
       "./plugins/withAlarmStopVibrationFix.js",
+      "./plugins/withAlarmForegroundStartFix.js",
       "expo-localization"
     ]
   }

@@ -249,6 +249,39 @@ PROJECT.md/STATUS.md 참조.
   짖는 상태(해제 트랙과 분리), 해제 성공=웃는 상태 + 완료 메시지, 이후
   기존 체크리스트/설문 흐름
 
+## 해결됨 — 알람 fire 시 화면 잠금 상태에서 프로세스 크래시 (P0, 2026-07-19)
+
+처음엔 "watchdog이 네이티브 상태를 오판해 자체취소하는 좁은 타이밍 레이스"로
+저심각도 추정했으나, logcat 전체 스택을 확인한 결과 **진짜 크래시**였음이 드러나
+정정한다.
+
+- 실제 원인: `AlarmReceiver.onReceive()`가 `startForegroundService()`를 부르는
+  순간 OS의 foreground-service 시작 제한시간 타이머가 시작되는데,
+  `AlarmService.onStartCommand()`(expo-alarm-module)는 `Storage.getAlarm()` →
+  `Helper.getAlarmNotification()`(Bitmap 디코딩 포함) → `Manager.start()`를 다
+  마친 뒤에야 `startForeground()`를 불렀다. 화면 잠금/Doze 상태에서 브로드캐스트·
+  서비스 디스패치 자체가 늦춰지는 것과 겹치면 제한시간을 넘겨
+  `ForegroundServiceDidNotStartInTimeException`으로 **앱 프로세스 전체가
+  FATAL EXCEPTION으로 죽는다.** 크래시 후 자동 재시작 없이 죽은 채로 남음(재현
+  세션에서 51초간 무응답, 수동 재실행 전까지). watchdog의 orphan 정리가 실행된 건
+  결과였을 뿐 원인이 아니었다 — 프로세스가 죽어 네이티브 알람이 진짜로 사라졌으니
+  다음 실행 시 정상적으로 orphan 판정한 것.
+- 재현: 화면 잠금 상태로 알람 fire 대기 1건에서 재현, 화면 켜둔 채 테스트한
+  나머지 모든 낮잠에서는 크래시 없음 — 화면 꺼짐 상태에서만 지연이 제한시간을
+  넘기는 것으로 보임(실사용 핵심 시나리오 — 낮잠 자는 동안 화면은 항상 꺼져있음).
+- 수정: `plugins/withAlarmForegroundStartFix.js` 신규(`AlarmService.java`
+  세 번째 anchor 패치, `withAlarmStopVibrationFix.js`와 같은 패턴). `startForeground()`를
+  Bitmap 디코딩 없는 최소 알림으로 즉시 먼저 호출해 제한시간 안에 반드시 걸리게
+  하고, 실제 알람 알림은 그 다음 만들어 같은 id(1)로 갱신(표준 Android 패턴).
+  app.json plugins 배열에 `withAlarmStopVibrationFix.js` 다음 순서로 등록.
+- 검증: 실기기 재빌드 후 동일 시나리오(화면 잠금 상태로 알람 fire) 재현 —
+  logcat에 `ForegroundServiceDidNotStartInTimeException`/FATAL EXCEPTION
+  없음, `ps`로 프로세스 생존 확인. 알람 화면 자체의 시각적 확인은 기기의
+  보안 잠금(PIN/패턴)이 adb 우회를 막아 못 함 — 로그/프로세스 레벨 증거로
+  대체. 체크리스트 A-2/C-2/D-3/F-3/F-4/G 전 항목 회귀 없음 확인 완료
+  (docs/daily/2026-07-20.md 참조). H(커피냅/잠금화면 자동기상/무음모드)는
+  저우선순위로 보류.
+
 ## v1.1
 
 - ~~낮잠 히스토리 화면: 지난 낮잠 기록 열람~~ — 사용자 요청으로 코드 동결 중 선구현(STATUS.md 참조).
