@@ -82,7 +82,8 @@
     "permissionHintAndroid": "The alarm sound and vibration will play. However, without notification permission the screen won't turn on automatically — please open the app yourself to turn off the alarm when it rings.",
     "permissionGuide": "In Settings, turn on the 'Allow notifications' switch",
     "permissionButton": "Allow permission",
-    "cancelButton": "Stop the nap now"
+    "cancelButton": "Stop the nap now",
+    "restHint": "Put your phone down and close your eyes"
   },
   "alarm": {
     "title": "Time to wake up",

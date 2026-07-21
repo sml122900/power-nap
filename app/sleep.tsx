@@ -75,6 +75,7 @@ export default function SleepScreen() {
 
   const breathScale = useSharedValue(1);
   const breathOpacity = useSharedValue(0.5);
+  const restHintOpacity = useSharedValue(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,15 +95,30 @@ export default function SleepScreen() {
         ),
         -1
       );
+      // 페이드 인(2.6s) → 유지(1s) → 페이드 아웃(2.6s) → 유지(0.8s), 한 사이클 7s.
+      // 0까지 안 내리는 이유: 완전히 사라지면 깜빡임처럼 보여 각성을 유발한다.
+      restHintOpacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1000 }),
+          withTiming(0.2, { duration: 2600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: 800 })
+        ),
+        -1
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, [breathScale, breathOpacity]);
+  }, [breathScale, breathOpacity, restHintOpacity]);
 
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breathScale.value }],
     opacity: breathOpacity.value,
+  }));
+
+  const restHintStyle = useAnimatedStyle(() => ({
+    opacity: restHintOpacity.value,
   }));
 
   const onCancel = async () => {
@@ -141,6 +157,7 @@ export default function SleepScreen() {
         <Text style={styles.label}>{t('countdownLabel')}</Text>
         <Text style={[styles.countdown, tabularNums]}>{countdownText}</Text>
         <Text style={[styles.wakeAt, tabularNums]}>{wakeAtText}</Text>
+        <Animated.Text style={[styles.restHint, restHintStyle]}>{t('restHint')}</Animated.Text>
 
         {!permissionGranted && (
           // 알림 권한 거부 시 실제로 벌어지는 일이 플랫폼마다 다르다(src/notifications.ts
@@ -220,6 +237,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontFamily.semibold,
     color: colors.nightSoft,
+    textAlign: 'center',
+  },
+  restHint: {
+    marginTop: 28,
+    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    color: colors.onDarkMuted,
     textAlign: 'center',
   },
   permissionHint: {

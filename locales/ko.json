@@ -82,7 +82,8 @@
     "permissionHintAndroid": "알람 소리와 진동은 울려요. 다만 알림 권한이 없어 화면이 자동으로 켜지지 않으니, 알람이 울리면 직접 앱을 열어 꺼주세요.",
     "permissionGuide": "설정 화면에서 '알림 허용' 스위치를 켜주세요",
     "permissionButton": "권한 허용하기",
-    "cancelButton": "그만 자고 일어나기"
+    "cancelButton": "그만 자고 일어나기",
+    "restHint": "휴대폰을 놓고 눈을 감으세요"
   },
   "alarm": {
     "title": "일어날 시간이에요",
