@@ -283,6 +283,14 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   `versionCode: 1`이 조용히 추가된 채 발견됨(실제 사례). prebuild를 실행한 뒤에는
   항상 `git diff app.json`으로 의도치 않은 필드 추가가 없는지 확인할 것 — 있다면
   그 필드가 실제로 필요한 값인지 따로 판단해 커밋을 분리한다(위젯 기능 커밋과 섞지 않음).
+- `expo run:android`는 `android/`가 이미 존재하면 config plugin을 다시 안 돌린다
+  (`expo prebuild`를 명시적으로 호출해야만 plugin이 재적용됨). `plugins/withHomeScreenWidgets.js`의
+  위젯 라벨을 커밋(76c1c02)으로 바꿔도, 그 이전에 생성된 android/를 그대로 쓰는
+  `expo run:android` 빌드는 옛 문자열이 박힌 채로 계속 나온다(실기기 위젯에 옛 라벨이
+  남아있던 원인 — 2026-07-23, 별개로 진행한 릴리즈 서명 작업에서 `expo prebuild --clean`을
+  돌리며 우연히 해결됨). config plugin(문자열·매니페스트·네이티브 코드 패치 등)을 고친
+  뒤에는 반드시 `expo prebuild --clean` 후 재빌드할 것 — `expo run:android`만 다시
+  돌리는 걸로는 반영 안 됨.
 
 코드 규칙
 

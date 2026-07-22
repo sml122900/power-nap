@@ -519,10 +519,10 @@ const createStyles = (colors: ThemeColors) =>
     marginTop: 44,
   },
   title: {
-    fontSize: 28,
+    fontSize: 36,
     fontFamily: fontFamily.heavy,
-    letterSpacing: -0.84,
-    lineHeight: 35,
+    letterSpacing: -1.08,
+    lineHeight: 45,
     color: colors.ink,
   },
   subtitle: {
