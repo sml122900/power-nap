@@ -202,6 +202,13 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.dataSection}>
+          <Text style={styles.dataSectionLabel}>{t('onboardingSectionLabel')}</Text>
+          <Pressable onPress={() => router.push('/onboarding')} style={styles.linkBtn}>
+            <Text style={styles.linkBtnText}>{t('onboardingReplayLink')}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.dataSection}>
           <Text style={styles.dataSectionLabel}>{t('dataSectionLabel')}</Text>
           <View style={styles.dataRow}>
             <Text style={styles.dataRowText}>

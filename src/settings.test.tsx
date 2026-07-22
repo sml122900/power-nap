@@ -1,5 +1,6 @@
-// 설정 화면 스크롤 회귀 방지용 렌더 테스트 — 6개 섹션(언어/미션/기상 루틴/데이터 및 분석/
-// 데이터 삭제/약관 및 정책)이 전부 트리에 존재하는지만 확인한다(스냅샷 수준). 낮잠 타이밍
+// 설정 화면 스크롤 회귀 방지용 렌더 테스트 — 7개 섹션(언어/미션/기상 루틴/둘러보기/
+// 데이터 및 분석/데이터 삭제/약관 및 정책)이 전부 트리에 존재하는지만 확인한다(스냅샷
+// 수준). 낮잠 타이밍
 // 조정/명언 수정/구매 복원은 마이페이지(mypage.test.tsx)로 이동했다. ScrollView 없이
 // plain View로 되돌아가면 화면 자체는 여전히 렌더되므로, 이 테스트는 "스크롤 가능 여부"가
 // 아니라 "섹션이 전부 마운트되는지"를 지킨다 — 실제 스크롤 동작은 실기기 확인 몫.
@@ -43,7 +44,7 @@ function ThemedSettingsScreen() {
 }
 
 describe('SettingsScreen', () => {
-  it('renders all six sections, and no longer the items moved to mypage', async () => {
+  it('renders all seven sections, and no longer the items moved to mypage', async () => {
     renderRouter({ settings: ThemedSettingsScreen }, { initialUrl: '/settings' });
 
     // 초기 렌더는 getSettings() 비동기 로드 전이라 빈 View — 로드 완료를 기다린다.
@@ -51,6 +52,8 @@ describe('SettingsScreen', () => {
 
     expect(screen.getByText('알람 해제 미션')).toBeTruthy();
     expect(screen.getByText('기상 루틴')).toBeTruthy();
+    expect(screen.getByText('둘러보기')).toBeTruthy();
+    expect(screen.getByText('온보딩 다시 보기')).toBeTruthy();
     expect(screen.getByText('데이터 및 분석')).toBeTruthy();
     expect(screen.getByText('데이터 삭제')).toBeTruthy();
     expect(screen.getByText('약관 및 정책')).toBeTruthy();

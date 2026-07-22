@@ -223,7 +223,9 @@
     "wakeRoutineOnDescription": "On — dismissing the alarm leads through stretch, light, and water steps before the survey",
     "wakeRoutineOffDescription": "Off — dismissing the alarm goes straight to the survey",
     "wakeRoutineToggleOn": "Turn on",
-    "wakeRoutineToggleOff": "Turn off"
+    "wakeRoutineToggleOff": "Turn off",
+    "onboardingSectionLabel": "Tour",
+    "onboardingReplayLink": "Replay onboarding"
   },
   "mypage": {
     "title": "My Page",
