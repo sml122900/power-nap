@@ -45,6 +45,7 @@
       "./plugins/withFullScreenAlarmIntent.js",
       "./plugins/withAlarmStopVibrationFix.js",
       "./plugins/withAlarmForegroundStartFix.js",
+      "./plugins/withHomeScreenWidgets.js",
       "expo-localization"
     ]
   }
