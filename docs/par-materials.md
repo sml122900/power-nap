@@ -430,3 +430,25 @@ SUBSCRIPTION이라 소모성 상품이 조용히 빈 배열로 실패)도 발견
 검증 없이 채택하지 않고, 검증에 필요한 조건(실기기, 프로세스 킬 상태)이 이번 세션
 범위에서 충족 불가능하다는 걸 먼저 인지해 더 단순하고 검증 가능한 대안으로 스스로
 방향을 튼 사례.
+
+## 배포 직전 실기기 서명 검증으로 프레임워크 기본값 방치를 발견하고 구조적으로 재발 차단
+
+**Problem**: release configuration 전환 커밋 이후 릴리즈 빌드를 실기기에 설치하는
+과정에서, 서명 상태를 실제로 확인해본 적이 없다는 걸 인지했다. Expo bare 템플릿이
+생성하는 `build.gradle`은 `buildTypes.release`가 `signingConfigs.debug`를 그대로
+쓰도록 기본 설정돼 있어, 겉보기엔 정상 동작하는 릴리즈 빌드가 실제로는 디버그
+키로 서명 중이었다(Play 업로드 시점에야 발견됐다면 전체 배포 일정이 막혔을 문제).
+
+**Action**: `apksigner verify --print-certs`로 실제 APK 인증서를 직접 열어 확인해
+`CN=Android Debug`임을 확정했다. 단순히 release keystore를 새로 만들어 넣는 데
+그치지 않고, 이 프로젝트의 `android/` 디렉터리가 `expo prebuild --clean`으로 통째로
+재생성되는 구조라는 점(gitignore됨, 손으로 고친 네이티브 설정은 다음 clean prebuild
+에서 소실)까지 감안해 config plugin(`plugins/withReleaseSigning.js`)으로 서명 설정
+자체를 코드화했다. keystore 파일은 리포 완전히 바깥에 두고, 비밀번호 등 4개 값
+중 하나라도 비어있으면 prebuild가 명확한 에러로 실패하도록 만들어 "값이 없으면
+조용히 debug 키로 되돌아가는" 실패 모드를 원천 차단했다.
+
+**Result**: 재빌드 후 `CN=SungMin-Lee`(실제 릴리즈 인증서)로 서명됨을 확인,
+keystore·비밀번호는 리포 히스토리 어디에도 없이 안전하게 분리됐다. `android/`를
+몇 번을 지우고 재생성해도 서명 설정이 매번 자동 복원돼, 이후 세션에서 같은 실수가
+구조적으로 반복될 수 없게 만든 사례.
