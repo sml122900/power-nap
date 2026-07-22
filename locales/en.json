@@ -3,8 +3,8 @@
     "close": "Close",
     "cancel": "Cancel",
     "napMode": {
-      "fast": "Fall asleep fast",
-      "slow": "Toss and turn",
+      "fast": "Very sleepy",
+      "slow": "A bit sleepy",
       "coffee": "Coffee nap"
     },
     "rating": {
@@ -25,8 +25,8 @@
     "aboutLink": "About PowerNap",
     "title": "Feeling sleepy?\nJust tap.",
     "subtitle": "We'll do the math. You'll wake up at just the right time.",
-    "fastMode": "I'll fall asleep fast",
-    "slowMode": "I might toss and turn",
+    "fastMode": "Very sleepy",
+    "slowMode": "A bit sleepy",
     "alarmDetail": "in {{minutes}} min · alarm at {{time}}",
     "coffeeMode": "Coffee nap",
     "coffeeDetail": "Wake up {{minutes}} min after coffee",
@@ -39,7 +39,7 @@
     "coffeePreview": "Alarm at {{time}} (in {{minutes}} min)",
     "coffeeConfirm": "Start with this time",
     "learnNote": "Sleep specialists recommend napping for 15–20 minutes.\nIt typically takes 10–20 minutes to fall asleep.\nSo we recommend a 25–40 minute alarm.\nYou can adjust your alarm timing in My Page, based on AI and your stats.",
-    "learnNoteBold": "Current times — fall asleep fast {{fast}} min · toss and turn {{slow}} min",
+    "learnNoteBold": "Current times — very sleepy {{fast}} min · a bit sleepy {{slow}} min",
     "devTest1min": "Test: 1 min nap",
     "devTest10sec": "Test: 10 sec",
     "devSeedDummyRecords": "5 dummy records",
@@ -105,7 +105,7 @@
     "title": "How was your nap?",
     "subtitle": "Even a quick check gets saved as a record.",
     "statusCoffee": "My caffeine onset: {{minutes}} min",
-    "statusDefault": "My sleep latency: fall asleep {{fast}} min · toss and turn {{slow}} min",
+    "statusDefault": "My sleep latency: very sleepy {{fast}} min · a bit sleepy {{slow}} min",
     "question": {
       "posture": "Posture comfort",
       "noise": "Noise blocking",
@@ -241,8 +241,8 @@
   "alarmTiming": {
     "title": "Alarm Timing",
     "rowLabel": {
-      "fast": "Sleep latency — I'll fall asleep fast",
-      "slow": "Sleep latency — I might toss and turn",
+      "fast": "Sleep latency — Very sleepy",
+      "slow": "Sleep latency — A bit sleepy",
       "coffee": "Caffeine onset time"
     },
     "previewCoffee": "Wake up {{value}} min after coffee",
@@ -349,8 +349,8 @@
     "suggestion": {
       "latencyTitle": "Suggested sleep latency adjustment",
       "caffeineTitle": "Suggested caffeine onset adjustment",
-      "fastLabel": "Fall asleep fast {{sign}}{{minutes}} min",
-      "slowLabel": "Toss and turn {{sign}}{{minutes}} min",
+      "fastLabel": "Very sleepy {{sign}}{{minutes}} min",
+      "slowLabel": "A bit sleepy {{sign}}{{minutes}} min",
       "caffeineLabel": "{{sign}}{{minutes}} min",
       "apply": "Apply to settings",
       "applied": "Applied"

@@ -94,7 +94,7 @@ describe('detailRows — expanded detail view', () => {
     const rows = detailRows(record);
     expect(rows).toEqual([
       { label: '날짜', value: expect.any(String) },
-      { label: '모드', value: '바로 잠듦' },
+      { label: '모드', value: '매우 졸림' },
       { label: '사용 시간', value: '20분' },
       { label: '후기 결과', value: '딱 좋았어요' },
     ]);
@@ -110,7 +110,7 @@ describe('detailRows — expanded detail view', () => {
     const rows = detailRows(record);
     expect(rows).toEqual([
       { label: '날짜', value: expect.any(String) },
-      { label: '모드', value: '뒤척임' },
+      { label: '모드', value: '조금 졸림' },
       { label: '사용 시간', value: '32분' },
       { label: '자세', value: '중' },
       { label: '소음', value: '하' },

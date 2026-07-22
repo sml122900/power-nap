@@ -263,8 +263,8 @@ class ${PROVIDER_NAMES.l} : BaseNapWidgetProvider(R.layout.widget_l, hasSlow = t
 // ---- strings (values/ 영어 기본 + values-ko/ 한국어) ----
 
 const STRINGS_EN = `<resources>
-    <string name="widget_fast_title">I’ll fall asleep fast</string>
-    <string name="widget_slow_title">I might toss and turn</string>
+    <string name="widget_fast_title">Very sleepy</string>
+    <string name="widget_slow_title">A bit sleepy</string>
     <string name="widget_coffee_title">Coffee nap</string>
     <string name="widget_tap_hint_nap">Tap to set the alarm now</string>
     <string name="widget_tap_hint_coffee">Tap to enter when you had it</string>
@@ -275,8 +275,8 @@ const STRINGS_EN = `<resources>
 `;
 
 const STRINGS_KO = `<resources>
-    <string name="widget_fast_title">바로 잠들 것 같아요</string>
-    <string name="widget_slow_title">좀 뒤척일 것 같아요</string>
+    <string name="widget_fast_title">매우 졸림</string>
+    <string name="widget_slow_title">조금 졸림</string>
     <string name="widget_coffee_title">커피냅</string>
     <string name="widget_tap_hint_nap">탭하면 지금 알람이 맞춰져요</string>
     <string name="widget_tap_hint_coffee">탭하면 마신 시각을 입력해요</string>

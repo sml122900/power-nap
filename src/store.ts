@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { AnalysisDetail, AnalysisListItem } from './analysisTypes';
 
-export type NapMode = 'fast' | 'slow' | 'coffee'; // 바로 잠듦 / 뒤척임 / 커피냅
+export type NapMode = 'fast' | 'slow' | 'coffee'; // 매우 졸림 / 조금 졸림 / 커피냅
 
 // 일반 낮잠의 목표 수면 시간(분) — 학습 대상 아님, 고정 상수.
 export const TARGET_SLEEP_MIN = 20;

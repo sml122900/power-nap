@@ -38,8 +38,8 @@ describe('AlarmTimingScreen', () => {
     renderRouter({ 'alarm-timing': ThemedAlarmTimingScreen }, { initialUrl: '/alarm-timing' });
     await waitFor(() => expect(screen.getByText('알람 시간 조정')).toBeTruthy());
 
-    expect(screen.getByText('수면 대기시간 — 바로 잠들 것 같아요')).toBeTruthy();
-    expect(screen.getByText('수면 대기시간 — 좀 뒤척일 것 같아요')).toBeTruthy();
+    expect(screen.getByText('수면 대기시간 — 매우 졸림')).toBeTruthy();
+    expect(screen.getByText('수면 대기시간 — 조금 졸림')).toBeTruthy();
     expect(screen.getByText('카페인 발현시간')).toBeTruthy();
 
     // 세 행(fast/slow/coffee) 모두 같은 접근성 라벨("1분 늘리기")을 쓴다(기존 stepIncreaseA11y
