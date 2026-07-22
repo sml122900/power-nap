@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.lifebook.powernap"
+      "package": "com.lifebook.powernap",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
