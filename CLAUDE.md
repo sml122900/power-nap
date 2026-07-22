@@ -291,6 +291,16 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   돌리며 우연히 해결됨). config plugin(문자열·매니페스트·네이티브 코드 패치 등)을 고친
   뒤에는 반드시 `expo prebuild --clean` 후 재빌드할 것 — `expo run:android`만 다시
   돌리는 걸로는 반영 안 됨.
+- Expo bare 템플릿은 `android/app/build.gradle`의 `buildTypes.release`가
+  `signingConfigs.debug`를 그대로 쓴다 — 릴리즈 빌드가 `CN=Android Debug`로 서명되어
+  Play 업로드가 불가능하다(2026-07-23, `apksigner verify --print-certs`로 실제 릴리즈
+  APK에서 확인). `android/`는 `expo prebuild --clean`으로 재생성되므로 keystore 파일과
+  signingConfig는 반드시 리포 바깥(예: `C:\Users\<user>\keys\...`)에 두고
+  `plugins/withReleaseSigning.js`(config plugin, `.env`의 `RELEASE_KEYSTORE_PATH` /
+  `RELEASE_KEY_ALIAS` / `RELEASE_KEYSTORE_PASSWORD` / `RELEASE_KEY_PASSWORD`를 읽어
+  매 prebuild마다 주입)로 관리한다 — android/ 안에 직접 커밋하거나 build.gradle을
+  손으로 고치면 다음 prebuild --clean에서 사라진다. 이 네 변수 중 하나라도 비어있으면
+  plugin이 prebuild 자체를 실패시키게 해뒀다(조용히 debug 키로 되돌아가는 걸 막기 위함).
 
 코드 규칙
 
