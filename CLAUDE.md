@@ -270,6 +270,19 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   fire했는데 `activeAlarmUid`는 아직 안 세팅된" 좁은 창은 이 패치로 줄지 않았다
   (BACKLOG.md "미해결 — 알람 fire 직후 자체취소 레이스" 참고). 이 영역을 다시 만질
   땐 크래시와 레이스를 같은 원인으로 섣불리 합치지 말 것 — 코드 경로가 다르다.
+- RemoteViews(홈 화면 위젯)는 인플레이트 가능한 뷰 클래스가 제한된다 — 일반 레이아웃
+  에서는 되는 `<View>`가 위젯에서는 "Class not allowed to be inflated android.view.View"
+  로 크래시한다(실기기 확인, `plugins/withHomeScreenWidgets.js`에서 spacer 용도로 쓰다가
+  M/L 위젯이 "위젯을 추가할 수 없습니다" 에러 박스로 렌더링 실패한 채 발견됨). 대신
+  LinearLayout/버튼 쪽에 `layout_marginEnd`/`layout_marginBottom`을 줘서 간격을 만들 것.
+  위젯 레이아웃은 RemoteViews 허용 목록(LinearLayout/FrameLayout/RelativeLayout/GridLayout
+  같은 컨테이너, TextView/ImageView/Button/ProgressBar 등 leaf 뷰) 안에서만 작성 —
+  v1.1에서 위젯 확장(잔여시간 표시 등) 시 새 레이아웃 요소 추가할 때마다 재확인할 것.
+- `expo prebuild --clean`은 app.json에 없던 필드(예: `android.versionCode`)를 기본값으로
+  새로 써넣을 수 있다 — 위젯 레이아웃 수정을 반영하려고 prebuild를 재실행했을 뿐인데
+  `versionCode: 1`이 조용히 추가된 채 발견됨(실제 사례). prebuild를 실행한 뒤에는
+  항상 `git diff app.json`으로 의도치 않은 필드 추가가 없는지 확인할 것 — 있다면
+  그 필드가 실제로 필요한 값인지 따로 판단해 커밋을 분리한다(위젯 기능 커밋과 섞지 않음).
 
 코드 규칙
 
