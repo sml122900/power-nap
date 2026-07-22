@@ -23,12 +23,15 @@ import { openExactAlarmSettingsAsync, scheduleAlarmNotificationAsync } from '@/n
 import {
   appendNapRecord,
   computeCoffeeAlarmAt,
+  getActiveNap,
   getSettings,
+  resolveWidgetModeAction,
   saveActiveNap,
   TARGET_SLEEP_MIN,
   type ActiveNap,
   type NapMode,
   type Settings,
+  type WidgetMode,
 } from '@/store';
 import { fontFamily, radius, tabularNums, type ThemeColors } from '@/theme';
 import { useThemeColors } from '@/ThemeContext';
@@ -40,19 +43,46 @@ const TOAST_DURATION_MS = 3200;
 const COFFEE_MINUTES_AGO_MAX = 120;
 const CHIP_ANIM_MS = 150;
 
+// 홈 위젯(S/M/L) 딥링크(powernap:///?widgetMode=fast|slow|coffee) 진입 처리 — 판정
+// (resolveWidgetModeAction)과 실행(기존 startFastSlow/coffee 패널/toast)을 잇는 얇은
+// 접합부만 컴포넌트 바깥 함수로 뺐다. HomeScreen을 렌더하지 않고도(reanimated
+// FadeIn.duration() 등 네이티브 의존성 없이) jest로 재탭 가드를 검증하기 위함 —
+// resolveNapRoute/resolveMissionAttempt와 같은 "렌더 불가 영역은 로직만 분리" 패턴.
+export interface WidgetModeEntryDeps {
+  getActiveNap: () => Promise<ActiveNap | null>;
+  onAlreadyNapping: () => void;
+  onOpenCoffeePanel: () => void;
+  onStartNap: (mode: 'fast' | 'slow') => void;
+}
+
+export async function handleWidgetModeEntry(mode: WidgetMode, deps: WidgetModeEntryDeps): Promise<void> {
+  const nap = await deps.getActiveNap();
+  const action = resolveWidgetModeAction(mode, nap !== null);
+  if (action.kind === 'alreadyNapping') {
+    deps.onAlreadyNapping();
+    return;
+  }
+  if (action.kind === 'openCoffeePanel') {
+    deps.onOpenCoffeePanel();
+    return;
+  }
+  deps.onStartNap(action.mode);
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation('home');
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   useNapWatchdog('/');
-  const { toast } = useLocalSearchParams<{ toast?: string }>();
+  const { toast, widgetMode } = useLocalSearchParams<{ toast?: string; widgetMode?: WidgetMode }>();
 
   const [now, setNow] = useState(() => new Date());
   const [latency, setLatency] = useState<Settings['latency']>(DEFAULT_LATENCY);
   const [caffeineOnset, setCaffeineOnset] = useState(DEFAULT_CAFFEINE_ONSET);
   const [reduceMotion, setReduceMotion] = useState(false);
   const startingRef = useRef(false);
+  const widgetHandledRef = useRef(false);
   // 후기 화면에서 넘어온 토스트 문구는 마운트 시점 값만 캡처한다 — 이후 같은 화면에
   // 머무는 동안 라우터 파라미터가 남아있어도 다시 뜨지 않는다.
   const [toastMessage, setToastMessage] = useState<string | null>(() => toast ?? null);
@@ -206,6 +236,23 @@ export default function HomeScreen() {
     setCoffeeOpen((open) => !open);
     setCustomOpen(false);
   };
+
+  // 위젯 딥링크 진입 처리 — 판정/접합 로직은 컴포넌트 바깥의 handleWidgetModeEntry로
+  // 뺐다(위 주석 참고). 여기서는 실제 화면 동작(startFastSlow/coffee 패널/toast)에
+  // 연결만 한다 — 위젯 전용 새 알람 경로를 만들지 않는다(CLAUDE.md "예약/취소 반드시
+  // 쌍" 원칙과 같은 이유, 두 곳에 독립된 로직을 두지 않음). ActiveNap 존재 여부는
+  // useNapWatchdog의 비동기 리다이렉트와 타이밍을 경쟁하지 않도록 여기서 직접 다시
+  // 확인한다(재탭 가드, handleWidgetModeEntry 내부).
+  useEffect(() => {
+    if (!widgetMode || widgetHandledRef.current) return;
+    widgetHandledRef.current = true;
+    handleWidgetModeEntry(widgetMode, {
+      getActiveNap,
+      onAlreadyNapping: () => setToastMessage(t('toastWidgetAlreadyNapping')),
+      onOpenCoffeePanel: () => setCoffeeOpen(true),
+      onStartNap: (mode) => startFastSlow(mode),
+    });
+  }, [widgetMode]);
 
   const openCustom = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

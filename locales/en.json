@@ -44,6 +44,7 @@
     "devTest10sec": "Test: 10 sec",
     "devSeedDummyRecords": "5 dummy records",
     "toastDummyRecordsSeeded": "Created 5 dummy nap records",
+    "toastWidgetAlreadyNapping": "You're already napping — your existing alarm is unchanged.",
     "previewButton": "Try a 10-Sec Alarm",
     "scheduleFailedTitle": "Couldn't set the alarm",
     "scheduleFailedBodyAndroid": "If \"Alarms & reminders\" permission is off in your phone settings, the alarm can't be scheduled. Please check the permission in Settings.",

@@ -166,6 +166,25 @@ export function shouldRecordNap(ctx: { isPreview?: boolean }): boolean {
   return !ctx.isPreview;
 }
 
+// 홈 화면 위젯(S/M/L) 버튼 탭 → 딥링크(powernap:///?widgetMode=fast|slow|coffee)로 앱이
+// 열렸을 때 취할 동작 판정 — resolveNapRoute와 같은 이유로 순수 함수로 뺀다. 이미
+// ActiveNap이 있으면(다른 낮잠이 진행 중) 새 알람을 걸지 않고 안내만 한다(기존 알람 유지 —
+// 취소 누락과 반대로 "의도치 않은 재예약"도 유령 알람 부류의 사고라 막는다). coffee는
+// 위젯에서 시각을 입력받을 수 없어(RemoteViews는 정적 뷰) 앱의 기존 인라인 커피냅
+// 패널(칩+직접입력)을 펼치기만 한다 — 새 화면이 아니다.
+export type WidgetMode = NapMode;
+
+export type WidgetModeAction =
+  | { kind: 'alreadyNapping' }
+  | { kind: 'openCoffeePanel' }
+  | { kind: 'startNap'; mode: 'fast' | 'slow' };
+
+export function resolveWidgetModeAction(mode: WidgetMode, hasActiveNap: boolean): WidgetModeAction {
+  if (hasActiveNap) return { kind: 'alreadyNapping' };
+  if (mode === 'coffee') return { kind: 'openCoffeePanel' };
+  return { kind: 'startNap', mode };
+}
+
 export type AnalysisPeriod = '1w' | '2w' | '1m' | 'all';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
