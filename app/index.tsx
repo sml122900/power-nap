@@ -20,10 +20,13 @@ import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatTime } from '@/format';
 import { openExactAlarmSettingsAsync, scheduleAlarmNotificationAsync } from '@/notifications';
+import { shouldShowOnboarding } from '@/onboarding';
 import {
   appendNapRecord,
   computeCoffeeAlarmAt,
   getActiveNap,
+  getOnboardingComplete,
+  getPendingFeedback,
   getSettings,
   resolveWidgetModeAction,
   saveActiveNap,
@@ -83,6 +86,7 @@ export default function HomeScreen() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const startingRef = useRef(false);
   const widgetHandledRef = useRef(false);
+  const onboardingCheckedRef = useRef(false);
   // 후기 화면에서 넘어온 토스트 문구는 마운트 시점 값만 캡처한다 — 이후 같은 화면에
   // 머무는 동안 라우터 파라미터가 남아있어도 다시 뜨지 않는다.
   const [toastMessage, setToastMessage] = useState<string | null>(() => toast ?? null);
@@ -252,6 +256,30 @@ export default function HomeScreen() {
       onOpenCoffeePanel: () => setCoffeeOpen(true),
       onStartNap: (mode) => startFastSlow(mode),
     });
+  }, [widgetMode]);
+
+  // 첫 실행 온보딩 게이트 — useNapWatchdog의 라우팅과는 독립적인 1회성 판정이라
+  // 서로 경쟁하지 않는다: nap/pending이 없으면 resolveNapRoute도 '/'를 돌려줘
+  // useNapWatchdog은 애초에 replace를 안 부르고(target===currentRoute 가드),
+  // nap/pending이 있으면 shouldShowOnboarding이 false라 이 effect가 아무것도
+  // 안 한다 — 두 훅이 동시에 router.replace를 부르는 경우가 구조적으로 없다.
+  // 위젯 딥링크(widgetMode 존재)도 마찬가지로 온보딩보다 우선한다.
+  useEffect(() => {
+    if (onboardingCheckedRef.current) return;
+    onboardingCheckedRef.current = true;
+    (async () => {
+      const [complete, nap, pending] = await Promise.all([
+        getOnboardingComplete(),
+        getActiveNap(),
+        getPendingFeedback(),
+      ]);
+      const show = shouldShowOnboarding({
+        onboardingComplete: complete,
+        widgetMode: widgetMode ?? null,
+        hasNapInProgress: nap !== null || pending !== null,
+      });
+      if (show) router.replace('/onboarding');
+    })();
   }, [widgetMode]);
 
   const openCustom = () => {

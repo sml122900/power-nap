@@ -360,5 +360,25 @@
     "askPlaceholder": "Ask a question",
     "askButton": "Ask",
     "askButtonSending": "Answering"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "getStarted": "Get Started",
+    "slide1": {
+      "title": "Three nap modes, one calculation",
+      "body": "Very sleepy, A bit sleepy, Coffee nap — pick what fits, and the app works out your wake-up time."
+    },
+    "slide2": {
+      "title": "Want to wake up for sure?",
+      "body": "A stretch-light-water routine kicks in after the alarm by default. Turn on the quote-typing mission in Settings if you want it harder to snooze."
+    },
+    "slide3": {
+      "title": "AI analysis of your naps",
+      "body": "Get an AI breakdown of your nap patterns from My Page — free once a week."
+    },
+    "slide4": {
+      "title": "Start in one tap from home",
+      "body": "Add the PowerNap widget and one tap opens the app with your alarm already set. Add it anytime by long-pressing your home screen."
+    }
   }
 }

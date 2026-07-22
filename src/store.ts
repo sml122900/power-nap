@@ -141,6 +141,7 @@ const KEYS = {
   aiConsent: 'powernap:aiConsent',
   analysisListCache: 'powernap:analysisListCache',
   analysisDetailCache: 'powernap:analysisDetailCache',
+  onboardingComplete: 'powernap:onboardingComplete',
 } as const;
 
 // AI_ANALYSIS.md §2 "분석 가능 조건: NapRecord 최소 5개 이상" — 클라이언트(진입점 비활성)와
@@ -454,6 +455,18 @@ export async function getAiConsent(): Promise<boolean | null> {
 
 export async function setAiConsent(consented: boolean): Promise<void> {
   await AsyncStorage.setItem(KEYS.aiConsent, String(consented));
+}
+
+// 첫 실행 온보딩(전체화면 튜토리얼 4장) 완료 여부 — 건너뛰기도 완료로 저장한다(다시
+// 안 뜸). 판정 자체(위젯 딥링크·진행 중이던 낮잠과 겹칠 때 우선순위)는 순수 함수로
+// 뺀 src/onboarding.ts의 shouldShowOnboarding 참고.
+export async function getOnboardingComplete(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(KEYS.onboardingComplete);
+  return raw === 'true';
+}
+
+export async function setOnboardingComplete(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.onboardingComplete, 'true');
 }
 
 // AI 분석 목록/상세 로컬 캐시 — 서버(analyses 테이블)가 진실의 원천, 캐시는 오프라인

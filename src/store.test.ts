@@ -17,6 +17,7 @@ import {
   getCachedAnalysisDetail,
   getCachedAnalysisList,
   getNapRecords,
+  getOnboardingComplete,
   getPendingFeedback,
   getSettings,
   markAlarmDismissed,
@@ -32,6 +33,7 @@ import {
   setCachedAnalysisDetail,
   setCachedAnalysisList,
   setMissionEnabled,
+  setOnboardingComplete,
   setWakeRoutineEnabled,
   shouldRecordNap,
   type ActiveNap,
@@ -315,6 +317,17 @@ describe('AI 분석 동의 게이트', () => {
   it('거부 저장 후 false를 돌려준다(재진입 시 다시 물어봐야 함)', async () => {
     await setAiConsent(false);
     expect(await getAiConsent()).toBe(false);
+  });
+});
+
+describe('온보딩 완료 플래그', () => {
+  it('아무것도 저장하지 않았으면 false(첫 실행)', async () => {
+    expect(await getOnboardingComplete()).toBe(false);
+  });
+
+  it('완료 저장 후 true를 돌려준다(건너뛰기도 이 함수로 저장 — 다시 안 뜸)', async () => {
+    await setOnboardingComplete();
+    expect(await getOnboardingComplete()).toBe(true);
   });
 });
 
