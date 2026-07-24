@@ -241,7 +241,13 @@ PROJECT.md/STATUS.md 참조.
 
 - 시도: 나노 바나나 생성 이미지 3종(수면/짖음/웃음) — 스타일 일관성 확보 실패.
   생성형 이미지는 단일 컷은 가능하나 동일 개체의 상태 세트가 안 나옴
-- 구현 코드는 sleep-character 브랜치에 보존 (숨쉬기 애니메이션, 배경 제거)
+- 구현 코드는 태그 `archive/sleep-character`(커밋 `2b43ee7`, 숨쉬기 애니메이션·배경
+  제거)로 보존 — 브랜치는 정리 완료, 복원은 `git checkout -b sleep-character
+  archive/sleep-character`. ⚠️ 오래된 커밋이라 `main`의 이후 서버 수정(follow-up
+  턴 상한 10으로 조정, JSON 유출 수정)이 반영되기 전 상태 — 되살리더라도
+  `supabase/functions`는 절대 이 커밋에서 deploy하지 말 것(CLAUDE.md "Edge
+  Function은 브랜치와 무관하게 서버 하나를 덮어쓴다" 지뢰 참고). `main`으로
+  rebase 후 서버 파일 차이가 없는지 확인하고서만 필요 시 배포.
 - 재개 조건: 일관된 캐릭터 에셋 확보 (일러스트 외주로 상태 3종 시트 제작,
   또는 기성 Lottie 애니메이션 구매). 3D는 검토 후 기각 — 알람 화면 성능
   리스크 + 모델 제작 비용 (근거는 이 항목에 기록됨)
@@ -391,18 +397,6 @@ PROJECT.md/STATUS.md 참조.
 ## 알려진 갭 (우회 중, 근본 수정 보류)
 
 - `src/i18n.ts` 동적 import가 jest 환경에서 동작하지 않는 기존 갭 — 우회 중, 근본 수정 보류
-
-## 보류 — 잠자는 강아지 캐릭터 (수면 화면)
-
-- `sleep-character` 브랜치(커밋 `2b43ee7`, 2026-07-12, `main` 대비 `app/sleep.tsx`+
-  `DESIGN_HANDOFF.md`+강아지 이미지 3종만 변경)에 미병합 상태로 남아있던 실험.
-  재개 조건이 에셋 확보라 지금 당장 진행 불가 — 브랜치 자체는 정리(삭제) 대상,
-  필요해지면 `git checkout -b sleep-character 2b43ee7`로 그대로 복원 가능.
-- ⚠️ 이 브랜치는 오래돼 `main`의 이후 서버 수정(follow-up 턴 상한 10으로 조정,
-  JSON 유출 수정)이 반영되기 전 상태다 — **되살리더라도 `supabase/functions`는
-  절대 그 브랜치에서 deploy하지 말 것**(CLAUDE.md "Edge Function은 브랜치와 무관하게
-  서버 하나를 덮어쓴다" 지뢰 참고). `main`으로 rebase 후 서버 파일 차이가 없는지
-  확인하고서만 필요 시 배포.
 
 ## v2 이후 (장기)
 
