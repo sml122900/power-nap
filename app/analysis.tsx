@@ -205,6 +205,18 @@ export default function AnalysisScreen() {
     setAppliedCaffeine(true);
   };
 
+  // 로딩이 비정상적으로 오래 걸리면(응답이 영영 안 오는 요청 등) 스피너에 갇히지 않게
+  // 에러 화면으로 빠져나온다 — phase가 loading을 벗어나면 정리된다.
+  useEffect(() => {
+    if (phase !== 'loading') return;
+    const id = setTimeout(() => {
+      if (!mountedRef.current) return;
+      setErrorMessage(t('timeoutError'));
+      setPhase('error');
+    }, 45_000);
+    return () => clearTimeout(id);
+  }, [phase, requestKey]);
+
   const onAsk = async () => {
     if (analysisId === null || !question.trim() || asking || turnsRemaining <= 0) return;
     setAsking(true);
@@ -224,9 +236,17 @@ export default function AnalysisScreen() {
 
   if (phase === 'loading') {
     return (
-      <SafeAreaView style={styles.centerContainer} edges={['top', 'bottom']}>
-        <ActivityIndicator color={colors.brand} />
-        <Text style={styles.loadingText}>{t('loadingText')}</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.head}>
+          <Text style={styles.title}>{t('title')}</Text>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Text style={styles.closeText}>{t('common:close')}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.centerBody}>
+          <ActivityIndicator color={colors.brand} />
+          <Text style={styles.loadingText}>{t('loadingText')}</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -410,13 +430,6 @@ const createStyles = (colors: ThemeColors) =>
     paddingHorizontal: 24,
     paddingTop: 28,
     paddingBottom: 32,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.surface,
   },
   loadingText: {
     fontSize: 14,

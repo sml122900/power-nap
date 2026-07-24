@@ -35,7 +35,11 @@ export default function OnboardingScreen() {
 
   const finish = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await setOnboardingComplete();
+    try {
+      await setOnboardingComplete();
+    } catch {
+      // 저장 실패해도 다음 실행 때 온보딩이 한 번 더 뜨는 것뿐 — 이 화면에 갇히면 안 된다.
+    }
     router.replace('/');
   };
 

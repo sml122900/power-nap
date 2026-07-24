@@ -340,6 +340,7 @@
     "detailLoadError": "Couldn't load the analysis record.",
     "networkError": "Please check your network connection.",
     "unknownError": "An unknown error occurred.",
+    "timeoutError": "The analysis request is taking too long. Please check your connection and try again.",
     "serverError": {
       "unauthenticated": "Authentication failed. Please try again.",
       "notEnoughRecords": "Not enough nap records to analyze.",

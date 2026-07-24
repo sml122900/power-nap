@@ -47,7 +47,12 @@ export function WakeRoutineScreen({ stage }: { stage: WakeStage }) {
     if (advancedRef.current) return;
     advancedRef.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await markWakeChecklistItem(stage);
+    try {
+      await markWakeChecklistItem(stage);
+    } catch {
+      // 체크리스트 기록은 후기 화면 참고용 부가 정보일 뿐 — 저장 실패해도 하드웨어
+      // 뒤로가기가 막힌 이 화면에 사용자를 가둘 수는 없다.
+    }
     router.replace(NEXT_ROUTE[stage]);
   };
 
