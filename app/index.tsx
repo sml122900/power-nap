@@ -19,7 +19,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { SHOW_TEST_BUTTONS } from '@/config';
 import { addMinutes, formatTime } from '@/format';
-import { openExactAlarmSettingsAsync, scheduleAlarmNotificationAsync } from '@/notifications';
+import { cancelAlarmNotificationAsync, openExactAlarmSettingsAsync, scheduleAlarmNotificationAsync } from '@/notifications';
 import { shouldShowOnboarding } from '@/onboarding';
 import {
   appendNapRecord,
@@ -56,6 +56,25 @@ export interface WidgetModeEntryDeps {
   onAlreadyNapping: () => void;
   onOpenCoffeePanel: () => void;
   onStartNap: (mode: 'fast' | 'slow') => void;
+}
+
+export interface SaveActiveNapDeps {
+  saveActiveNap: (nap: ActiveNap) => Promise<void>;
+  cancelAlarmNotificationAsync: (notificationId: string | null) => Promise<void>;
+}
+
+// scheduleAlarmNotificationAsync가 이미 네이티브 알람을 예약한 뒤라, saveActiveNap이
+// 실패하면 ActiveNap이 없어 취소할 방법이 사라진다(유령 알람) — 저장 실패 시 방금
+// 예약한 알람을 직접 취소해 예약/취소 쌍을 맞춘다. handleWidgetModeEntry와 같은 이유로
+// 컴포넌트 바깥 순수 함수로 뺐다(jest에서 렌더 없이 검증 가능하게).
+export async function saveActiveNapOrRollback(nap: ActiveNap, deps: SaveActiveNapDeps): Promise<boolean> {
+  try {
+    await deps.saveActiveNap(nap);
+    return true;
+  } catch {
+    await deps.cancelAlarmNotificationAsync(nap.notificationId);
+    return false;
+  }
 }
 
 export async function handleWidgetModeEntry(mode: WidgetMode, deps: WidgetModeEntryDeps): Promise<void> {
@@ -177,7 +196,11 @@ export default function HomeScreen() {
         isTest: overrideMs !== undefined && !isPreview,
         isPreview: isPreview === true,
       };
-      await saveActiveNap(nap);
+      const saved = await saveActiveNapOrRollback(nap, { saveActiveNap, cancelAlarmNotificationAsync });
+      if (!saved) {
+        Alert.alert(t('scheduleFailedTitle'), t('saveFailedBody'));
+        return;
+      }
       router.replace('/sleep');
     } finally {
       startingRef.current = false;
@@ -209,7 +232,11 @@ export default function HomeScreen() {
         notificationId,
         notificationPermissionGranted: permissionGranted,
       };
-      await saveActiveNap(nap);
+      const saved = await saveActiveNapOrRollback(nap, { saveActiveNap, cancelAlarmNotificationAsync });
+      if (!saved) {
+        Alert.alert(t('scheduleFailedTitle'), t('saveFailedBody'));
+        return;
+      }
       router.replace('/sleep');
     } finally {
       startingRef.current = false;

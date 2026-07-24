@@ -49,7 +49,8 @@
     "scheduleFailedTitle": "Couldn't set the alarm",
     "scheduleFailedBodyAndroid": "If \"Alarms & reminders\" permission is off in your phone settings, the alarm can't be scheduled. Please check the permission in Settings.",
     "scheduleFailedBodyIos": "The alarm couldn't be scheduled due to an unknown issue. Please try again in a moment.",
-    "scheduleFailedOpenSettings": "Open Settings"
+    "scheduleFailedOpenSettings": "Open Settings",
+    "saveFailedBody": "We couldn't save the alarm, so the one we just scheduled was cancelled. Please try again in a moment."
   },
   "about": {
     "title": "About PowerNap",
