@@ -46,6 +46,7 @@
       "./plugins/withAlarmStopVibrationFix.js",
       "./plugins/withAlarmForegroundStartFix.js",
       "./plugins/withHomeScreenWidgets.js",
+      "./plugins/withRemoveUnusedDebugEntries.js",
       "./plugins/withReleaseSigning.js",
       "expo-localization"
     ]
