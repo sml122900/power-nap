@@ -63,7 +63,9 @@ async function ensurePurchasesConfigured(): Promise<void> {
   }
   const apiKey = resolveApiKey();
   const session = await ensureAnonymousSession();
-  console.log('[purchases] configuring with appUserID (Supabase anon uid):', session.userId);
+  if (__DEV__) {
+    console.log('[purchases] configuring with appUserID (Supabase anon uid):', session.userId);
+  }
   Purchases.configure({ apiKey, appUserID: session.userId });
   configured = true;
 }
@@ -107,11 +109,13 @@ export async function purchaseExtraAnalysis(): Promise<PurchaseOutcome> {
       return { status: 'error', message: `Product not found: ${PRODUCT_EXTRA_ANALYSIS}` };
     }
     const result = await Purchases.purchaseStoreProduct(product);
-    console.log('[purchases] purchaseStoreProduct succeeded:', {
-      productIdentifier: result.productIdentifier,
-      appUserID: result.customerInfo.originalAppUserId,
-      nonSubscriptionTransactions: result.customerInfo.nonSubscriptionTransactions,
-    });
+    if (__DEV__) {
+      console.log('[purchases] purchaseStoreProduct succeeded:', {
+        productIdentifier: result.productIdentifier,
+        appUserID: result.customerInfo.originalAppUserId,
+        nonSubscriptionTransactions: result.customerInfo.nonSubscriptionTransactions,
+      });
+    }
     return { status: 'success' };
   } catch (err) {
     console.error('[purchases] purchaseStoreProduct failed:', err);
