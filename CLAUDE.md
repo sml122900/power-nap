@@ -313,6 +313,12 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   `src/OnboardingMockups.tsx`/`test.tsx` 참고). 아이콘을 추가/교체할 때마다 `expo export`로
   모듈 수·번들 크기를 실측해 배럴 오염이 없는지 확인할 것(1925 모듈·6.4MB대가 정상 기준선,
   이 범위를 크게 벗어나면 배럴 import를 의심).
+- Play 스토어 등록용 아이콘(512×512)은 알파 채널이 있으면 업로드 자체가 거부된다 — 반드시
+  RGB(알파 없음) PNG로 내보낼 것. `assets/store-icon-512.png`가 RGBA(알파 완전 불투명이라
+  육안으로는 멀쩡해 보임)였던 걸 뒤늦게 발견(2026-07-27) — Pillow로 `im.mode` 확인 없이
+  "육안 확인 후 완료" 처리하면 재발한다. 검증은 반드시 `Image.open(f).mode == 'RGB'`로 코드
+  확인할 것. 지금은 `assets/store/store-icon-512-navy.png`/`store-icon-512-light.png`로
+  교체(스플래시/런처 아이콘과 같은 셰브런 소스에서 알파 없이 재합성).
 
 코드 규칙
 
