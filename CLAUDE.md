@@ -301,6 +301,18 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   매 prebuild마다 주입)로 관리한다 — android/ 안에 직접 커밋하거나 build.gradle을
   손으로 고치면 다음 prebuild --clean에서 사라진다. 이 네 변수 중 하나라도 비어있으면
   plugin이 prebuild 자체를 실패시키게 해뒀다(조용히 debug 키로 되돌아가는 걸 막기 위함).
+- `lucide-react-native`는 배럴 import(`import { X } from 'lucide-react-native'`)하면
+  아이콘 1000개+가 전부 번들에 딸려온다 — 온보딩 목업(슬라이드 2)에 아이콘 4개만
+  쓰려고 배럴로 import했다가 `expo export --platform ios`로 실측: 모듈 수 1925→3678,
+  번들 6.4MB→8.2MB로 뛰었다(2026-07-27). 반드시 서브패스로 import할 것:
+  `import X from 'lucide-react-native/icons/x'`(케밥 케이스 파일명,
+  `node_modules/lucide-react-native/dist/esm/icons/`에서 정확한 이름 확인). jest에서
+  서브패스를 쓰려면 `package.json`의 jest `moduleNameMapper`에
+  `^lucide-react-native/icons/(.*)$` → `dist/cjs/icons/$1.js` 매핑이 필요하다(배럴 자체도
+  ESM만 있어 `^lucide-react-native$` → `dist/cjs/lucide-react-native.js` 매핑 필요,
+  `src/OnboardingMockups.tsx`/`test.tsx` 참고). 아이콘을 추가/교체할 때마다 `expo export`로
+  모듈 수·번들 크기를 실측해 배럴 오염이 없는지 확인할 것(1925 모듈·6.4MB대가 정상 기준선,
+  이 범위를 크게 벗어나면 배럴 import를 의심).
 
 코드 규칙
 
