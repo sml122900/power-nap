@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
+import { Slide1Mockup, Slide2Mockup, Slide3Mockup, Slide4Mockup } from '@/OnboardingMockups';
 import { setOnboardingComplete } from '@/store';
 import { fontFamily, radius, type ThemeColors } from '@/theme';
 import { useThemeColors } from '@/ThemeContext';
@@ -70,6 +71,12 @@ export default function OnboardingScreen() {
       >
         {SLIDE_KEYS.map((key) => (
           <View key={key} style={[styles.slide, { width }]}>
+            <View style={styles.mockupWrap}>
+              {key === 'slide1' && <Slide1Mockup colors={colors} />}
+              {key === 'slide2' && <Slide2Mockup />}
+              {key === 'slide3' && <Slide3Mockup colors={colors} />}
+              {key === 'slide4' && <Slide4Mockup />}
+            </View>
             <Text style={styles.slideTitle}>{t(`${key}.title`)}</Text>
             <Text style={styles.slideBody}>{t(`${key}.body`)}</Text>
           </View>
@@ -124,6 +131,9 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 32,
+    },
+    mockupWrap: {
+      marginBottom: 24,
     },
     slideTitle: {
       fontSize: 24,
