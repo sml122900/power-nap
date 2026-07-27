@@ -149,13 +149,13 @@ export function Slide2Mockup() {
             <PersonStanding size={12} color={iconColor} strokeWidth={2} />
             <Text style={styles.s2ChipText}>{t('onboarding:mockup.stretch')}</Text>
           </View>
-          <Text style={styles.s2Arrow}>→</Text>
+          <Text style={styles.s2Arrow}>↓</Text>
           <View style={styles.s2Chip}>
             <GlowRing animatedStyle={g1} color={lightColors.surface} cornerRadius={999} />
             <Sun size={12} color={iconColor} strokeWidth={2} />
             <Text style={styles.s2ChipText}>{t('onboarding:mockup.light')}</Text>
           </View>
-          <Text style={styles.s2Arrow}>→</Text>
+          <Text style={styles.s2Arrow}>↓</Text>
           <View style={styles.s2Chip}>
             <GlowRing animatedStyle={g2} color={lightColors.surface} cornerRadius={999} />
             <Droplet size={12} color={iconColor} strokeWidth={2} />
@@ -275,8 +275,10 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 12,
   },
+  // 3단계를 가로로 나열하면(원래 시도) 프레임 폭(128) 안에 안 들어가 좌우가
+  // 잘린다(실기기 확인) — 세로로 쌓아 폭 제약 자체를 없앤다.
   s2Flow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
   },
