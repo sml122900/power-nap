@@ -33,6 +33,7 @@ import {
   TARGET_SLEEP_MIN,
   type ActiveNap,
   type NapMode,
+  type NapRecord,
   type Settings,
   type WidgetMode,
 } from '@/store';
@@ -249,14 +250,27 @@ export default function HomeScreen() {
   const onSeedDummyRecords = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const modes: NapMode[] = ['fast', 'slow', 'coffee', 'fast', 'slow'];
+    // 전부 같은 값(25분·전부 mid)으로 넣으면 AI 분석이 "편차가 없어 패턴을 찾기 어렵다"고
+    // 리포트 본문에 그대로 지적한다(스토어 스크린샷용으로 부적합, 2026-07-27 실기기 확인) —
+    // 모드별 유효 범위(fast/slow는 TARGET_SLEEP_MIN+latency 0~20분, coffee는
+    // caffeineOnset 15~35분) 안에서, 설문도 골고루 편차를 준다.
+    const offsetMinutesByIndex = [24, 32, 20, 29, 35];
+    const surveyByIndex: NapRecord['survey'][] = [
+      { posture: 'high', noise: 'mid', light: 'high', satisfaction: 'high' },
+      { posture: 'mid', noise: 'low', light: 'mid', satisfaction: 'mid' },
+      { posture: 'low', noise: 'mid', light: 'low', satisfaction: 'low' },
+      { posture: 'high', noise: 'high', light: 'mid', satisfaction: 'high' },
+      { posture: 'mid', noise: 'low', light: 'high', satisfaction: 'mid' },
+    ];
+    const minuteShiftByIndex = [0, -90, 45, -30, 20];
     const now = Date.now();
     for (let i = 0; i < modes.length; i++) {
       const mode = modes[i];
       await appendNapRecord({
-        completedAt: now - (modes.length - i) * 24 * 60 * 60 * 1000,
+        completedAt: now - (modes.length - i) * 24 * 60 * 60 * 1000 + minuteShiftByIndex[i] * 60 * 1000,
         mode,
-        offsetMinutes: mode === 'coffee' ? 25 : TARGET_SLEEP_MIN + 5,
-        survey: { posture: 'mid', noise: 'mid', light: 'mid', satisfaction: 'mid' },
+        offsetMinutes: offsetMinutesByIndex[i],
+        survey: surveyByIndex[i],
       });
     }
     setToastMessage(t('toastDummyRecordsSeeded'));
