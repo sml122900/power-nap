@@ -317,8 +317,9 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   RGB(알파 없음) PNG로 내보낼 것. `assets/store-icon-512.png`가 RGBA(알파 완전 불투명이라
   육안으로는 멀쩡해 보임)였던 걸 뒤늦게 발견(2026-07-27) — Pillow로 `im.mode` 확인 없이
   "육안 확인 후 완료" 처리하면 재발한다. 검증은 반드시 `Image.open(f).mode == 'RGB'`로 코드
-  확인할 것. 지금은 `assets/store/store-icon-512-navy.png`/`store-icon-512-light.png`로
-  교체(스플래시/런처 아이콘과 같은 셰브런 소스에서 알파 없이 재합성).
+  확인할 것. 브랜드 마크를 셰브런에서 P 워드마크로 교체하며(2026-07-29) 스토어 아이콘도
+  `assets/store/store-icon-512.png` 단일 파일로 재합성(흰 배경이라 다크/라이트 구분 자체가
+  없어짐) — 마크 소스가 바뀌어도 이 알파 채널 검증 절차 자체는 그대로 유지할 것.
 
 코드 규칙
 
