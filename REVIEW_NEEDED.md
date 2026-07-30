@@ -234,9 +234,9 @@ QA 테스트 낮잠(`isTest`, 기존 검수 대상 아님 — 개발용 라벨)�
 |---|---|---|---|
 | `widget_tap_hint_nap` | 탭하면 지금 알람이 맞춰져요 | Tap to set the alarm now | fast/slow 버튼 둘 다 공유하는 문구 — "지금"이 "탭하는 시점 기준"이라는 뜻으로 명확히 읽히는지 — **아직 미검수** |
 | `widget_tap_hint_coffee` | 탭하면 마신 시각을 입력해요 | Tap to enter when you had it | "it"이 바로 앞 버튼 제목(커피냅/Coffee nap)의 "커피"를 가리키는 게 위젯이라는 좁은 지면에서도 자연스러운지 — **아직 미검수** |
-| `widget_label_s` | 파워냅 – 바로 낮잠 | PowerNap – Quick Nap | 위젯 추가 목록(피커)에서 S/M/L 세 항목이 서로 구별되는지 — **아직 미검수** |
-| `widget_label_m` | 파워냅 – 낮잠 (2가지) | PowerNap – Nap (2 modes) | 동일 | 
-| `widget_label_l` | 파워냅 – 낮잠 (3가지) | PowerNap – Nap (3 modes) | 동일 |
+| `widget_label_s` | 파워냅 – 1버튼 위젯 | PowerNap – 1-Button Widget | 위젯 추가 목록(피커)에서 S/M/L 세 항목이 서로 구별되는지 — 버튼 개수 기준으로 개편(2026-07-30, 옛 모드명 "바로 낮잠" 기준이 실제 모드명과 어긋나 정리) — **아직 미검수** |
+| `widget_label_m` | 파워냅 – 2버튼 위젯 | PowerNap – 2-Button Widget | 동일 | 
+| `widget_label_l` | 파워냅 – 3버튼 위젯 | PowerNap – 3-Button Widget | 동일 |
 
 위 다섯은 네이티브 리소스지만, 같은 기능의 재탭 가드 안내는 앱 쪽
 `locales/en.json`(`home.toastWidgetAlreadyNapping`)에 있어 검수 대상에 같이 올린다.

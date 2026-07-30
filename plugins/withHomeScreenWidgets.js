@@ -104,8 +104,23 @@ function writeDrawables(resDir) {
 // JS(latency 설정)에 있어 네이티브 위젯 얼굴에서 그대로 보여줄 수 없다. 스코프 결정상
 // "잔여시간 표시 없음"이라 숫자 없는 고정 안내 문구로 대체했다 — REVIEW_NEEDED 참고).
 
+// detailRes가 null이면 힌트 TextView 자체를 생략한다 — M/L처럼 버튼이 좁아
+// 힌트가 잘리거나(실측: M/L 버튼 텍스트 가용폭 93dp인데 기존 힌트는 129dp) 버튼이
+// 2~3개라 같은 문구가 반복돼 노이즈가 되는 경우(사용자 지시). 제목만 남기면
+// gravity="center_vertical"이 남은 TextView 하나를 그대로 세로 중앙 정렬한다.
 function napButton(id, bg, titleColor, detailColor, titleRes, detailRes, weightWrap, marginEndDp = 0) {
   const marginXml = marginEndDp ? `\n            android:layout_marginEnd="${marginEndDp}dp"` : '';
+  const detailXml = detailRes
+    ? `
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/${detailRes}"
+                android:textColor="${detailColor}"
+                android:textSize="11sp"
+                android:maxLines="1" />`
+    : '';
   return `        <LinearLayout
             android:id="@+id/${id}"
             android:layout_width="0dp"
@@ -122,23 +137,22 @@ function napButton(id, bg, titleColor, detailColor, titleRes, detailRes, weightW
                 android:textColor="${titleColor}"
                 android:textSize="13.5sp"
                 android:textStyle="bold"
-                android:maxLines="2" />
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="@string/${detailRes}"
-                android:textColor="${detailColor}"
-                android:textSize="11sp"
-                android:maxLines="1" />
+                android:maxLines="2" />${detailXml}
         </LinearLayout>
 `;
 }
 
+// S 전용 — 단독 버튼이라 여백이 있어(가용폭 144dp > 힌트 129dp) 힌트를 그대로 유지.
 const FAST_BTN = (id, weight, marginEndDp = 0) =>
   napButton(id, 'widget_btn_primary_bg', '#FFFFFF', COLOR.onDarkFaint, 'widget_fast_title', 'widget_tap_hint_nap', weight, marginEndDp);
+// M/L 전용 — 힌트 없음(버튼 2~3개가 나란히 있어 좁고, previewLayout이 실제 버튼
+// 모습을 이미 보여주므로 "탭하면 시작"은 대체로 자명하다는 판단, 사용자 지시).
+const FAST_BTN_COMPACT = (id, weight, marginEndDp = 0) =>
+  napButton(id, 'widget_btn_primary_bg', '#FFFFFF', COLOR.onDarkFaint, 'widget_fast_title', null, weight, marginEndDp);
 const SLOW_BTN = (id, weight) =>
-  napButton(id, 'widget_btn_secondary_bg', COLOR.ink, COLOR.inkSoft, 'widget_slow_title', 'widget_tap_hint_nap', weight);
+  napButton(id, 'widget_btn_secondary_bg', COLOR.ink, COLOR.inkSoft, 'widget_slow_title', null, weight);
+// L 전용 — 단독 풀폭 버튼(가용폭 214dp)이라 안 잘리고, 동작이 "탭=시각 입력"이라
+// 다른 버튼과 달리 설명이 필요해 힌트를 유지.
 const COFFEE_BTN = (id, weight) =>
   napButton(id, 'widget_btn_coffee_bg', COLOR.ink, COLOR.inkSoft, 'widget_coffee_title', 'widget_tap_hint_coffee', weight);
 
@@ -169,7 +183,7 @@ function buildLayoutM() {
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal">
-${FAST_BTN('widget_btn_fast', 1, 8)}${SLOW_BTN('widget_btn_slow', 1)}    </LinearLayout>
+${FAST_BTN_COMPACT('widget_btn_fast', 1, 8)}${SLOW_BTN('widget_btn_slow', 1)}    </LinearLayout>
 `;
   return shellLayout(row, 94);
 }
@@ -184,7 +198,7 @@ function buildLayoutL() {
         android:layout_weight="1"
         android:layout_marginBottom="8dp"
         android:orientation="horizontal">
-${FAST_BTN('widget_btn_fast', 1, 8)}${SLOW_BTN('widget_btn_slow', 1)}    </LinearLayout>
+${FAST_BTN_COMPACT('widget_btn_fast', 1, 8)}${SLOW_BTN('widget_btn_slow', 1)}    </LinearLayout>
 `;
   const coffeeRow = `    <LinearLayout
         android:layout_width="match_parent"
@@ -298,9 +312,9 @@ const STRINGS_EN = `<resources>
     <string name="widget_coffee_title">Coffee nap</string>
     <string name="widget_tap_hint_nap">Tap to set the alarm now</string>
     <string name="widget_tap_hint_coffee">Tap to enter when you had it</string>
-    <string name="widget_label_s">PowerNap – Quick Nap</string>
-    <string name="widget_label_m">PowerNap – Nap (2 modes)</string>
-    <string name="widget_label_l">PowerNap – Nap (3 modes)</string>
+    <string name="widget_label_s">PowerNap – 1-Button Widget</string>
+    <string name="widget_label_m">PowerNap – 2-Button Widget</string>
+    <string name="widget_label_l">PowerNap – 3-Button Widget</string>
 </resources>
 `;
 
@@ -310,9 +324,9 @@ const STRINGS_KO = `<resources>
     <string name="widget_coffee_title">커피냅</string>
     <string name="widget_tap_hint_nap">탭하면 지금 알람이 맞춰져요</string>
     <string name="widget_tap_hint_coffee">탭하면 마신 시각을 입력해요</string>
-    <string name="widget_label_s">파워냅 – 바로 낮잠</string>
-    <string name="widget_label_m">파워냅 – 낮잠 (2가지)</string>
-    <string name="widget_label_l">파워냅 – 낮잠 (3가지)</string>
+    <string name="widget_label_s">파워냅 – 1버튼 위젯</string>
+    <string name="widget_label_m">파워냅 – 2버튼 위젯</string>
+    <string name="widget_label_l">파워냅 – 3버튼 위젯</string>
 </resources>
 `;
 
