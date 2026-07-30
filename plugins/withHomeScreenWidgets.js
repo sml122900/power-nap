@@ -46,6 +46,28 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content);
 }
 
+function copyFile(src, dest) {
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(src, dest);
+}
+
+// ---- 위젯 선택 화면 미리보기(previewImage, API 24~30 폴백) ----
+// assets/widget-previews/{en,ko}/widget_preview_{s,m,l}.png를 그대로 복사한다 —
+// widget_s/m/l.xml과 동일한 팔레트·문구로 미리 렌더링해둔 정적 PNG(레포에 커밋됨,
+// 재생성 스크립트는 없음 — COLOR/문구가 바뀌면 이 파일들도 수동으로 다시 만들어야
+// 한다, 위 COLOR 상단 주석과 같은 수동 동기화 제약).
+function copyPreviewImages(projectRoot, resDir) {
+  const sizes = ['s', 'm', 'l'];
+  const langToDrawableDir = { en: 'drawable-xhdpi', ko: 'drawable-ko-xhdpi' };
+  for (const [lang, drawableDir] of Object.entries(langToDrawableDir)) {
+    for (const size of sizes) {
+      const src = path.join(projectRoot, 'assets/widget-previews', lang, `widget_preview_${size}.png`);
+      const dest = path.join(resDir, drawableDir, `widget_preview_${size}.png`);
+      copyFile(src, dest);
+    }
+  }
+}
+
 // ---- drawable (버튼/셸 배경 — <shape> 기반, 밀도 무관) ----
 
 function shapeDrawable({ solid, stroke, strokeWidthDp, radiusDp }) {
@@ -174,8 +196,14 @@ ${COFFEE_BTN('widget_btn_coffee', 1)}    </LinearLayout>
 }
 
 // ---- widget_info (app-widget-provider 메타) ----
+//
+// previewLayout(API 31+)은 우리 layout XML(widget_s/m/l.xml)을 위젯 선택 화면이
+// 일반 View로 그대로 인플레이트해 보여준다 — RemoteViews 제약(View 클래스 제한 등)과
+// 무관하게 동작하므로 기존 레이아웃을 그대로 재사용한다. previewImage(API 24~30
+// 폴백)는 그 레이아웃을 미리 렌더링해둔 정적 PNG(widget-preview-assets.js)를 쓴다 —
+// RemoteViews는 빌드 타임 렌더링이 안 되니 유일한 방법이다.
 
-function widgetInfo({ minWidthDp, minHeightDp, cellW, cellH, layoutName }) {
+function widgetInfo({ minWidthDp, minHeightDp, cellW, cellH, layoutName, previewImageName }) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="${minWidthDp}dp"
@@ -184,6 +212,8 @@ function widgetInfo({ minWidthDp, minHeightDp, cellW, cellH, layoutName }) {
     android:targetCellHeight="${cellH}"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/${layoutName}"
+    android:previewLayout="@layout/${layoutName}"
+    android:previewImage="@drawable/${previewImageName}"
     android:resizeMode="none"
     android:widgetCategory="home_screen" />
 `;
@@ -309,16 +339,18 @@ function withHomeScreenWidgetsFiles(config) {
 
       writeFile(
         path.join(resDir, 'xml', 'widget_info_s.xml'),
-        widgetInfo({ minWidthDp: 180, minHeightDp: 110, cellW: 3, cellH: 2, layoutName: 'widget_s' })
+        widgetInfo({ minWidthDp: 180, minHeightDp: 110, cellW: 3, cellH: 2, layoutName: 'widget_s', previewImageName: 'widget_preview_s' })
       );
       writeFile(
         path.join(resDir, 'xml', 'widget_info_m.xml'),
-        widgetInfo({ minWidthDp: 250, minHeightDp: 110, cellW: 4, cellH: 2, layoutName: 'widget_m' })
+        widgetInfo({ minWidthDp: 250, minHeightDp: 110, cellW: 4, cellH: 2, layoutName: 'widget_m', previewImageName: 'widget_preview_m' })
       );
       writeFile(
         path.join(resDir, 'xml', 'widget_info_l.xml'),
-        widgetInfo({ minWidthDp: 250, minHeightDp: 180, cellW: 4, cellH: 3, layoutName: 'widget_l' })
+        widgetInfo({ minWidthDp: 250, minHeightDp: 180, cellW: 4, cellH: 3, layoutName: 'widget_l', previewImageName: 'widget_preview_l' })
       );
+
+      copyPreviewImages(projectRoot, resDir);
 
       writeFile(path.join(javaDir, 'NapWidgetProviders.kt'), buildKotlin(javaPackage));
 
