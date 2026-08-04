@@ -356,13 +356,18 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
 빌드 전 환경변수 (세션마다 필요):
 
 ```powershell
-$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
+$env:JAVA_HOME='C:\Program Files\Microsoft\jdk-17.0.20.8-hotspot'
 $env:GRADLE_USER_HOME='C:\gradle-home'
 $env:TMP='C:\tmp\expo-pb'; $env:TEMP='C:\tmp\expo-pb'
 ```
 
 (시스템 환경변수로 등록하면 영구화 — 권장. 셋 다 프로필 폴더명이 non-ASCII라서
 필요한 것이므로 지뢰 목록의 "Windows 프로필 폴더명" 항목과 같이 볼 것)
+
+주의: 이 PC에 영구 등록된 시스템 `JAVA_HOME`은 Adoptium JDK **21**이다
+(`C:\Program Files\Eclipse Adoptium\jdk-21.0.12.8-hotspot`). 위 블록을 안 돌리고
+새 터미널에서 그냥 빌드하면 21로 돌아간다 — 릴리즈 빌드 2회를 실제로 통과시킨 건
+Microsoft JDK 17이므로, 21에서 뭔가 깨지면 JDK 버전부터 의심할 것.
 
 - keystore 정식 경로: `C:\keys\power-nap\power-nap-release.keystore`
   (alias `powernap-release`, `CN=SungMin-Lee`, SHA256 `2E:7E:1F:30:...:F9:68:0E:4A`).
