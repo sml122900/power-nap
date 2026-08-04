@@ -320,6 +320,21 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   확인할 것. 브랜드 마크를 셰브런에서 P 워드마크로 교체하며(2026-07-29) 스토어 아이콘도
   `assets/store/store-icon-512.png` 단일 파일로 재합성(흰 배경이라 다크/라이트 구분 자체가
   없어짐) — 마크 소스가 바뀌어도 이 알파 채널 검증 절차 자체는 그대로 유지할 것.
+- **Windows 프로필 폴더명이 non-ASCII(`C:\Users\이성민`)면 릴리즈 빌드가 서로 다른 3군데서
+  깨진다.** 프로필명이 `sm553`(ASCII)에서 한글로 바뀐 뒤 첫 릴리즈 빌드에서 전부 한꺼번에
+  터졌다(2026-08-05). 증상이 제각각이라 같은 원인인 걸 알아채기 어렵다 — "빌드가 갑자기
+  안 된다"면 이 셋을 먼저 의심할 것:
+  - `expo prebuild`: 템플릿 tar 전개가 끝난 직후 **segfault**(exit 139, 에러 메시지 없음).
+    `%TEMP%`가 비ASCII라서 생긴다. `TMP`/`TEMP`를 ASCII 경로(`C:\tmp\expo-pb`)로 지정하면
+    통과. 종료 코드만 보면 원인을 못 찾으니 `EXPO_DEBUG=1`로 마지막 단계를 확인할 것.
+  - `.env`의 `RELEASE_KEYSTORE_PATH`: 프로필 폴더 아래를 절대경로로 가리키고 있었으면
+    폴더명이 바뀌는 순간 **파일이 통째로 사라진 것처럼 된다**. keystore는 프로필과 무관한
+    경로(`C:\keys\power-nap\`)에 둘 것 — 이걸 잃으면 Play 업데이트가 영구 불가하다.
+  - `gradlew bundleRelease`: `react-native-worklets`의 prefab 단계에서 실패한다. AGP가
+    생성하는 `prefab_command.bat`에 gradle 캐시 경로(`C:\Users\이성민\.gradle\...`)가 그대로
+    박히는데 cmd.exe가 그 경로를 못 읽어 "지정된 경로를 찾을 수 없습니다"로 죽는다. gradle
+    스택트레이스는 `ProcessException`만 보여주므로 **진짜 원인은 `.../logs/<abi>/prefab_stderr.txt`를
+    직접 읽어야** 나온다. `GRADLE_USER_HOME`을 ASCII 경로로 옮겨 해결(캐시 4.6GB 복사).
 
 코드 규칙
 
@@ -335,6 +350,45 @@ coffee는 caffeineOnset(15~35분, 커피 마신 시각 기준). **자동 조정 
   §7 Phase D 참고)
 - 시각 포맷은 src/format.ts 재사용
 - 컴포넌트 렌더 테스트는 @testing-library/react-native 사용 (app/settings.test.tsx가 첫 사례)
+
+릴리즈 체크리스트
+
+빌드 전 환경변수 (세션마다 필요):
+
+```powershell
+$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
+$env:GRADLE_USER_HOME='C:\gradle-home'
+$env:TMP='C:\tmp\expo-pb'; $env:TEMP='C:\tmp\expo-pb'
+```
+
+(시스템 환경변수로 등록하면 영구화 — 권장. 셋 다 프로필 폴더명이 non-ASCII라서
+필요한 것이므로 지뢰 목록의 "Windows 프로필 폴더명" 항목과 같이 볼 것)
+
+- keystore 정식 경로: `C:\keys\power-nap\power-nap-release.keystore`
+  (alias `powernap-release`, `CN=SungMin-Lee`, SHA256 `2E:7E:1F:30:...:F9:68:0E:4A`).
+  비밀번호·alias는 keystore와 다른 곳에 별도 보관. 분실 시 복구 경로는 새 패키지명
+  재출시뿐이다.
+- `src/config.ts`: `SHOW_TEST_BUTTONS=false`, `REVENUECAT_STORE='play'`
+- `app.json`의 `versionCode`를 올렸는지 (한 번 업로드한 코드는 재사용 불가)
+- config plugin을 고쳤거나 `android/`를 재생성했다면 `expo prebuild --clean` 후 빌드
+  (`expo run:android`만으로는 plugin이 재적용 안 됨)
+- `expo prebuild` 실행 뒤 `git diff app.json`으로 의도치 않은 필드 주입 확인
+- **빌드 후 AAB 최종 산출물에서** `SYSTEM_ALERT_WINDOW` / `DevSettingsActivity` 부재 확인.
+  소스나 중간 산출물이 아니라 산출물에서 볼 것 — `@expo/config-plugins` 기본 매니페스트
+  템플릿과 `expo-alarm-module` 1.2.0이 각각 이 둘을 **매 prebuild마다 다시 주입**하므로
+  제거 플러그인이 한 번이라도 안 걸리면 조용히 되살아난다. 기억이 아니라 이 체크리스트로 막는다.
+
+  ```
+  bundletool dump manifest --bundle=app-release.aab | findstr /I "SYSTEM_ALERT_WINDOW DevSettingsActivity"
+  ```
+
+  bundletool 실행본이 없으면(gradle 캐시에 있는 건 라이브러리 jar라 `-all`이 아니다)
+  AAB에서 `base/manifest/AndroidManifest.xml`을 꺼내 바이트 grep해도 된다 — proto가
+  element/attribute 이름을 평문 UTF-8로 담기 때문에 존재 여부 판정에 유효하다. 단,
+  **반드시 있어야 하는 문자열(`SCHEDULE_EXACT_ALARM`)을 같이 grep해 sanity control로
+  삼을 것** — 안 그러면 "grep이 파일을 못 읽어서 0건"인 경우와 구분이 안 된다.
+- 서명 확인: `jarsigner -verify -verbose:summary -certs app-release.aab`로
+  `CN=SungMin-Lee` + `jar verified.` (Expo bare 템플릿 기본값은 debug 키다 — 지뢰 목록 참고)
 
 현재 단계
 STATUS.md 참조. (이 파일에는 상태를 적지 않는다 — CLAUDE.md는 불변 규칙,
