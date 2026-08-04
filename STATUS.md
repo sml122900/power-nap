@@ -759,6 +759,13 @@ install after three-branch merge") — 4종 검증(tsc/expo-doctor/expo export/j
 CLAUDE.md 코드 규칙 참고). 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여전히 요청 없이
 착수하지 않는다.
 
+**2026-08-05 갱신 — 프로덕션 제출용 AAB 준비 완료.** versionCode 2 / versionName
+1.0.0, `CN=SungMin-Lee` 서명, 업로드 전 게이트(`SYSTEM_ALERT_WINDOW` /
+`DevSettingsActivity` 부재) 최종 산출물에서 통과. 출시 전 체크리스트의
+`SHOW_TEST_BUTTONS=false` / `REVENUECAT_STORE='play'`는 확인 완료.
+**다음 행동은 Play Console 업로드(사용자 직접)** — 관리형 게시를 심사 제출 전에
+켜는 것이 선결 조건이다. 실결제 검증은 여전히 판매자 계정(DUNS) 승인 대기.
+
 ## 미해결 항목
 
 - [ ] expo/expo-audio 등 9개 패키지가 업스트림 patch 버전보다 뒤처짐(2026-07-23,
@@ -1284,6 +1291,43 @@ CLAUDE.md 코드 규칙 참고). 그 외 [BACKLOG.md](BACKLOG.md) 항목은 여�
     온보딩 완주, 기상루틴, AI 분석 로딩/타임아웃 화면, 알람 정상 예약·해제
     회귀(특히 `saveActiveNapOrRollback` 경로) 확인 필요. `sleep-character`
     브랜치 삭제 여부 확인 대기. 관심사별 커밋 예정(아직 미실행).
+
+- **프로덕션 제출용 AAB 빌드(versionCode 2) + 빌드 환경 복구**(2026-08-05,
+  `main` 직접 작업, 커밋 `a771fba`/`fc458cc`/`88afd08`) —
+  - **산출물**: `android/app/build/outputs/bundle/release/app-release.aab`,
+    82,743,157 B(78.9 MiB). `jar verified.` / `CN=SungMin-Lee, OU=lifebook,
+    O=lifebook, C=kr`(만료 2053-12-08), `versionCode="2"` / `versionName="1.0.0"`.
+    `versionCode` 1은 내부 테스트 트랙에서 이미 소진돼 2로 올림.
+    `SHOW_TEST_BUTTONS=false` / `REVENUECAT_STORE='play'`는 이미 올바른 상태였음.
+  - **업로드 전 게이트 통과**: 이번 빌드는 환경 복구 때문에 `prebuild`가 다시 돌아
+    P0 2건(`SYSTEM_ALERT_WINDOW` / `DevSettingsActivity`) 재주입 조건이 성립했으나,
+    **AAB 최종 산출물**에서 둘 다 0건 확인 — 제거 플러그인 2종 모두 재적용됨.
+    `bundletool`이 gradle 캐시에 라이브러리 jar만 있어 못 쓰는 상황이라 proto
+    매니페스트 바이트 grep으로 대체하고, 반드시 있어야 하는 `SCHEDULE_EXACT_ALARM`을
+    sanity control로 같이 grep해 "못 읽어서 0건"과 구분함. P 워드마크·위젯 라벨
+    3종도 소스가 아니라 AAB에서 직접 추출해 확인.
+  - **Windows 프로필 폴더명 non-ASCII화로 빌드 3군데 동시 파손**: 프로필이
+    `sm553` → `이성민`으로 바뀐 뒤 첫 릴리즈 빌드에서 `expo prebuild` segfault
+    (비ASCII `%TEMP%`), `.env`의 keystore 절대경로 소멸, worklets prefab 실패
+    (AGP 생성 `.bat`에 비ASCII gradle 캐시 경로)가 한꺼번에 발생. 경로 3개를
+    프로필 밖 ASCII로 고정해 해결(`C:\keys` / `C:\gradle-home` / `C:\tmp\expo-pb`).
+    상세는 `docs/troubleshooting/non-ascii-profile-breaks-release-build.md`,
+    구조적 근거는 `docs/decisions/ascii-build-paths-outside-user-profile.md`.
+  - **keystore 정식화**: 정식 경로를 `C:\keys\power-nap\power-nap-release.keystore`로
+    확정, `.env` 재지정 후 검증 빌드 1회 완주로 실제 서명 확인. 사본 4벌 md5
+    `da022fdd4420110f322a6d7fe1c0af73` 일치 + 백업본 `keytool -list` 정상.
+    `E:\프로젝트 백업`을 `keys/` + `_secrets/`(비밀번호 분리) + 인덱스 README 구조로
+    재편하고 중복 5개 파일 정리. 휴지통 사본 소멸 확인.
+  - **문서**: `CLAUDE.md` 지뢰 목록에 프로필명 항목 추가(세 증상을 한 항목으로 묶음),
+    릴리즈 체크리스트 신설(환경변수 블록 / keystore 정식 경로 / AAB 게이트 명령 +
+    sanity control 요구 / 서명 확인). 릴리즈 빌드용 `JAVA_HOME`은 실제로 검증된
+    Microsoft JDK 17로 확정 — **머신에 영구 등록된 시스템 `JAVA_HOME`은 Adoptium
+    JDK 21**이라 체크리스트 블록을 안 돌리면 다른 JDK로 빌드된다는 사실도 명시.
+    영구 환경변수 등록은 같은 PC의 다른 프로젝트에 영향이 가므로 의도적으로 기각.
+  - **다음**: Play Console 업로드(사용자 직접) — 관리형 게시를 심사 제출 **전에**
+    켤 것, "라이브러리에서 추가" 버튼 사용 금지(옛 AAB 재사용), 업로드 후 Play
+    계산 크기를 내부 테스트 때의 35.2MB와 대조. keystore 오프사이트 1부 확보와
+    비밀번호 관리자 이전은 미완(C:·E: 모두 같은 PC라 기기 단위 사고엔 무방비).
 
 ---
 
